@@ -1,0 +1,21 @@
+{
+    "name": "Agent IA Recours - Recovery Platform",
+    "short_name": "IA Recours",
+    "description": "Plateforme d'automatisation de réclamations e-commerce IA.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#dc2626",
+    "icons": [
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/2933/2933116.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/2933/2933116.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

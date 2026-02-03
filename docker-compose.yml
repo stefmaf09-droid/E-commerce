@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # Main web application (marketing dashboard)
+  web:
+    build: .
+    container_name: agent-ia-web
+    ports:
+      - "8501:8501"
+    environment:
+      - DATABASE_URL=postgresql://recours_user:recours_pass@db:5432/recours_db
+      - REDIS_URL=redis://redis:6379/0
+      - SENTRY_DSN=${SENTRY_DSN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTIGRAVITY_URL=${ANTIGRAVITY_URL:-http://antigravity:8080}
+      - ENVIRONMENT=production
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - agent-ia-network
+  
+  # Client dashboard
+  client:
+    build: .
+    container_name: agent-ia-client
+    command: streamlit run client_dashboard.py --server.port=8503 --server.address=0.0.0.0
+    ports:
+      - "8503:8503"
+    environment:
+      - DATABASE_URL=postgresql://recours_user:recours_pass@db:5432/recours_db
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=production
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - agent-ia-network
+  
+  # Background worker for order synchronization
+  worker:
+    build: .
+    container_name: agent-ia-worker
+    command: python -m src.workers.order_sync_worker --mode continuous
+    environment:
+      - DATABASE_URL=postgresql://recours_user:recours_pass@db:5432/recours_db
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=production
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - agent-ia-network
+  
+  # PostgreSQL database
+  db:
+    image: postgres:15-alpine
+    container_name: agent-ia-postgres
+    environment:
+      POSTGRES_DB: recours_db
+      POSTGRES_USER: recours_user
+      POSTGRES_PASSWORD: recours_pass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - agent-ia-network
+  
+  # Redis for caching and queuing
+  redis:
+    image: redis:7-alpine
+    container_name: agent-ia-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - agent-ia-network
+  
+  # Optional: Antigravity browser service (external)
+  # antigravity:
+  #   image: antigravity-browser:latest
+  #   container_name: agent-ia-antigravity
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - CAPTCHA_API_KEY=${CAPTCHA_API_KEY}
+  #   restart: unless-stopped
+  #   networks:
+  #     - agent-ia-network
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  agent-ia-network:
+    driver: bridge

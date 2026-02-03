@@ -1,0 +1,25 @@
+{
+  "test@example.com": [
+    {
+      "id": 1,
+      "type": "claim_submitted",
+      "message": "R\u00e9clamation envoy\u00e9e \u00e0 Colissimo",
+      "data": {
+        "tracking": "FR123456789",
+        "amount": "150.00"
+      },
+      "timestamp": "2026-01-21T09:50:34.645388",
+      "read": true
+    },
+    {
+      "id": 2,
+      "type": "money_recovered",
+      "message": "\ud83d\udcb0 120\u20ac r\u00e9cup\u00e9r\u00e9s pour commande ORD-001",
+      "data": {
+        "amount": 120.0
+      },
+      "timestamp": "2026-01-21T09:50:34.647512",
+      "read": true
+    }
+  ]
+}

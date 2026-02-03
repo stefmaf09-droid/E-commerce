@@ -1,0 +1,67 @@
+================================================================================
+  RAPPORT D'AUDIT - POTENTIEL DE RECOUVREMENT LOGISTIQUE
+================================================================================
+
+📊 VUE D'ENSEMBLE
+--------------------------------------------------------------------------------
+   Total de commandes analysées: 5,000
+   Commandes avec litiges détectés: 1,314 (26.28%)
+   Montant total récupérable: 52,908.94 €
+   Moyenne par litige: 40.27 €
+
+🎯 RÉPARTITION PAR PRIORITÉ
+--------------------------------------------------------------------------------
+   [CRITICAL] 132 cas → 9,993.55 € (attendu: 9,793.71 €)
+   [HIGH] 165 cas → 2,398.50 € (attendu: 2,277.75 €)
+   [LOW] 100 cas → 295.00 € (attendu: 177.00 €)
+   [MEDIUM] 1420 cas → 40,221.98 € (attendu: 27,830.34 €)
+
+🚚 RÉPARTITION PAR TRANSPORTEUR
+--------------------------------------------------------------------------------
+   Mondial Relay: 250 litiges → 12,104.53 €
+   Colissimo: 230 litiges → 8,938.60 €
+   La Poste: 219 litiges → 8,173.06 €
+   Chronopost: 206 litiges → 8,103.42 €
+   UPS: 207 litiges → 7,947.77 €
+   DHL: 202 litiges → 7,641.56 €
+
+⚖️  RÉPARTITION PAR TYPE DE LITIGE
+--------------------------------------------------------------------------------
+   Preuve de Livraison Invalide:
+      • Cas détectés: 1072
+      • Montant récupérable: 33,722.99 €
+      • Récupération attendue: 23,605.87 €
+   Colis Perdu:
+      • Cas détectés: 132
+      • Montant récupérable: 9,993.55 €
+      • Récupération attendue: 9,793.71 €
+   GPS Incohérent (Livraison contestable):
+      • Cas détectés: 348
+      • Montant récupérable: 6,498.99 €
+      • Récupération attendue: 4,224.47 €
+   Retard Service Express/Premium:
+      • Cas détectés: 165
+      • Montant récupérable: 2,398.50 €
+      • Récupération attendue: 2,277.75 €
+   Retard Significatif Service Standard:
+      • Cas détectés: 100
+      • Montant récupérable: 295.00 €
+      • Récupération attendue: 177.00 €
+
+💰 PROJECTION ROI (MODÈLE SUCCESS FEE 20%)
+--------------------------------------------------------------------------------
+   Scénario optimiste (100% récupération): 52,908.94 €
+   Scénario réaliste (taux succès moyen): 40,078.80 €
+   Commission Success Fee (20%): 8,015.76 €
+   Coût de traitement IA: 657.00 €
+   Profit net estimé: 7,358.76 €
+
+📈 COMPARAISON TRAITEMENT HUMAIN vs IA
+--------------------------------------------------------------------------------
+   Coût traitement humain: 39,420.00 € (1314 cas × 30€)
+   Coût traitement IA: 657.00 € (1314 cas × 0.50€)
+   Économie opérationnelle: 38,763.00 € (98.3%)
+
+================================================================================
+✅ CONCLUSION: Argent laissé sur la table récupérable via automatisation IA
+================================================================================

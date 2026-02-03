@@ -1,0 +1,92 @@
+{
+  "overview": {
+    "total_orders": 5000,
+    "disputed_orders": 1314,
+    "dispute_rate": 26.28,
+    "total_recoverable": 52908.94,
+    "avg_per_dispute": 40.27
+  },
+  "by_priority": {
+    "CRITICAL": {
+      "count": 132,
+      "total_recoverable": 9993.55,
+      "expected_recovery": 9793.71
+    },
+    "HIGH": {
+      "count": 165,
+      "total_recoverable": 2398.5,
+      "expected_recovery": 2277.75
+    },
+    "MEDIUM": {
+      "count": 1420,
+      "total_recoverable": 40221.98,
+      "expected_recovery": 27830.34
+    },
+    "LOW": {
+      "count": 100,
+      "total_recoverable": 295.0,
+      "expected_recovery": 177.0
+    }
+  },
+  "by_carrier": {
+    "Chronopost": {
+      "disputed_orders": 206,
+      "total_recoverable": 8103.42
+    },
+    "Colissimo": {
+      "disputed_orders": 230,
+      "total_recoverable": 8938.6
+    },
+    "DHL": {
+      "disputed_orders": 202,
+      "total_recoverable": 7641.56
+    },
+    "La Poste": {
+      "disputed_orders": 219,
+      "total_recoverable": 8173.06
+    },
+    "Mondial Relay": {
+      "disputed_orders": 250,
+      "total_recoverable": 12104.53
+    },
+    "UPS": {
+      "disputed_orders": 207,
+      "total_recoverable": 7947.77
+    }
+  },
+  "by_rule": {
+    "Colis Perdu": {
+      "count": 132,
+      "total_recoverable": 9993.55,
+      "expected_recovery": 9793.71
+    },
+    "GPS Incohérent (Livraison contestable)": {
+      "count": 348,
+      "total_recoverable": 6498.99,
+      "expected_recovery": 4224.47
+    },
+    "Preuve de Livraison Invalide": {
+      "count": 1072,
+      "total_recoverable": 33722.99,
+      "expected_recovery": 23605.87
+    },
+    "Retard Service Express/Premium": {
+      "count": 165,
+      "total_recoverable": 2398.5,
+      "expected_recovery": 2277.75
+    },
+    "Retard Significatif Service Standard": {
+      "count": 100,
+      "total_recoverable": 295.0,
+      "expected_recovery": 177.0
+    }
+  },
+  "roi_projection": {
+    "total_recoverable_optimistic": 52908.94,
+    "total_recoverable_realistic": 40078.8,
+    "success_fee_20pct": 8015.76,
+    "cost_per_case": 0.5,
+    "total_processing_cost": 657.0,
+    "net_profit": 7358.76
+  }
+}

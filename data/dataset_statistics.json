@@ -1,0 +1,39 @@
+{
+  "total_orders": 5000,
+  "total_issues": 848,
+  "total_recoverable": 22236.83,
+  "avg_recoverable_per_issue": 38.2076116838488,
+  "breakdown_by_carrier": {
+    "order_id": {
+      "Chronopost": 813,
+      "Colissimo": 874,
+      "DHL": 833,
+      "La Poste": 834,
+      "Mondial Relay": 836,
+      "UPS": 810
+    },
+    "recoverable_amount": {
+      "Chronopost": 3200.93,
+      "Colissimo": 3635.46,
+      "DHL": 2205.15,
+      "La Poste": 3987.0,
+      "Mondial Relay": 6209.05,
+      "UPS": 2999.2400000000002
+    }
+  },
+  "breakdown_by_issue": {
+    "order_id": {
+      "Delayed_Delivery": 716,
+      "Package_Lost": 132
+    },
+    "recoverable_amount": {
+      "Delayed_Delivery": 3086.02,
+      "Package_Lost": 11093.95
+    }
+  },
+  "roi_potential": {
+    "total_money_left_on_table": 22236.83,
+    "num_recoverable_cases": 582,
+    "success_fee_20pct": 4447.366000000001
+  }
+}

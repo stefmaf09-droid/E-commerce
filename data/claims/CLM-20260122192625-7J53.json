@@ -1,0 +1,14 @@
+{
+  "claim_reference": "CLM-20260122192625-7J53",
+  "order_id": "ORD-TEST-001",
+  "carrier": "Colissimo",
+  "claim_text": "RÉCLAMATION - Commande ORD-TEST-001\n\nTransporteur : Colissimo\nMontant demandé : 45.0€\n\nDESCRIPTION DU PROBLÈME :\nLe colis a été livré endommagé. Les dommages constatés sont visibles sur les photos jointes.\n\nPREUVES JOINTES :\n- 2 photo(s) à l'appui\n- Qualité des preuves : 0.5/1.0\n\nDate de réclamation : 22/01/2026 19:26\n\nNous demandons le remboursement complet du montant de 45.0€ conformément aux conditions générales de transport.\n",
+  "claim_amount": 45.0,
+  "photos": [
+    "data/client_photos/ORD-TEST-001/test_photo_1.jpg",
+    "data/client_photos/ORD-TEST-001/test_photo_2.jpg"
+  ],
+  "submitted_at": "2026-01-22T19:26:25.673429",
+  "status": "submitted",
+  "submission_method": "automated"
+}

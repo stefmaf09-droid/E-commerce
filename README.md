@@ -1,5 +1,10 @@
 # 🤖 Agent IA - Recouvrement Logistique E-commerce
 
+[![CI](https://github.com/stefmaf09-droid/E-commerce/actions/workflows/main.yml/badge.svg)](https://github.com/stefmaf09-droid/E-commerce/actions)
+[![CodeQL](https://github.com/stefmaf09-droid/E-commerce/actions/workflows/main.yml/badge.svg)](https://github.com/stefmaf09-droid/E-commerce/security/code-scanning)
+[![Dependabot status](https://api.dependabot.com/badges/status?host=github&repo=stefmaf09-droid/E-commerce)](https://github.com/stefmaf09-droid/E-commerce/security/dependabot)  [![Coverage](https://codecov.io/gh/stefmaf09-droid/E-commerce/branch/main/graph/badge.svg)](https://codecov.io/gh/stefmaf09-droid/E-commerce)
+
+
 Système automatisé de récupération de fonds perdus dans les litiges de livraison e-commerce.
 
 **Modèle Success Fee** : Vous gardez 80%, nous prenons 20% uniquement sur les montants récupérés.
@@ -71,6 +76,18 @@ cp .env.example .env
 ---
 
 ## 🚀 Lancement Rapide
+
+---
+
+## 🔐 Sécurité & Automatisations
+
+- **pip-audit** (exécuté en CI) : scan rapide des dépendances pour détecter les vulnérabilités connues. Le job `pip-audit` échouera si des vulnérabilités critiques sont détectées, alertant l’équipe immédiatement. ⚠️
+- **Dependabot** : ouverture automatique de PRs hebdomadaires pour garder les dépendances à jour (configuration dans `.github/dependabot.yml`). 🔁
+- **CodeQL** : analyse statique du code (Security / Code scanning) exécutée pour chaque push/PR pour détecter patterns à risque et vulnérabilités potentielles. 🔎
+- **Badge & Reporting** : badges CI / CodeQL / Dependabot / Coverage ajoutés en haut du README pour visibilité immédiate. 📈
+
+---
+
 
 ### Dashboard Marketing (Lead Magnet)
 

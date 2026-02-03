@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/stefmaf09-droid/E-commerce/actions/workflows/main.yml/badge.svg)](https://github.com/stefmaf09-droid/E-commerce/actions)
 [![CodeQL](https://github.com/stefmaf09-droid/E-commerce/actions/workflows/main.yml/badge.svg)](https://github.com/stefmaf09-droid/E-commerce/security/code-scanning)
-[![Dependabot status](https://api.dependabot.com/badges/status?host=github&repo=stefmaf09-droid/E-commerce)](https://github.com/stefmaf09-droid/E-commerce/security/dependabot)  [![Coverage](https://codecov.io/gh/stefmaf09-droid/E-commerce/branch/main/graph/badge.svg)](https://codecov.io/gh/stefmaf09-droid/E-commerce)
+[![Dependabot status](https://api.dependabot.com/badges/status?host=github&repo=stefmaf09-droid/E-commerce)](https://github.com/stefmaf09-droid/E-commerce/security/dependabot)  [![pip-audit](https://github.com/stefmaf09-droid/E-commerce/actions/workflows/pip-audit.yml/badge.svg)](https://github.com/stefmaf09-droid/E-commerce/actions/workflows/pip-audit.yml)  [![Coverage](https://codecov.io/gh/stefmaf09-droid/E-commerce/branch/main/graph/badge.svg)](https://codecov.io/gh/stefmaf09-droid/E-commerce)
 
 
 Système automatisé de récupération de fonds perdus dans les litiges de livraison e-commerce.
@@ -87,6 +87,31 @@ cp .env.example .env
 - **Dependabot** : ouverture automatique de PRs hebdomadaires pour garder les dépendances à jour (configuration dans `.github/dependabot.yml`). 🔁
 - **CodeQL** : analyse statique du code (Security / Code scanning) exécutée pour chaque push/PR pour détecter patterns à risque et vulnérabilités potentielles. 🔎
 - **Badge & Reporting** : badges CI / CodeQL / Dependabot / Coverage ajoutés en haut du README pour visibilité immédiate. 📈
+
+**Usage locale & hooks:**
+
+- Exécuter un audit local rapide :
+
+```
+make audit
+```
+
+- Générer uniquement le rapport JSON (pour inspection) :
+
+```
+make audit-report
+```
+
+- Installer le hook local (POSIX/Windows compatible via Python) :
+
+```
+# Make the script executable (POSIX)
+chmod +x scripts/pre-commit-audit.py
+# then copy into .git/hooks or reference it in your pre-commit configuration
+cp scripts/pre-commit-audit.py .git/hooks/pre-commit
+```
+
+Le script `scripts/pre-commit-audit.py` exécute `pip-audit` et empêchera la validation locale si des vulnérabilités de sévérité >= **high** sont détectées.
 
 ---
 

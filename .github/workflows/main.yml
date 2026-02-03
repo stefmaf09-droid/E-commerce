@@ -26,6 +26,14 @@ jobs:
         # Ensure PyPDF2 is available for PDF text extraction in tests
         pip install PyPDF2>=3.0.0
         pip install pytest pytest-asyncio pytest-cov black flake8
+
+    - name: Security: pip-audit
+      run: |
+        # Quick vulnerability scan of installed dependencies. The job will fail if
+        # pip-audit finds known vulnerabilities (non-zero exit code).
+        python -m pip install --upgrade pip
+        pip install pip-audit
+        pip-audit -q
         
     - name: Lint with flake8
       run: |

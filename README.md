@@ -113,6 +113,11 @@ cp scripts/pre-commit-audit.py .git/hooks/pre-commit
 
 Le script `scripts/pre-commit-audit.py` exécute `pip-audit` et empêchera la validation locale si des vulnérabilités de sévérité >= **high** sont détectées.
 
+**Comportement en CI / PRs:**
+
+- Le workflow **pip-audit** et le job intégré au CI uploadent un artefact `pip-audit-report-<run_id>.json` pour traçabilité.
+- Lorsqu’un pipeline s’exécute en contexte de **Pull Request**, un commentaire automatique sera posté si des vulnérabilités de sévérité **medium** ou plus sont détectées, listant brièvement les packages affectés et leur niveau de sévérité.
+
 ---
 
 

@@ -32,8 +32,57 @@ jobs:
       - name: Upload pip-audit report
         uses: actions/upload-artifact@v4
         with:
-          name: pip-audit-report
+          name: pip-audit-report-${{ github.run_id }}
           path: pip-audit.json
+
+      - name: Comment on PR with summary (if applicable)
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT_PATH: ${{ github.event_path }}
+        run: |
+          python - <<'PY'
+          import os, json, sys, requests
+          repo = os.environ['REPO']
+          token = os.environ['GITHUB_TOKEN']
+          try:
+              with open('pip-audit.json') as f:
+                  data = json.load(f)
+          except Exception as e:
+              print('Could not read pip-audit.json:', e)
+              sys.exit(0)
+          levels = {'low':0,'medium':1,'high':2,'critical':3}
+          entries = []
+          for item in data:
+              for v in item.get('vulns', []):
+                  sev = v.get('severity','').lower()
+                  if levels.get(sev, -1) >= 1:
+                      entries.append((sev, item.get('name'), v.get('id'), v.get('fix', {}).get('versions', []), v.get('details', '')))
+          if not entries:
+              print('No vulns >= medium to report.')
+              sys.exit(0)
+          event_path = os.environ.get('GITHUB_EVENT_PATH')
+          try:
+              with open(event_path) as ef:
+                  ev = json.load(ef)
+          except Exception:
+              ev = {}
+          pr = ev.get('pull_request', {}).get('number') or ev.get('number')
+          if not pr:
+              print('No PR number in event payload; skipping comment.')
+              sys.exit(0)
+          body = '### ⚠️ pip-audit report (vulnerabilities >= medium)\n\n'
+          for sev,name,vid,fix,det in entries:
+              body += f'- **{name}** — severity **{sev}** — {vid}\n'
+          body += '\n_This comment was posted automatically by the `pip-audit` workflow._'
+          url = f'https://api.github.com/repos/{repo}/issues/{pr}/comments'
+          r = requests.post(url, headers={'Authorization':f'token {token}','Accept':'application/vnd.github+json'}, json={'body': body}, timeout=15)
+          if r.status_code not in (200,201):
+              print('Failed to post comment', r.status_code, r.text)
+              sys.exit(1)
+          print('Comment posted to PR', pr)
+          PY
 
       - name: Fail on high severity
         run: |

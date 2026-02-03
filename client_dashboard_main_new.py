@@ -33,14 +33,51 @@ from src.dashboard import (
 
 # Page config
 st.set_page_config(
-    page_title="Refundly.ai - Customer Dashboard",
-    page_icon="💰",
+    page_title="Recours E-commerce | Dashboard",
+    page_icon="⚖️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Apply unified premium theme
 apply_premium_theme()
+
+# --- MODE TEST / PROD ---
+if 'env_mode' not in st.session_state:
+    st.session_state.env_mode = 'TEST' # Par défaut en Test pour la sécurité
+
+# --- Sidebar ---
+with st.sidebar:
+    # Toggle Environnement
+    st.markdown("### 🌍 Environnement")
+    env_col1, env_col2 = st.columns([1, 4])
+    with env_col1:
+        if st.session_state.env_mode == 'TEST':
+            st.markdown("🔴")
+        else:
+            st.markdown("🟢")
+    with env_col2:
+        mode = st.radio(
+            "Mode",
+            ['TEST', 'RÉEL'],
+            index=0 if st.session_state.env_mode == 'TEST' else 1,
+            label_visibility="collapsed",
+            horizontal=True
+        )
+
+    # Mise à jour du mode
+    new_mode = 'TEST' if mode == 'TEST' else 'PROD'
+    if new_mode != st.session_state.env_mode:
+        st.session_state.env_mode = new_mode
+        st.rerun()
+        
+    if st.session_state.env_mode == 'TEST':
+        st.warning("🛠️ Mode Test Actif\n(Données fictives)")
+    
+    st.markdown("---")
+    
+    # Logo & Navigation
+    st.image("https://github.com/user-attachments/assets/5ca99402-2325-4c01-9257-22d26f6eb071", width=180)
 
 
 def main():
@@ -77,7 +114,14 @@ def main():
     # Existing user - show full dashboard
     # --- DATA LOADING ---
     from database.database_manager import DatabaseManager
-    db_manager = DatabaseManager()
+    
+    # Sélection de la BDD selon l'environnement
+    if st.session_state.env_mode == 'TEST':
+        db_path = os.path.join(root_dir, 'data', 'test_recours_ecommerce.db')
+    else:
+        db_path = os.path.join(root_dir, 'data', 'recours_ecommerce.db')
+        
+    db_manager = DatabaseManager(db_path=db_path)
     
     # Get current client and load their claims
     client = db_manager.get_client(email=st.session_state.client_email)

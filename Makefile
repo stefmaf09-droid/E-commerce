@@ -15,3 +15,11 @@ audit-report:
 
 authors:
 	@echo "Maintainers: stefmaf09-droid"
+
+.PHONY: e2e
+
+e2e:
+	python -m pip install --upgrade pip
+	python -m pip install -r requirements.txt
+	python -m playwright install --with-deps
+	pytest tests/e2e -q

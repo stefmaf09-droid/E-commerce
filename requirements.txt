@@ -21,6 +21,9 @@ reportlab>=4.4.0
 # PDF parsing / verification
 PyPDF2>=3.0.0
 
+# End-to-end testing (Playwright)
+playwright>=1.41.0
+
 # Phase 7 - Production
 psycopg2-binary>=2.9.0
 fastapi>=0.104.0

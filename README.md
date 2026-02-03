@@ -118,6 +118,24 @@ Le script `scripts/pre-commit-audit.py` exécute `pip-audit` et empêchera la va
 - Le workflow **pip-audit** et le job intégré au CI uploadent un artefact `pip-audit-report-<run_id>.json` pour traçabilité.
 - Lorsqu’un pipeline s’exécute en contexte de **Pull Request**, un commentaire automatique sera posté si des vulnérabilités de sévérité **medium** ou plus sont détectées, listant brièvement les packages affectés et leur niveau de sévérité.
 
+**Exécution des tests E2E (Playwright)**
+
+- Prérequis locaux :
+
+```
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m playwright install --with-deps
+```
+
+- Exécuter rapidement le test onboarding (smoke) :
+
+```
+make e2e
+```
+
+- En CI : un job `e2e` exécutera le test onboarding en headless et uploadera `streamlit_e2e.log` en artefact pour debug si nécessaire.
+
 ---
 
 

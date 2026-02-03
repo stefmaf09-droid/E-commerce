@@ -145,6 +145,45 @@ jobs:
       - name: Run CodeQL Analysis
         uses: github/codeql-action/analyze@v2
 
+  e2e:
+    name: E2E Playwright (Onboarding smoke)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies & Playwright browsers
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+          python -m playwright install --with-deps
+
+      - name: Start Streamlit (background)
+        run: |
+          nohup streamlit run dashboard.py --server.port 8510 > streamlit_e2e.log 2>&1 &
+          # wait for streamlit to respond
+          for i in {1..60}; do
+            curl -sSf http://localhost:8510/ && break || sleep 1
+          done
+
+      - name: Run onboarding e2e tests
+        run: |
+          pytest tests/e2e/test_onboarding_playwright.py -q
+
+      - name: Upload streamlit log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamlit-e2e-log-${{ github.run_id }}
+          path: streamlit_e2e.log
+
   deploy_staging:
     needs: test
     if: github.ref == 'refs/heads/develop'

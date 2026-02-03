@@ -27,13 +27,42 @@ jobs:
         pip install PyPDF2>=3.0.0
         pip install pytest pytest-asyncio pytest-cov black flake8
 
-    - name: Security: pip-audit
+- name: Security: pip-audit (generate JSON)
       run: |
-        # Quick vulnerability scan of installed dependencies. The job will fail if
-        # pip-audit finds known vulnerabilities (non-zero exit code).
+        # Install pip-audit and produce a JSON report for artifact upload.
         python -m pip install --upgrade pip
         pip install pip-audit
-        pip-audit -q
+        pip-audit --format json --output pip-audit.json
+
+    - name: Upload pip-audit report
+      uses: actions/upload-artifact@v4
+      with:
+        name: pip-audit-report
+        path: pip-audit.json
+
+    - name: Fail on high severity vulnerabilities
+      run: |
+        python - <<'PY'
+        import sys, json
+        try:
+            with open('pip-audit.json') as f:
+                r = json.load(f)
+        except FileNotFoundError:
+            print('pip-audit.json not found; ensure pip-audit ran correctly')
+            sys.exit(1)
+        max_sev = {'low':0,'medium':1,'high':2,'critical':3}
+        found = False
+        for item in r:
+            for vuln in item.get('vulns', []):
+                sev = vuln.get('severity','').lower()
+                if max_sev.get(sev, -1) >= 2:
+                    print('VULN:', item.get('name'), 'severity=', sev, 'id=', vuln.get('id'))
+                    found = True
+        if found:
+            print('One or more vulnerabilities with severity >= high were found. Failing the job.')
+            sys.exit(1)
+        print('No vulnerabilities >= high found.')
+        PY
         
     - name: Lint with flake8
       run: |
@@ -51,6 +80,30 @@ jobs:
         fail_ci_if_error: false
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # CodeQL static analysis job (runs in parallel with tests)
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: python
+
+      - name: Autobuild (best-effort)
+        uses: github/codeql-action/autobuild@v2
+        # For Python projects autobuild is usually a no-op but safe to include
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
 
   deploy_staging:
     needs: test

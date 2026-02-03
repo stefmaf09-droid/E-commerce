@@ -81,7 +81,9 @@ cp .env.example .env
 
 ## 🔐 Sécurité & Automatisations
 
-- **pip-audit** (exécuté en CI) : scan rapide des dépendances pour détecter les vulnérabilités connues. Le job `pip-audit` échouera si des vulnérabilités critiques sont détectées, alertant l’équipe immédiatement. ⚠️
+- **pip-audit** (exécuté en CI) : scan rapide des dépendances pour détecter les vulnérabilités connues. Le job CI génère un rapport JSON et la pipeline échouera si des vulnérabilités de sévérité **high** ou supérieure sont détectées, alertant l’équipe immédiatement. ⚠️
+  - *Exécution locale*: `pip install pip-audit && pip-audit --fail-on high`
+  - *Générer un rapport JSON*: `pip-audit --format json --output pip-audit.json`
 - **Dependabot** : ouverture automatique de PRs hebdomadaires pour garder les dépendances à jour (configuration dans `.github/dependabot.yml`). 🔁
 - **CodeQL** : analyse statique du code (Security / Code scanning) exécutée pour chaque push/PR pour détecter patterns à risque et vulnérabilités potentielles. 🔎
 - **Badge & Reporting** : badges CI / CodeQL / Dependabot / Coverage ajoutés en haut du README pour visibilité immédiate. 📈

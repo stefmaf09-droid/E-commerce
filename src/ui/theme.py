@@ -485,3 +485,15 @@ def render_premium_metric(label, value, subtext="", icon="💰", progress=75, co
     </div>
     """
     st.markdown(html, unsafe_allow_html=True)
+
+def render_premium_info(text, icon="ℹ️"):
+    """
+    Render a premium info box.
+    """
+    html = f"""
+    <div style="background: #e0e7ff; border-left: 4px solid #4338ca; padding: 16px; border-radius: 8px; font-size: 14px; color: #1e1b4b; display: flex; align-items: center; gap: 12px; margin-top: 24px;">
+        <span style="font-size: 20px;">{icon}</span>
+        <span>{text}</span>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)

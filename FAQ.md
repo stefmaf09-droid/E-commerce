@@ -76,21 +76,3 @@ Refundly.ai est conçu pour fonctionner dans plusieurs pays et zones géographiq
 | **Singapour** | **Carriage of Goods by Road Act** & Application of English Law Act. |
 
 L'application détecte automatiquement le pays de destination et ajuste la mise en demeure avec le texte de loi localement applicable pour maximiser vos chances de succès.
-
----
-
-## 7. Architecture Technique et Hébergement Gratuit
-
-Pour mettre Refundly.ai en ligne gratuitement tout en garantissant la persistance des données, nous utilisons le stack technologique suivant :
-
-1. **Hébergement de l'App : [Streamlit Community Cloud](https://streamlit.io/cloud)**
-    * **Rôle** : Fait tourner le code Python et l'interface utilisateur.
-    * **Avantages** : Gratuit, sécurisé, et lié directement au GitHub pour des mises à jour automatiques.
-2. **Base de Données : [Supabase (PostgreSQL)](https://supabase.com/)**
-    * **Rôle** : Remplace le fichier SQLite local (`.db`).
-    * **Avantages** : Les données des clients, des commandes et des litiges sont sauvegardées de manière permanente dans le cloud, même si l'application redémarre.
-3. **Stockage des Preuves : [Supabase Storage](https://supabase.com/storage)**
-    * **Rôle** : Remplace le dossier local `data/evidence/`.
-    * **Avantages** : Les photos de colis et les emails .EML sont stockés sur des serveurs sécurisés, accessibles par l'application partout dans le monde.
-
-Cette architecture permet de passer d'un simple prototype local à un **SaaS (Software as a Service) professionnel** sans aucun coût d'infrastructure initial.

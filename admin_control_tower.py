@@ -130,7 +130,7 @@ def render_fraud_alerts():
                     st.error("Client suspendu temporairement.")
 
 def main():
-    st.markdown("<div class='main-header'>Refundly.ai Control Tower</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-header'>Refundly.ai Control Tower v2.0 (Finance Live) 💸</div>", unsafe_allow_html=True)
     
     db = get_db_manager()
     stats = db.get_all_statistics()

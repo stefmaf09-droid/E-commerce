@@ -58,4 +58,21 @@ Non. Pour rester conforme au **RGPD**, nous favorisons deux méthodes :
 
 ### Quelle est la force juridique de Refundly ?
 
-L'outil s'appuie sur le **Code de Commerce (Article L. 133-3)** qui rend le transporteur garant de la perte ou de l'avarie. Les courriers générés par Refundly sont des documents formels qui forcent le transporteur à réévaluer sa position.
+L'outil s'appuie sur des textes de lois précis selon la zone géographique (voir section suivante). Les courriers générés sont des documents formels qui forcent le transporteur à réévaluer sa position.
+
+---
+
+## 6. Couverture Internationale et Textes de Lois
+
+Refundly.ai est conçu pour fonctionner dans plusieurs pays et zones géographiques, en adaptant automatiquement ses arguments juridiques :
+
+| Zone / Pays | Texte de Loi de Référence |
+| :--- | :--- |
+| **France** | **Article L. 133-3 du Code de Commerce** (Garantie contre les avaries et pertes). |
+| **Union Européenne** | **Convention CMR** (Convention relative au contrat de transport international de marchandises par route). |
+| **Royaume-Uni** | **Carriage of Goods by Road Act** (Dérivé de la convention CMR). |
+| **États-Unis** | **Carmack Amendment** (U.S. Code § 14706 - Responsabilité fédérale des transporteurs). |
+| **Hong Kong** | **Control of Exemption Clauses Ordinance** & Common Law. |
+| **Singapour** | **Carriage of Goods by Road Act** & Application of English Law Act. |
+
+L'application détecte automatiquement le pays de destination et ajuste la mise en demeure avec le texte de loi localement applicable pour maximiser vos chances de succès.

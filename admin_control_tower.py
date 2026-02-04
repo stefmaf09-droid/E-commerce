@@ -136,7 +136,7 @@ def main():
     stats = db.get_all_statistics()
     
     # 🆕 TABS STRUCTURE: Infra accessible everywhere
-    tab_dash, tab_logs, tab_infra = st.tabs(["📊 Dashboard", "🚨 Audit & Logs", "⚙️ Infra & Cloud Sync"])
+    tab_dash, tab_finance, tab_logs, tab_infra = st.tabs(["📊 Dashboard", "💸 Finance & Payouts", "🚨 Audit & Logs", "⚙️ Infra & Cloud Sync"])
     
     with tab_infra:
         st.markdown("### ☁️ Cloud Synchronization & Health")
@@ -249,6 +249,96 @@ def main():
                             ),
                         }
                     )
+
+                            ),
+                        }
+                    )
+
+    with tab_finance:
+        st.markdown("#### 💸 Finance & Payouts")
+        st.info("ℹ️ **Mode Réel** : Validez ici les virements des transporteurs. Le système reversera automatiquement 80% au client via Stripe Connect.")
+        
+        # Fetch resolved claims pending payout
+        # Mocking for now, in prod: db.get_claims(status='accepted', payment_status='pending')
+        # We'll use a mocked list for demonstration if DB is empty/unstructured for this specific query
+        
+        try:
+            # Replaced with actual DB call logic if possible, or keep using stats for structure
+            # Let's try to get real claims if possible
+            conn = db.get_connection()
+            # Assuming 'claims' table has status and payment_status columns
+            # We filter for 'accepted' statuses where payment hasn't been marked 'completed'
+            pending_payouts_df = pd.read_sql_query("""
+                SELECT 
+                    c.id, c.claim_reference, c.carrier, c.accepted_amount, 
+                    cl.email as client_email, cl.stripe_connect_id, cl.company_name
+                FROM claims c
+                JOIN clients cl ON c.client_id = cl.id
+                WHERE c.status = 'accepted' 
+                AND (c.payment_status IS NULL OR c.payment_status != 'paid')
+            """, conn)
+            conn.close()
+            
+            if pending_payouts_df.empty:
+                st.success("✅ Tous les dossiers validés ont été payés. Aucun reversement en attente.")
+            else:
+                st.markdown(f"**{len(pending_payouts_df)} Virements en attente**")
+                
+                for index, row in pending_payouts_df.iterrows():
+                    with st.expander(f"💰 {row['carrier']} - {row['claim_reference']} ({row['accepted_amount']}€) -> {row['company_name']}"):
+                        
+                        col_pay1, col_pay2, col_pay3 = st.columns(3)
+                        with col_pay1:
+                            st.write(f"**Montant Reçu:** {row['accepted_amount']}€")
+                            client_share = round(row['accepted_amount'] * 0.8, 2)
+                            refundly_share = round(row['accepted_amount'] * 0.2, 2)
+                            st.write(f"**Part Client (80%):** {client_share}€")
+                            st.write(f"**Commission (20%):** {refundly_share}€")
+                        
+                        with col_pay2:
+                            st.write(f"**Destinataire:** {row['client_email']}")
+                            if row['stripe_connect_id']:
+                                st.success(f"✅ Stripe Connect: {row['stripe_connect_id']}")
+                            else:
+                                st.error("❌ Pas de compte Stripe connecté")
+                        
+                        with col_pay3:
+                            if row['stripe_connect_id']:
+                                if st.button("💸 Distribuer les fonds", key=f"pay_{row['id']}"):
+                                    # EXECUTE STRIPE TRANSFER
+                                    from src.payments.stripe_manager import StripeManager
+                                    stripe_mgr = StripeManager()
+                                    
+                                    try:
+                                        with st.spinner("Traitement du virement Stripe..."):
+                                            # Create Transfer
+                                            transfer_id = stripe_mgr.create_payout_transfer(
+                                                destination_account_id=row['stripe_connect_id'],
+                                                amount=float(row['accepted_amount']),
+                                                client_commission_rate=20.0,
+                                                claim_ref=row['claim_reference']
+                                            )
+                                            
+                                            # Update DB
+                                            conn = db.get_connection()
+                                            with conn.cursor() as cur:
+                                                cur.execute("UPDATE claims SET payment_status = 'paid' WHERE id = %s", (row['id'],))
+                                            conn.commit()
+                                            conn.close()
+                                            
+                                            st.success(f"✅ Virement effectué ! ID: {transfer_id}")
+                                            st.balloons()
+                                            st.rerun()
+                                            
+                                    except Exception as e:
+                                        st.error(f"Erreur Stripe: {str(e)}")
+                            else:
+                                st.warning("Le client doit configurer Stripe.")
+
+        except Exception as e:
+            # Fallback if query fails (e.g. schema mismatch)
+            st.error(f"Erreur de chargement des paiements: {str(e)}")
+            st.warning("Vérifiez que la base de données est synchronisée avec le dernier schéma.")
 
     with tab_logs:
         st.markdown("#### Audit Log Feed")

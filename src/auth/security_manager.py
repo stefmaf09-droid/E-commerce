@@ -26,20 +26,25 @@ class SecurityManager:
         
         conn = self.db.get_connection()
         try:
-            conn.execute("""
-                INSERT INTO audit_logs (
-                    user_id, user_type, action, resource_type, resource_id,
-                    previous_state, new_state, ip_address, user_agent
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                user_id, user_type, action, resource_type, resource_id,
-                json.dumps(prev_state) if prev_state else None,
-                json.dumps(new_state) if new_state else None,
-                metadata.get('ip') if metadata else None,
-                metadata.get('ua') if metadata else None
-            ))
+            with conn.cursor() as cur:
+                # Use %s for psycopg2 compatibility (and usually fine for sqlite when handled by wrapper, 
+                # but let's assume valid postgres setup now)
+                cur.execute("""
+                    INSERT INTO activity_logs (
+                        client_id, action, resource_type, resource_id,
+                        details, ip_address, user_agent
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    user_id, action, resource_type, resource_id,
+                    json.dumps({"prev": prev_state, "new": new_state}),
+                    metadata.get('ip') if metadata else None,
+                    metadata.get('ua') if metadata else None
+                ))
             conn.commit()
             logger.info(f"Audit log created: {action} by {user_type}:{user_id}")
+        except Exception as e:
+            logger.error(f"Failed to write audit log: {e}")
+            conn.rollback()
         finally:
             conn.close()
 
@@ -47,11 +52,20 @@ class SecurityManager:
         """Récupère les derniers logs d'audit pour l'interface admin."""
         conn = self.db.get_connection()
         try:
-            return conn.execute("""
-                SELECT * FROM audit_logs 
-                ORDER BY created_at DESC 
-                LIMIT ?
-            """, (limit,)).fetchall()
+            # Table name check: schema says 'activity_logs', code said 'audit_logs'. 
+            # Updated to 'activity_logs' to match schema.sql
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT * FROM activity_logs 
+                    ORDER BY timestamp DESC 
+                    LIMIT %s
+                """, (limit,))
+                # Convert rows to dicts if needed, or rely on row factory
+                columns = [desc[0] for desc in cur.description]
+                return [dict(zip(columns, row)) for row in cur.fetchall()]
+        except Exception as e:
+             logger.error(f"Failed to fetch audit trail: {e}")
+             return []
         finally:
             conn.close()
 

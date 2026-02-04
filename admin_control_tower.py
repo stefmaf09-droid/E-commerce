@@ -13,6 +13,7 @@ sys.path.insert(0, root_dir)
 
 from database.database_manager import get_db_manager
 from analytics.metrics_calculator import MetricsCalculator
+from utils.cloud_sync_manager import CloudSyncManager
 
 
 from src.ui.theme import apply_premium_theme, render_premium_metric
@@ -260,6 +261,25 @@ def main():
     with tab_sec:
         render_fraud_alerts()
     with tab_infra:
+        st.markdown("#### ⚙️ Maintenance & Cloud")
+        sync_manager = CloudSyncManager()
+        
+        col_s1, col_s2 = st.columns([2, 1])
+        with col_s1:
+            st.info("💡 **Synchronisation Totale** : Transférez toutes les données locales (Comptes, Dossiers, Photos) vers Supabase en un clic.")
+        with col_s2:
+            if st.button("🚀 Lancer la Synchro Cloud", use_container_width=True, type="primary"):
+                with st.spinner("⏳ Migration en cours..."):
+                    success, message = sync_manager.run_full_sync()
+                    if success:
+                        st.success("✅ Synchronisation réussie !")
+                        st.balloons()
+                        st.toast(message)
+                    else:
+                        st.error(f"❌ Erreur : {message}")
+        
+        st.markdown("---")
+        st.markdown("#### 📊 System Metrics")
         st.code(monitor.get_system_metrics(), language="text")
 
 if __name__ == "__main__":

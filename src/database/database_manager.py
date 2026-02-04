@@ -104,9 +104,20 @@ class DatabaseManager:
         else:
             if not POSTGRES_AVAILABLE:
                 raise ImportError("psycopg2 is required for PostgreSQL support")
-            conn = psycopg2.connect(self.pg_url)
-            # Row factory equivalent for Postgres
-            return conn
+            
+            # Robustness: ensure URL starts with postgresql:// for SQLAlchemy/psycopg2 compatibility
+            url = self.pg_url
+            if url and url.startswith('postgres://'):
+                url = url.replace('postgres://', 'postgresql://', 1)
+            
+            try:
+                conn = psycopg2.connect(url)
+                return conn
+            except Exception as e:
+                logger.error(f"PostgreSQL connection failed: {e}")
+                # Re-raise with more context
+                raise ConnectionError(f"Impossible de se connecter à la base de données Cloud. Vérifiez votre DATABASE_URL dans les Secrets. Erreur: {str(e)}")
+
 
     def _execute(self, conn, query: str, params: tuple = ()):
         """Exécute une requête en adaptant les placeholders."""

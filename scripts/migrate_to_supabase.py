@@ -2,6 +2,8 @@ import sqlite3
 import psycopg2
 from psycopg2 import extras
 import os
+from supabase import create_client, Client
+import mimetypes
 
 # Configuration (Assurez-vous que les variables sont correctes ou remplacez-les)
 SQLITE_DB = "data/recours_ecommerce.db"
@@ -51,7 +53,45 @@ def migrate_data():
             pg_conn.commit()
             print(f"  ✅ {inserted_count} lignes migrées pour {table}.")
 
-        print("\n✨ Migration terminée avec succès !")
+        print("\n✨ Migration de la base de données terminée.")
+
+        # --- PHASE 2 : Migration des Fichiers (Storage) ---
+        print("\n📁 Migration des fichiers vers Supabase Storage...")
+        SUPABASE_URL = "https://lrvqbgirvwytkmmmwjsx.supabase.co"
+        SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxydnFiZ2lydnd5dGttbW13anN4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDIwODY4OCwiZXhwIjoyMDg1Nzg0Njg4fQ.qEGlbLr04Z_-k5oPoIfxRfoi09T0FLNpGsw63wqh584"
+        
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        bucket_name = "evidence"
+        evidence_root = "data/client_photos"
+
+        if os.path.exists(evidence_root):
+            for claim_id in os.listdir(evidence_root):
+                claim_path = os.path.join(evidence_root, claim_id)
+                if os.path.isdir(claim_path):
+                    for filename in os.listdir(claim_path):
+                        file_path = os.path.join(claim_path, filename)
+                        if os.path.isfile(file_path):
+                            storage_path = f"{claim_id}/{filename}"
+                            print(f"  ☁️ Uploading {storage_path}...")
+                            
+                            with open(file_path, 'rb') as f:
+                                try:
+                                    mime, _ = mimetypes.guess_type(file_path)
+                                    supabase.storage.from_(bucket_name).upload(
+                                        path=storage_path,
+                                        file=f.read(),
+                                        file_options={"upsert": "true", "content-type": mime or "application/octet-stream"}
+                                    )
+                                    print(f"    ✅ Terminé.")
+                                except Exception as e:
+                                    if "already exists" in str(e).lower():
+                                        print(f"    ℹ️ Déjà présent.")
+                                    else:
+                                        print(f"    ⚠️ Erreur : {e}")
+        else:
+            print("ℹ️ Aucun dossier de photos trouvé localement.")
+
+        print("\n✨ Migration complète terminée avec succès !")
         
     except Exception as e:
         print(f"❌ Erreur pendant la migration : {e}")

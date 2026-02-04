@@ -135,70 +135,113 @@ def main():
     db = get_db_manager()
     stats = db.get_all_statistics()
     
-    if not stats:
-        st.info("Aucune donnée disponible.")
-        return
+    # 🆕 TABS STRUCTURE: Infra accessible everywhere
+    tab_dash, tab_logs, tab_infra = st.tabs(["📊 Dashboard", "🚨 Audit & Logs", "⚙️ Infra & Cloud Sync"])
     
-    # MAIN LAYOUT (Matches Mockup)
-    col_left, col_right = st.columns([2, 1])
-    
-    with col_left:
-        # 1. Global Metrics Grid
-        render_global_metrics(stats)
+    with tab_infra:
+        st.markdown("### ☁️ Cloud Synchronization & Health")
         
-        # 2. Carrier Chart
-        st.markdown("#### Carrier Reliability Rankings")
-        from src.analytics.carrier_benchmark import CarrierBenchmarkService
-        benchmark_svc = CarrierBenchmarkService()
-        leaderboard = benchmark_svc.get_market_leaderboard()
+        # Cloud Sync Manager
+        from src.utils.cloud_sync_manager import CloudSyncManager
+        sync_manager = CloudSyncManager()
         
-        fig = go.Figure()
-        colors = ['#10b981', '#f59e0b', '#f43f5e'] # Green, Yellow, Orange
-        
-        for i, carrier in enumerate(leaderboard['carrier'].head(3)):
-            score = leaderboard.iloc[i]['reliability_score']
-            fig.add_trace(go.Bar(
-                y=[carrier],
-                x=[score],
-                orientation='h',
-                marker_color=colors[i % len(colors)],
-                text=f"{score}%",
-                textposition='inside',
-                name=carrier
-            ))
-            
-        fig.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#1e293b',
-            height=350,
-            margin=dict(l=100, r=20, t=20, b=20),
-            showlegend=False,
-            xaxis=dict(range=[0, 100], showgrid=False, zeroline=False, tickfont=dict(color='#1e293b', size=12)),
-            yaxis=dict(showgrid=False, tickfont=dict(color='#1e293b', size=14, family="Inter", weight="bold"))
-        )
-        st.plotly_chart(fig, width='stretch')
-        
-        # Space for other tabs below
-        st.markdown("---")
-        tab1, tab2 = st.tabs(["👥 Clients Detail", "🔮 AI Forecasting"])
-        with tab1:
-            render_clients_table(stats)
-        with tab2:
-            render_forecasting(stats)
+        col_s1, col_s2 = st.columns([2, 1])
+        with col_s1:
+            st.info("💡 **Synchronisation Totale** : Transférez toutes les données locales (Comptes, Dossiers, Photos) vers Supabase en un clic. À faire après le déploiement.")
+        with col_s2:
+            if st.button("🚀 Lancer la Synchro Cloud", use_container_width=True, type="primary"):
+                with st.spinner("⏳ Migration en cours..."):
+                    success, message = sync_manager.run_full_sync()
+                    if success:
+                        st.success("✅ Synchronisation réussie !")
+                        st.balloons()
+                        st.toast(message)
+                        # Rerun to show data immediately
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Erreur : {message}")
 
-    with col_right:
-        # 3. Audit Log Feed
+        st.markdown("---")
+        st.markdown("#### ⚙️ Tech Monitoring")
+        from src.monitoring.health_monitor import HealthMonitor
+        monitor = HealthMonitor()
+        st.code(monitor.get_system_metrics(), language="text")
+
+    with tab_dash:
+        if not stats:
+            st.warning("⚠️ **Base de données vide.**\nRendez-vous dans l'onglet **'⚙️ Infra & Cloud Sync'** pour lancer la première synchronisation.")
+        else:
+            # MAIN LAYOUT (Matches Mockup)
+            col_left, col_right = st.columns([2, 1])
+            
+            with col_left:
+                # 1. Global Metrics Grid
+                render_global_metrics(stats)
+                
+                # 2. Carrier Chart
+                st.markdown("#### Carrier Reliability Rankings")
+                from src.analytics.carrier_benchmark import CarrierBenchmarkService
+                benchmark_svc = CarrierBenchmarkService()
+                leaderboard = benchmark_svc.get_market_leaderboard()
+                
+                fig = go.Figure()
+                colors = ['#10b981', '#f59e0b', '#f43f5e'] # Green, Yellow, Orange
+                
+                for i, carrier in enumerate(leaderboard['carrier'].head(3)):
+                    score = leaderboard.iloc[i]['reliability_score']
+                    fig.add_trace(go.Bar(
+                        y=[carrier],
+                        x=[score],
+                        orientation='h',
+                        marker_color=colors[i % len(colors)],
+                        text=f"{score}%",
+                        textposition='inside',
+                        name=carrier
+                    ))
+                    
+                fig.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#1e293b',
+                    height=350,
+                    margin=dict(l=100, r=20, t=20, b=20),
+                    showlegend=False,
+                    xaxis=dict(range=[0, 100], showgrid=False, zeroline=False, tickfont=dict(color='#1e293b', size=12)),
+                    yaxis=dict(showgrid=False, tickfont=dict(color='#1e293b', size=14, family="Inter", weight="bold"))
+                )
+                st.plotly_chart(fig, width='stretch')
+                
+                # Space for other tabs below
+                st.markdown("---")
+                tab1, tab2 = st.tabs(["👥 Clients Detail", "🔮 AI Forecasting"])
+                with tab1:
+                    render_clients_table(stats)
+                with tab2:
+                    render_forecasting(stats)
+        
+            with col_right:
+                # 3. AI Insights Panel (simplified for layout)
+                st.markdown("#### 🧠 AI Forecasting")
+                col_tech1, col_tech2 = st.columns(2)
+                col_tech1.metric("API Latency", "45ms", "-12ms")
+                col_tech2.metric("Error Rate", "0.02%", "stable")
+                st.markdown("---")
+                st.markdown("**Cashflow Pipeline:**")
+                st.markdown("- 🟢 **Confirmed:** 12,450€")
+                st.markdown("- 🟡 **Pending:** 4,200€")
+                
+                st.markdown("#### Client Trust Scores")
+                st.dataframe(pd.DataFrame(stats), hide_index=True)
+
+    with tab_logs:
         st.markdown("#### Audit Log Feed")
         from src.auth.security_manager import SecurityManager
         sec_mgr = SecurityManager()
-        logs = sec_mgr.get_audit_trail(limit=6)
+        logs = sec_mgr.get_audit_trail(limit=10)
         
         for log in logs:
             timestamp = log['created_at'].split()[1] if ' ' in log['created_at'] else log['created_at']
             action = log['action']
-            
-            # Action class for colors
             action_class = ""
             if "detect" in action.lower(): action_class = "auto-detect"
             elif "payout" in action.lower(): action_class = "payout"
@@ -211,76 +254,4 @@ def main():
                 <div class="audit-client">Client ID #{log['user_id']}</div>
             </div>
             """, unsafe_allow_html=True)
-            
-        # 4. Tech Monitoring
-        st.markdown("#### Tech Monitoring", unsafe_allow_html=True)
-        from src.monitoring.health_monitor import HealthMonitor
-        monitor = HealthMonitor()
-        db_health = monitor.check_database()
-        
-        # Latency Gauge
-        fig_g = go.Figure(go.Indicator(
-            mode = "gauge+number",
-            value = db_health['latency_ms'],
-            domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': "DB Latency (ms)", 'font': {'size': 14, 'color': '#1e293b'}},
-            gauge = {
-                'axis': {'range': [0, 10], 'tickwidth': 1, 'tickcolor': "#64748b"},
-                'bar': {'color': "#10b981"},
-                'bgcolor': "white",
-                'borderwidth': 1,
-                'bordercolor': "#e2e8f0",
-                'steps': [
-                    {'range': [0, 2], 'color': 'rgba(16, 185, 129, 0.1)'},
-                    {'range': [2, 10], 'color': 'rgba(244, 63, 94, 0.1)'}
-                ],
-            }
-        ))
-        fig_g.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)', 
-            font={'color': "#1e293b", 'family': "Inter"}, 
-            height=180, 
-            margin=dict(l=30, r=30, t=50, b=0)
-        )
-        st.plotly_chart(fig_g, width='stretch')
-        
-        st.markdown("""
-        <div class="cert-badge">
-            <div style="color: #10b981; font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <span>🟢</span> Server Heartbeat Active
-            </div>
-            <div style="color: #64748b; font-size: 0.75rem; margin-top: 4px;">Verified SOC2 & GDPR Compliant</div>
-        </div>
-        """, unsafe_allow_html=True)
 
-    # Secondary tabs for other features
-    st.markdown("---")
-    st.subheader("🛠 Outils Avancés")
-    tab_sec, tab_infra = st.tabs(["🛡️ Sécurité & Bypass", "⚙️ Infra & Health"])
-    
-    with tab_sec:
-        render_fraud_alerts()
-    with tab_infra:
-        st.markdown("#### ⚙️ Maintenance & Cloud")
-        sync_manager = CloudSyncManager()
-        
-        col_s1, col_s2 = st.columns([2, 1])
-        with col_s1:
-            st.info("💡 **Synchronisation Totale** : Transférez toutes les données locales (Comptes, Dossiers, Photos) vers Supabase en un clic.")
-        with col_s2:
-            if st.button("🚀 Lancer la Synchro Cloud", use_container_width=True, type="primary"):
-                with st.spinner("⏳ Migration en cours..."):
-                    success, message = sync_manager.run_full_sync()
-                    if success:
-                        st.success("✅ Synchronisation réussie !")
-                        st.balloons()
-                        st.toast(message)
-                    else:
-                        st.error(f"❌ Erreur : {message}")
-        
-        st.markdown("---")
-        st.markdown("#### 📊 System Metrics")
-        st.code(monitor.get_system_metrics(), language="text")
-
-if __name__ == "__main__":
-    main()

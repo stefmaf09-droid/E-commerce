@@ -130,6 +130,7 @@ def render_fraud_alerts():
                     st.error("Client suspendu temporairement.")
 
 def main():
+    print("\n\n*** DEBUG: ADMIN CONTROL TOWER V2.0 LOADING (FINANCE LIVE) ***\n\n")
     st.markdown("<div class='main-header'>Refundly.ai Control Tower v2.0 (Finance Live) 💸</div>", unsafe_allow_html=True)
     
     db = get_db_manager()

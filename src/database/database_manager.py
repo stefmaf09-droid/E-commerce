@@ -106,7 +106,6 @@ class DatabaseManager:
                 raise ImportError("psycopg2 is required for PostgreSQL support")
             
             try:
-                # Robust parsing of the DATABASE_URL
                 if not self.pg_url:
                     raise ValueError("DATABASE_URL non configuré dans les Secrets.")
                 
@@ -122,17 +121,20 @@ class DatabaseManager:
                 if password:
                     password = urllib.parse.unquote(password)
                 
-                # FORCE IPv4 : Streamlit Cloud a parfois du mal avec l'IPv6 de Supabase
-                # ("Cannot assign requested address")
+                # FORCE IPv4 mais préserver le HOSTNAME pour le SNI (Tenant identification)
+                hostaddr = None
                 try:
-                    ipv4_hostname = socket.gethostbyname(hostname)
-                    logger.info(f"Resolved {hostname} to IPv4: {ipv4_hostname}")
-                    hostname = ipv4_hostname
+                    # Résolution forcée en IPv4
+                    hostaddr = socket.gethostbyname(hostname)
+                    logger.info(f"Resolved {hostname} to IPv4: {hostaddr}")
                 except Exception as e:
-                    logger.warning(f"Could not force IPv4 for {hostname}: {e}")
+                    logger.warning(f"Could not resolve IPv4 for {hostname}: {e}")
 
+                # On utilise 'host' pour le nom de domaine (SNI/SSL) 
+                # et 'hostaddr' pour l'IP physique (contournement IPv6)
                 conn = psycopg2.connect(
                     host=hostname,
+                    hostaddr=hostaddr,
                     database=database,
                     user=username,
                     password=password,
@@ -143,7 +145,7 @@ class DatabaseManager:
                 return conn
             except Exception as e:
                 logger.error(f"PostgreSQL connection failed: {e}")
-                raise ConnectionError(f"Erreur de connexion Cloud (IPv4 Forcé) : {str(e)}")
+                raise ConnectionError(f"Erreur de connexion Cloud (SNI Fix) : {str(e)}")
 
 
     def _execute(self, conn, query: str, params: tuple = ()):

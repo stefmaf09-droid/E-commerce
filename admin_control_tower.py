@@ -251,10 +251,6 @@ def main():
                         }
                     )
 
-                            ),
-                        }
-                    )
-
     with tab_finance:
         st.markdown("#### 💸 Finance & Payouts")
         st.info("ℹ️ **Mode Réel** : Validez ici les virements des transporteurs. Le système reversera automatiquement 80% au client via Stripe Connect.")

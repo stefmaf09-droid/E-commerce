@@ -105,18 +105,38 @@ class DatabaseManager:
             if not POSTGRES_AVAILABLE:
                 raise ImportError("psycopg2 is required for PostgreSQL support")
             
-            # Robustness: ensure URL starts with postgresql:// for SQLAlchemy/psycopg2 compatibility
-            url = self.pg_url
-            if url and url.startswith('postgres://'):
-                url = url.replace('postgres://', 'postgresql://', 1)
-            
             try:
-                conn = psycopg2.connect(url)
+                # Robust parsing of the DATABASE_URL
+                if not self.pg_url:
+                    raise ValueError("DATABASE_URL non configuré dans les Secrets.")
+                
+                # Psycopg2 peut être capricieux avec les URI encodées complexes
+                # On tente une connexion par paramètres extraits pour plus de robustesse
+                result = urlparse(self.pg_url)
+                username = result.username
+                password = result.password
+                database = result.path[1:]
+                hostname = result.hostname
+                port = result.port or 5432
+                
+                # Décodage des caractères spéciaux dans le mot de passe s'ils sont déjà encodés
+                import urllib.parse
+                if password:
+                    password = urllib.parse.unquote(password)
+                
+                conn = psycopg2.connect(
+                    host=hostname,
+                    database=database,
+                    user=username,
+                    password=password,
+                    port=port,
+                    sslmode='require', # Obligatoire pour Supabase/Neon en Cloud
+                    connect_timeout=10
+                )
                 return conn
             except Exception as e:
                 logger.error(f"PostgreSQL connection failed: {e}")
-                # Re-raise with more context
-                raise ConnectionError(f"Impossible de se connecter à la base de données Cloud. Vérifiez votre DATABASE_URL dans les Secrets. Erreur: {str(e)}")
+                raise ConnectionError(f"Erreur de connexion Cloud : {str(e)}. Vérifiez vos identifiants dans les Secrets.")
 
 
     def _execute(self, conn, query: str, params: tuple = ()):

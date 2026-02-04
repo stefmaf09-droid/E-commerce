@@ -15,7 +15,7 @@ class CloudSyncManager:
         self.supabase_url = os.getenv("SUPABASE_URL")
         self.supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         self.db_url = os.getenv("DATABASE_URL")
-        self.local_db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'recours_ecommerce.db')
+        self.local_db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'database', 'main.db')
         self.local_photos_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'client_photos')
         
     def is_configured(self) -> bool:

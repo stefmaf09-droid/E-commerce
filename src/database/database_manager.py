@@ -109,6 +109,7 @@ class DatabaseManager:
                 if not self.pg_url:
                     raise ValueError("DATABASE_URL non configuré dans les Secrets.")
                 
+                # Robust parsing of the DATABASE_URL
                 result = urlparse(self.pg_url)
                 username = result.username
                 password = result.password
@@ -117,35 +118,30 @@ class DatabaseManager:
                 port = result.port or 5432
                 
                 import urllib.parse
-                import socket
                 if password:
                     password = urllib.parse.unquote(password)
                 
-                # FORCE IPv4 mais préserver le HOSTNAME pour le SNI (Tenant identification)
-                hostaddr = None
-                try:
-                    # Résolution forcée en IPv4
-                    hostaddr = socket.gethostbyname(hostname)
-                    logger.info(f"Resolved {hostname} to IPv4: {hostaddr}")
-                except Exception as e:
-                    logger.warning(f"Could not resolve IPv4 for {hostname}: {e}")
-
-                # On utilise 'host' pour le nom de domaine (SNI/SSL) 
-                # et 'hostaddr' pour l'IP physique (contournement IPv6)
+                # REVERT SNI FIX: Le Pooler Supabase (aws-0-eu-central-1.pooler.supabase.com) est compatible IPv4
+                # L'usage précédent de `hostaddr` cassait le SNI ("Tenant not found").
+                # On revient à une connexion standard qui laisse le DNS résoudre l'IPv4 du Pooler.
+                
                 conn = psycopg2.connect(
                     host=hostname,
-                    hostaddr=hostaddr,
                     database=database,
                     user=username,
                     password=password,
                     port=port,
                     sslmode='require',
-                    connect_timeout=15
+                    connect_timeout=15,
+                    keepalives=1,
+                    keepalives_idle=30,
+                    keepalives_interval=10,
+                    keepalives_count=5
                 )
                 return conn
             except Exception as e:
                 logger.error(f"PostgreSQL connection failed: {e}")
-                raise ConnectionError(f"Erreur de connexion Cloud (SNI Fix) : {str(e)}")
+                raise ConnectionError(f"Erreur de connexion Cloud (Pooler Standard) : {str(e)}")
 
 
     def _execute(self, conn, query: str, params: tuple = ()):

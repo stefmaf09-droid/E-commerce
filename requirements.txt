@@ -43,7 +43,7 @@ cloudpickle>=2.0.0
 
 # Cloud Migration (Supabase)
 supabase>=2.3.0
-psycopg2-binary>=2.9.0
+# psycopg2-binary already listed above
 
 # AI Analysis (Gemini)
 google-generativeai>=0.3.0

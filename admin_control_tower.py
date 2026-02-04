@@ -130,8 +130,6 @@ def render_fraud_alerts():
                     st.error("Client suspendu temporairement.")
 
 def main():
-    st.error("⚠️ DEPLOYMENT TEST: IF YOU SEE THIS, WE ARE CONNECTED! (IGNORE THE ERROR BELOW)")
-    CRASH_TEST = 1 / 0
     print("\n\n*** DEBUG: ADMIN CONTROL TOWER V2.0 LOADING (FINANCE LIVE) ***\n\n")
     st.markdown("<div class='main-header'>Refundly.ai Control Tower v2.0 (Finance Live) 💸</div>", unsafe_allow_html=True)
     

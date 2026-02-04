@@ -110,8 +110,6 @@ class DatabaseManager:
                 if not self.pg_url:
                     raise ValueError("DATABASE_URL non configuré dans les Secrets.")
                 
-                # Psycopg2 peut être capricieux avec les URI encodées complexes
-                # On tente une connexion par paramètres extraits pour plus de robustesse
                 result = urlparse(self.pg_url)
                 username = result.username
                 password = result.password
@@ -119,24 +117,33 @@ class DatabaseManager:
                 hostname = result.hostname
                 port = result.port or 5432
                 
-                # Décodage des caractères spéciaux dans le mot de passe s'ils sont déjà encodés
                 import urllib.parse
+                import socket
                 if password:
                     password = urllib.parse.unquote(password)
                 
+                # FORCE IPv4 : Streamlit Cloud a parfois du mal avec l'IPv6 de Supabase
+                # ("Cannot assign requested address")
+                try:
+                    ipv4_hostname = socket.gethostbyname(hostname)
+                    logger.info(f"Resolved {hostname} to IPv4: {ipv4_hostname}")
+                    hostname = ipv4_hostname
+                except Exception as e:
+                    logger.warning(f"Could not force IPv4 for {hostname}: {e}")
+
                 conn = psycopg2.connect(
                     host=hostname,
                     database=database,
                     user=username,
                     password=password,
                     port=port,
-                    sslmode='require', # Obligatoire pour Supabase/Neon en Cloud
-                    connect_timeout=10
+                    sslmode='require',
+                    connect_timeout=15
                 )
                 return conn
             except Exception as e:
                 logger.error(f"PostgreSQL connection failed: {e}")
-                raise ConnectionError(f"Erreur de connexion Cloud : {str(e)}. Vérifiez vos identifiants dans les Secrets.")
+                raise ConnectionError(f"Erreur de connexion Cloud (IPv4 Forcé) : {str(e)}")
 
 
     def _execute(self, conn, query: str, params: tuple = ()):

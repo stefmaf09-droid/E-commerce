@@ -22,7 +22,7 @@ class CarrierBenchmarkService:
                     AVG(amount_requested) as avg_claim_value
                 FROM claims
                 GROUP BY carrier
-                HAVING total_disputes > 1
+                HAVING COUNT(*) > 0
             """
             df = pd.read_sql_query(query, conn)
             

@@ -62,6 +62,13 @@ def render_settings_page() -> None:
     
     st.markdown("---")
     
+    # Stripe Onboarding (Previously Dormant)
+    from src.ui.stripe_onboarding import render_stripe_onboarding
+    client_email = st.session_state.get('client_email', '')
+    render_stripe_onboarding(client_email)
+
+    st.markdown("---")
+    
     # Email templates
     render_email_templates_section()
 

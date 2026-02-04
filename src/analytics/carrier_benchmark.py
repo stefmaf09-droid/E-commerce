@@ -4,7 +4,10 @@ from typing import Dict, List, Any
 from src.database.database_manager import get_db_manager
 
 class CarrierBenchmarkService:
-    """Service d'analyse comparative des transporteurs basée sur la donnée réelle."""
+    """
+    Service d'analyse comparative des transporteurs basée sur la donnée réelle.
+    (Updated for Streamlit Cloud Compatibility)
+    """
     
     def __init__(self, db_manager=None):
         self.db = db_manager or get_db_manager()

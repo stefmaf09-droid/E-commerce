@@ -2,7 +2,20 @@
 
 Ce document explique le fonctionnement concret de la solution Refundly.ai dans un environnement e-commerce réel.
 
-## 1. Comment fonctionne le processus de récupération ?
+## 1. Que se passe-t-il après l'upload des preuves ?
+
+Une fois que vous avez déposé vos documents (photo de colis, email de rejet, PDF), Refundly.ai lance une chaîne de traitement automatisée :
+
+1. **Analyse Immédiate (OCR & IA)** : Le système "lit" le document. S'il s'agit d'un email (.eml), il extrait automatiquement les photos jointes et le texte. S'il s'agit d'une image de refus, l'IA identifie le motif exact du rejet.
+2. **Diagnostic et Score de Succès** : L'outil compare le motif du refus aux bases de données juridiques et vous donne un **score de probabilité de récupération**.
+3. **Conseils Personnalisés** : Si une pièce manque (ex: une attestation sur l'honneur du client final), l'appli vous l'indique immédiatement pour compléter le dossier.
+4. **Génération de la Contre-Attaque** : Refundly génère une **Mise en Demeure personnalisée**. Ce document cite les articles de loi précis (Ex: Article L. 133-3) adaptés à votre cas particulier.
+5. **Expédition et Tracking** : L'email de mise en demeure est envoyé. Le système active alors un compte à rebours (généralement 15 jours) et vous alerte si le transporteur ne répond pas.
+6. **Recouvrement** : Une fois que le transporteur valide l'indemnisation, les fonds sont récupérés et le litige est marqué comme "Résolu".
+
+---
+
+## 2. Comment fonctionne le processus de récupération ?
 
 ### Quel est le déclencheur d'un litige ?
 
@@ -14,7 +27,7 @@ Les transporteurs rejettent souvent les réclamations pour des motifs techniques
 
 ---
 
-## 2. Comment Refundly récupère-t-il les données ?
+## 3. Comment Refundly récupère-t-il les données ?
 
 Il existe trois modes d'intégration principaux :
 
@@ -24,7 +37,7 @@ Il existe trois modes d'intégration principaux :
 
 ---
 
-## 3. Comment gérer les "petits" transporteurs ?
+## 4. Comment gérer les "petits" transporteurs ?
 
 Pour les transporteurs locaux ou moins technologiques qui n'ont pas d'API :
 
@@ -34,7 +47,7 @@ Pour les transporteurs locaux ou moins technologiques qui n'ont pas d'API :
 
 ---
 
-## 4. Confidentialité et Aspect Juridique
+## 5. Confidentialité et Aspect Juridique
 
 ### L'application "espionne"-t-elle les boîtes mails ?
 
@@ -46,16 +59,3 @@ Non. Pour rester conforme au **RGPD**, nous favorisons deux méthodes :
 ### Quelle est la force juridique de Refundly ?
 
 L'outil s'appuie sur le **Code de Commerce (Article L. 133-3)** qui rend le transporteur garant de la perte ou de l'avarie. Les courriers générés par Refundly sont des documents formels qui forcent le transporteur à réévaluer sa position.
-
----
-
-## 5. Que se passe-t-il après l'upload des preuves ?
-
-Une fois que vous avez déposé vos documents (photo de colis, email de rejet, PDF), Refundly.ai lance une chaîne de traitement automatisée :
-
-1. **Analyse Immédiate (OCR & IA)** : Le système "lit" le document. S'il s'agit d'un email (.eml), il extrait automatiquement les photos jointes et le texte. S'il s'agit d'une image de refus, l'IA identifie le motif exact du rejet.
-2. **Diagnostic et Score de Succès** : L'outil compare le motif du refus aux bases de données juridiques et vous donne un **score de probabilité de récupération**.
-3. **Conseils Personnalisés** : Si une pièce manque (ex: une attestation sur l'honneur du client final), l'appli vous l'indique immédiatement pour compléter le dossier.
-4. **Génération de la Contre-Attaque** : Refundly génère une **Mise en Demeure personnalisée**. Ce document cite les articles de loi précis (Ex: Article L. 133-3) adaptés à votre cas particulier.
-5. **Expédition et Tracking** : L'email de mise en demeure est envoyé avec le logo **Refundly.ai** pour plus de crédibilité. Le système active alors un compte à rebours (généralement 15 jours) et vous alerte si le transporteur ne répond pas.
-6. **Recouvrement** : Une fois que le transporteur valide l'indemnisation, les fonds sont récupérés et le litige est marqué comme "Résolu".

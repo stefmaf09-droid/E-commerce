@@ -1,7 +1,10 @@
-
 import logging
 import re
-from typing import Dict, Any, List
+import os
+from typing import Dict, Any, List, Tuple
+import email
+from email import policy
+from email.parser import BytesParser
 
 logger = logging.getLogger(__name__)
 
@@ -129,16 +132,73 @@ class OCRProcessor:
             "advice_fr": "Nous analysons manuellement la réponse du transporteur.",
             "advice_en": "We are manually analyzing the carrier's response."
         }
+    
+    def extract_text_from_eml(self, file_content: bytes) -> Tuple[str, List[Dict[str, Any]]]:
+        """
+        Extrait le texte et les pièces jointes d'un fichier .eml.
+        
+        Returns:
+            Tuple (corps_du_mail, liste_des_pieces_jointes)
+        """
+        msg = BytesParser(policy=policy.default).parsebytes(file_content)
+        
+        text_content = ""
+        attachments = []
+        
+        # Extraction du texte
+        body = msg.get_body(preferencelist=('plain', 'html'))
+        if body:
+            text_content = body.get_content()
+            # Si c'est du HTML, on pourrait vouloir le nettoyer, mais pour l'analyse regex, c'est souvent suffisant
+            
+        # Extraction des pièces jointes image/pdf
+        for part in msg.iter_attachments():
+            content_type = part.get_content_type()
+            filename = part.get_filename()
+            
+            if filename and (content_type.startswith('image/') or content_type == 'application/pdf'):
+                attachments.append({
+                    'filename': filename,
+                    'content': part.get_content(),
+                    'content_type': content_type
+                })
+        
+        logger.info(f"EML Parsed: {len(text_content)} chars text, {len(attachments)} attachments.")
+        return text_content, attachments
 
     def extract_text_from_file(self, file_path_or_buffer: Any, filename: str) -> str:
         """
-        Tente d'extraire le texte du fichier (PDF ou Image) en utilisant OCR réel si disponible,
-        sinon retombe sur la simulation basée sur le nom de fichier.
+        Ancienne méthode pour compatibilité. Préférer extract_all_from_file.
+        """
+        text, _ = self.extract_all_from_file(file_path_or_buffer, filename)
+        return text
+
+    def extract_all_from_file(self, file_path_or_buffer: Any, filename: str) -> Tuple[str, List[Dict[str, Any]]]:
+        """
+        Tente d'extraire le texte et les pièces jointes du fichier.
         """
         text = ""
+        attachments = []
         
+        # 0. Essai EML (Emails)
+        if filename.lower().endswith('.eml'):
+            try:
+                if hasattr(file_path_or_buffer, 'read'):
+                    content = file_path_or_buffer.read()
+                    # Reset buffer search if possible or just use content
+                    if hasattr(file_path_or_buffer, 'seek'):
+                        file_path_or_buffer.seek(0)
+                else:
+                    with open(file_path_or_buffer, 'rb') as f:
+                        content = f.read()
+                
+                text, attachments = self.extract_text_from_eml(content)
+                logger.info(f"EML Extraction successful: {filename}")
+            except Exception as e:
+                logger.warning(f"EML extraction failed: {e}")
+
         # 1. Essai OCR Réel (PDF)
-        if filename.lower().endswith('.pdf'):
+        elif filename.lower().endswith('.pdf'):
             try:
                 import PyPDF2
                 if hasattr(file_path_or_buffer, 'read'): # C'est un buffer Streamlit
@@ -212,9 +272,9 @@ class OCRProcessor:
         # 3. Fallback
         if not text or len(text) < 10:
             logger.info("Fallback to simulation based on filename")
-            return self.simulate_ocr_on_file(filename)
+            text = self.simulate_ocr_on_file(filename)
             
-        return text
+        return text, attachments
 
     def simulate_ocr_on_file(self, filename: str) -> str:
         """

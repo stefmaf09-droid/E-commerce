@@ -183,8 +183,8 @@ def _render_evidence_section(dispute_data):
     
     # --- New Evidence Uploader ---
     uploaded_evidence = st.file_uploader(
-        "📤 Ajouter une preuve (Photo/PDF)", 
-        type=['png', 'jpg', 'jpeg', 'pdf'],
+        "📤 Ajouter une preuve (Photo/PDF/Email EML)", 
+        type=['png', 'jpg', 'jpeg', 'pdf', 'eml'],
         key=f"uploader_{dispute_data.get('dispute_id')}"
     )
     
@@ -206,10 +206,18 @@ def _render_evidence_section(dispute_data):
             from src.scrapers.ocr_processor import OCRProcessor
             ocr_processor = OCRProcessor()
             
-            # 1. Extract Text
-            extracted_text = ocr_processor.extract_text_from_file(file_path, uploaded_evidence.name)
+            # 1. Extract Text & Attachments
+            extracted_text, attachments = ocr_processor.extract_all_from_file(file_path, uploaded_evidence.name)
             
-            # 2. Analyze
+            # 2. Save extracted attachments as evidence
+            for att in attachments:
+                att_path = os.path.join(save_dir, att['filename'])
+                if not os.path.exists(att_path): # Éviter les doublons
+                    with open(att_path, "wb") as f:
+                        f.write(att['content'])
+                    st.toast(f"📎 Pièce jointe extraite : {att['filename']}")
+            
+            # 3. Analyze
             analysis = ocr_processor.analyze_rejection_text(extracted_text)
             
             # Store in session state for feedback

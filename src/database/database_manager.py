@@ -8,12 +8,19 @@ Gère:
 - Migrations
 """
 
-import sqlite3
 import os
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any, Tuple
 import json
 import logging
+from urllib.parse import urlparse
+
+try:
+    import psycopg2
+    from psycopg2 import extras
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    POSTGRES_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +39,16 @@ class DatabaseManager:
             db_path = os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'main.db')
         
         self.db_path = db_path
-        self._ensure_database_exists()
+        self.db_type = os.getenv('DATABASE_TYPE', 'sqlite').lower()
+        self.pg_url = os.getenv('DATABASE_URL')
+        
+        # Caractère de substitution (placeholder) pour SQL
+        self.placeholder = '?' if self.db_type == 'sqlite' else '%s'
+        
+        if self.db_type == 'sqlite':
+            self._ensure_database_exists()
+        else:
+            logger.info("Using PostgreSQL Backend (Supabase/Neon)")
     
     def _ensure_database_exists(self):
         """Créer la base et les tables si elles n'existent pas."""
@@ -78,11 +94,31 @@ class DatabaseManager:
         finally:
             conn.close()
     
-    def get_connection(self) -> sqlite3.Connection:
-        """Obtenir une connexion à la base de données."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Permet d'accéder aux colonnes par nom
-        return conn
+    def get_connection(self):
+        """Obtenir une connexion à la base de données (SQLite ou Postgres)."""
+        if self.db_type == 'sqlite':
+            import sqlite3
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            return conn
+        else:
+            if not POSTGRES_AVAILABLE:
+                raise ImportError("psycopg2 is required for PostgreSQL support")
+            conn = psycopg2.connect(self.pg_url)
+            # Row factory equivalent for Postgres
+            return conn
+
+    def _execute(self, conn, query: str, params: tuple = ()):
+        """Exécute une requête en adaptant les placeholders."""
+        if self.db_type == 'postgres':
+            query = query.replace('?', '%s')
+            cursor = conn.cursor(cursor_factory=extras.DictCursor)
+        else:
+            cursor = conn.cursor()
+        
+        cursor.execute(query, params)
+        return cursor
+
     
     # ========================================
     # CLIENTS
@@ -93,18 +129,26 @@ class DatabaseManager:
         """Créer un nouveau client."""
         conn = self.get_connection()
         try:
-            cursor = conn.execute("""
-                INSERT INTO clients (email, full_name, company_name, phone)
-                VALUES (?, ?, ?, ?)
-            """, (email, full_name, company_name, phone))
+            query = "INSERT INTO clients (email, full_name, company_name, phone) VALUES (?, ?, ?, ?)"
+            if self.db_type == 'postgres':
+                query += " RETURNING id"
+            
+            cursor = self._execute(conn, query, (email, full_name, company_name, phone))
+            
+            if self.db_type == 'postgres':
+                new_id = cursor.fetchone()[0]
+            else:
+                new_id = cursor.lastrowid
+                
             conn.commit()
             logger.info(f"Client created: {email}")
-            return cursor.lastrowid
-        except sqlite3.IntegrityError:
-            logger.warning(f"Client already exists: {email}")
-            # Retourner l'ID existant
-            cursor = conn.execute("SELECT id FROM clients WHERE email = ?", (email,))
-            return cursor.fetchone()[0]
+            return new_id
+        except Exception as e:
+            # Check for unique constraint manually to avoid DB differences
+            logger.warning(f"Client creation failed or exists: {email} - {e}")
+            cursor = self._execute(conn, "SELECT id FROM clients WHERE email = ?", (email,))
+            row = cursor.fetchone()
+            return row[0] if row else None
         finally:
             conn.close()
     
@@ -113,9 +157,9 @@ class DatabaseManager:
         conn = self.get_connection()
         try:
             if email:
-                cursor = conn.execute("SELECT * FROM clients WHERE email = ?", (email,))
+                cursor = self._execute(conn, "SELECT * FROM clients WHERE email = ?", (email,))
             elif client_id:
-                cursor = conn.execute("SELECT * FROM clients WHERE id = ?", (client_id,))
+                cursor = self._execute(conn, "SELECT * FROM clients WHERE id = ?", (client_id,))
             else:
                 raise ValueError("email or client_id required")
             
@@ -144,7 +188,7 @@ class DatabaseManager:
         
         conn = self.get_connection()
         try:
-            conn.execute(f"UPDATE clients SET {set_clause} WHERE id = ?", values)
+            self._execute(conn, f"UPDATE clients SET {set_clause} WHERE id = ?", tuple(values))
             conn.commit()
             logger.info(f"Client {client_id} updated")
         finally:
@@ -160,7 +204,6 @@ class DatabaseManager:
         """Créer une nouvelle réclamation."""
         conn = self.get_connection()
         try:
-            # Champs optionnels
             store_id = kwargs.get('store_id')
             tracking_number = kwargs.get('tracking_number')
             order_date = kwargs.get('order_date')
@@ -168,19 +211,26 @@ class DatabaseManager:
             delivery_address = kwargs.get('delivery_address')
             currency = kwargs.get('currency', 'EUR')
             
-            cursor = conn.execute("""
+            query = """
                 INSERT INTO claims (
                     claim_reference, client_id, store_id, order_id, carrier,
                     dispute_type, amount_requested, tracking_number, order_date,
                     customer_name, delivery_address, currency
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (claim_reference, client_id, store_id, order_id, carrier,
-                  dispute_type, amount_requested, tracking_number, order_date,
-                  customer_name, delivery_address, currency))
+            """
+            if self.db_type == 'postgres':
+                query += " RETURNING id"
+                
+            cursor = self._execute(conn, query, (
+                claim_reference, client_id, store_id, order_id, carrier,
+                dispute_type, amount_requested, tracking_number, order_date,
+                customer_name, delivery_address, currency
+            ))
             
+            new_id = cursor.fetchone()[0] if self.db_type == 'postgres' else cursor.lastrowid
             conn.commit()
             logger.info(f"Claim created: {claim_reference}")
-            return cursor.lastrowid
+            return new_id
         finally:
             conn.close()
     
@@ -189,10 +239,9 @@ class DatabaseManager:
         conn = self.get_connection()
         try:
             if claim_reference:
-                cursor = conn.execute("SELECT * FROM claims WHERE claim_reference = ?", 
-                                    (claim_reference,))
+                cursor = self._execute(conn, "SELECT * FROM claims WHERE claim_reference = ?", (claim_reference,))
             elif claim_id:
-                cursor = conn.execute("SELECT * FROM claims WHERE id = ?", (claim_id,))
+                cursor = self._execute(conn, "SELECT * FROM claims WHERE id = ?", (claim_id,))
             else:
                 raise ValueError("claim_reference or claim_id required")
             
@@ -216,15 +265,14 @@ class DatabaseManager:
             return
         
         updates['updated_at'] = datetime.now()
-        
         set_clause = ', '.join([f"{k} = ?" for k in updates.keys()])
         values = list(updates.values()) + [claim_id]
         
         conn = self.get_connection()
         try:
-            conn.execute(f"UPDATE claims SET {set_clause} WHERE id = ?", values)
+            self._execute(conn, f"UPDATE claims SET {set_clause} WHERE id = ?", tuple(values))
             conn.commit()
-            logger.info(f"Claim {claim_id} updated: {updates}")
+            logger.info(f"Claim {claim_id} updated")
         finally:
             conn.close()
     
@@ -233,17 +281,11 @@ class DatabaseManager:
         conn = self.get_connection()
         try:
             if status:
-                cursor = conn.execute("""
-                    SELECT * FROM claims 
-                    WHERE client_id = ? AND status = ?
-                    ORDER BY created_at DESC
-                """, (client_id, status))
+                query = "SELECT * FROM claims WHERE client_id = ? AND status = ? ORDER BY created_at DESC"
+                cursor = self._execute(conn, query, (client_id, status))
             else:
-                cursor = conn.execute("""
-                    SELECT * FROM claims 
-                    WHERE client_id = ?
-                    ORDER BY created_at DESC
-                """, (client_id,))
+                query = "SELECT * FROM claims WHERE client_id = ? ORDER BY created_at DESC"
+                cursor = self._execute(conn, query, (client_id,))
             
             return [dict(row) for row in cursor.fetchall()]
         finally:
@@ -265,25 +307,31 @@ class DatabaseManager:
             tracking_number = kwargs.get('tracking_number')
             customer_name = kwargs.get('customer_name')
             currency = kwargs.get('currency', 'EUR')
-            
             success_probability = kwargs.get('success_probability')
             predicted_days = kwargs.get('predicted_days_to_recovery')
             
-            cursor = conn.execute("""
+            query = """
                 INSERT INTO disputes (
                     client_id, store_id, order_id, carrier, dispute_type,
                     amount_recoverable, order_date, expected_delivery_date,
                     actual_delivery_date, tracking_number, customer_name, currency,
                     success_probability, predicted_days_to_recovery
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (client_id, store_id, order_id, carrier, dispute_type,
-                  amount_recoverable, order_date, expected_delivery_date,
-                  actual_delivery_date, tracking_number, customer_name, currency,
-                  success_probability, predicted_days))
+            """
+            if self.db_type == 'postgres':
+                query += " RETURNING id"
+                
+            cursor = self._execute(conn, query, (
+                client_id, store_id, order_id, carrier, dispute_type,
+                amount_recoverable, order_date, expected_delivery_date,
+                actual_delivery_date, tracking_number, customer_name, currency,
+                success_probability, predicted_days
+            ))
             
+            new_id = cursor.fetchone()[0] if self.db_type == 'postgres' else cursor.lastrowid
             conn.commit()
             logger.info(f"Dispute created for client {client_id}: {order_id}")
-            return cursor.lastrowid
+            return new_id
         finally:
             conn.close()
     
@@ -292,17 +340,11 @@ class DatabaseManager:
         conn = self.get_connection()
         try:
             if is_claimed is not None:
-                cursor = conn.execute("""
-                    SELECT * FROM disputes 
-                    WHERE client_id = ? AND is_claimed = ?
-                    ORDER BY detected_at DESC
-                """, (client_id, 1 if is_claimed else 0))
+                query = "SELECT * FROM disputes WHERE client_id = ? AND is_claimed = ? ORDER BY detected_at DESC"
+                cursor = self._execute(conn, query, (client_id, 1 if is_claimed else 0))
             else:
-                cursor = conn.execute("""
-                    SELECT * FROM disputes 
-                    WHERE client_id = ?
-                    ORDER BY detected_at DESC
-                """, (client_id,))
+                query = "SELECT * FROM disputes WHERE client_id = ? ORDER BY detected_at DESC"
+                cursor = self._execute(conn, query, (client_id,))
             
             return [dict(row) for row in cursor.fetchall()]
         finally:
@@ -312,11 +354,7 @@ class DatabaseManager:
         """Marquer un litige comme réclamé."""
         conn = self.get_connection()
         try:
-            conn.execute("""
-                UPDATE disputes 
-                SET is_claimed = 1, claim_id = ?
-                WHERE id = ?
-            """, (claim_id, dispute_id))
+            self._execute(conn, "UPDATE disputes SET is_claimed = 1, claim_id = ? WHERE id = ?", (claim_id, dispute_id))
             conn.commit()
             logger.info(f"Dispute {dispute_id} marked as claimed")
         finally:
@@ -332,17 +370,21 @@ class DatabaseManager:
         """Créer un enregistrement de paiement."""
         conn = self.get_connection()
         try:
-            cursor = conn.execute("""
+            query = """
                 INSERT INTO payments (
                     claim_id, client_id, total_amount, client_share,
                     platform_fee, payment_method
                 ) VALUES (?, ?, ?, ?, ?, ?)
-            """, (claim_id, client_id, total_amount, client_share,
-                  platform_fee, payment_method))
+            """
+            if self.db_type == 'postgres':
+                query += " RETURNING id"
+                
+            cursor = self._execute(conn, query, (claim_id, client_id, total_amount, client_share, platform_fee, payment_method))
             
+            new_id = cursor.fetchone()[0] if self.db_type == 'postgres' else cursor.lastrowid
             conn.commit()
             logger.info(f"Payment created for claim {claim_id}")
-            return cursor.lastrowid
+            return new_id
         finally:
             conn.close()
     
@@ -360,7 +402,7 @@ class DatabaseManager:
         
         conn = self.get_connection()
         try:
-            conn.execute(f"UPDATE payments SET {set_clause} WHERE id = ?", values)
+            self._execute(conn, f"UPDATE payments SET {set_clause} WHERE id = ?", tuple(values))
             conn.commit()
             logger.info(f"Payment {payment_id} updated")
         finally:
@@ -376,16 +418,20 @@ class DatabaseManager:
         """Logger un email envoyé."""
         conn = self.get_connection()
         try:
-            cursor = conn.execute("""
+            query = """
                 INSERT INTO notifications (
                     client_id, notification_type, subject, sent_to,
                     status, related_claim_id, error_message
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (client_id, notification_type, subject, sent_to,
-                  status, related_claim_id, error_message))
+            """
+            if self.db_type == 'postgres':
+                query += " RETURNING id"
+                
+            cursor = self._execute(conn, query, (client_id, notification_type, subject, sent_to, status, related_claim_id, error_message))
             
+            new_id = cursor.fetchone()[0] if self.db_type == 'postgres' else cursor.lastrowid
             conn.commit()
-            return cursor.lastrowid
+            return new_id
         finally:
             conn.close()
     
@@ -402,13 +448,12 @@ class DatabaseManager:
         try:
             details_json = json.dumps(details) if details else None
             
-            conn.execute("""
+            self._execute(conn, """
                 INSERT INTO activity_logs (
                     client_id, action, resource_type, resource_id,
                     details, ip_address, user_agent
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (client_id, action, resource_type, resource_id,
-                  details_json, ip_address, user_agent))
+            """, (client_id, action, resource_type, resource_id, details_json, ip_address, user_agent))
             
             conn.commit()
         finally:
@@ -422,10 +467,7 @@ class DatabaseManager:
         """Récupérer les statistiques d'un client."""
         conn = self.get_connection()
         try:
-            cursor = conn.execute("""
-                SELECT * FROM client_statistics WHERE client_id = ?
-            """, (client_id,))
-            
+            cursor = self._execute(conn, "SELECT * FROM client_statistics WHERE client_id = ?", (client_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
         finally:
@@ -435,7 +477,7 @@ class DatabaseManager:
         """Récupérer les statistiques de tous les clients (admin)."""
         conn = self.get_connection()
         try:
-            cursor = conn.execute("SELECT * FROM client_statistics")
+            cursor = self._execute(conn, "SELECT * FROM client_statistics")
             return [dict(row) for row in cursor.fetchall()]
         finally:
             conn.close()

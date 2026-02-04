@@ -190,34 +190,50 @@ def _render_evidence_section(dispute_data):
     
     
     if uploaded_evidence:
-        # Save file logic
-        claim_id = dispute_data.get('dispute_id', 'unknown')
-        save_dir = os.path.join(root_dir, 'data', 'evidence', str(claim_id))
-        os.makedirs(save_dir, exist_ok=True)
+        # 1. Setup Storage (Cloud vs Local)
+        from src.database.supabase_storage import get_storage_manager
+        storage = get_storage_manager()
+        claim_id = str(dispute_data.get('dispute_id', 'unknown'))
         
-        file_path = os.path.join(save_dir, uploaded_evidence.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_evidence.getbuffer())
-        
-        st.success(f"✅ {uploaded_evidence.name} ajouté !")
-        
-        # Trigger OCR / Analysis
-        with st.spinner("🤖 Analyse intelligente (OCR/NLP) en cours..."):
+        with st.spinner("📤 Envoi et analyse de la preuve..."):
+            # A. Cloud Upload
+            cloud_path = None
+            if storage.client:
+                cloud_path = storage.upload_file(claim_id, uploaded_evidence.name, uploaded_evidence.getvalue())
+                if cloud_path:
+                    st.success(f"✅ {uploaded_evidence.name} sauvegardé dans le Cloud !")
+            
+            # B. Local Backup (optional, for safety or if no cloud)
+            save_dir = os.path.join(root_dir, 'data', 'evidence', claim_id)
+            if not storage.client:
+                os.makedirs(save_dir, exist_ok=True)
+                file_path = os.path.join(save_dir, uploaded_evidence.name)
+                with open(file_path, "wb") as f:
+                    f.write(uploaded_evidence.getbuffer())
+                local_path = file_path
+            else:
+                local_path = uploaded_evidence # Pass buffer to OCR
+
+            # C. Trigger OCR / Analysis
             from src.scrapers.ocr_processor import OCRProcessor
             ocr_processor = OCRProcessor()
             
-            # 1. Extract Text & Attachments
-            extracted_text, attachments = ocr_processor.extract_all_from_file(file_path, uploaded_evidence.name)
+            # Extract Text & Attachments
+            extracted_text, attachments = ocr_processor.extract_all_from_file(local_path, uploaded_evidence.name)
             
-            # 2. Save extracted attachments as evidence
+            # Save extracted attachments
             for att in attachments:
-                att_path = os.path.join(save_dir, att['filename'])
-                if not os.path.exists(att_path): # Éviter les doublons
-                    with open(att_path, "wb") as f:
-                        f.write(att['content'])
-                    st.toast(f"📎 Pièce jointe extraite : {att['filename']}")
+                if storage.client:
+                    storage.upload_file(claim_id, att['filename'], att['content'], att['content_type'])
+                else:
+                    os.makedirs(save_dir, exist_ok=True)
+                    att_path = os.path.join(save_dir, att['filename'])
+                    if not os.path.exists(att_path):
+                        with open(att_path, "wb") as f:
+                            f.write(att['content'])
+                st.toast(f"📎 Pièce jointe extraite : {att['filename']}")
             
-            # 3. Analyze
+            # Analyze
             analysis = ocr_processor.analyze_rejection_text(extracted_text)
             
             # Store in session state for feedback
@@ -284,6 +300,15 @@ def _render_evidence_section(dispute_data):
                     st.session_state.show_correction_form = False
                     st.rerun()
         
+    if storage.client:
+        # Cloud listing
+        cloud_files = storage.list_files(claim_id)
+        evidence_photos = []
+        for f in cloud_files:
+            if f['name'].lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                url = storage.get_public_url(f"{claim_id}/{f['name']}")
+                if url: evidence_photos.append(url)
+    
     if evidence_photos:
         cols = st.columns(min(3, len(evidence_photos)))
         for idx, photo in enumerate(evidence_photos[:3]):

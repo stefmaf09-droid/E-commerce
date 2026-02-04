@@ -231,7 +231,24 @@ def main():
                 st.markdown("- 🟡 **Pending:** 4,200€")
                 
                 st.markdown("#### Client Trust Scores")
-                st.dataframe(pd.DataFrame(stats), hide_index=True)
+                trust_df = pd.DataFrame(stats)
+                if not trust_df.empty and 'total_claims' in trust_df.columns:
+                    trust_df['Trust %'] = (trust_df['accepted_claims'] / trust_df['total_claims'] * 100).fillna(0).round(0).astype(int)
+                    st.dataframe(
+                        trust_df[['email', 'Trust %']].sort_values('Trust %', ascending=False),
+                        hide_index=True,
+                        use_container_width=True,
+                        column_config={
+                            "email": "Client",
+                            "Trust %": st.column_config.ProgressColumn(
+                                "Trust Score",
+                                help="Taux d'acceptation des dossiers",
+                                format="%d%%",
+                                min_value=0,
+                                max_value=100,
+                            ),
+                        }
+                    )
 
     with tab_logs:
         st.markdown("#### Audit Log Feed")

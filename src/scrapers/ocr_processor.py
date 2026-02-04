@@ -5,6 +5,14 @@ from typing import Dict, Any, List, Tuple
 import email
 from email import policy
 from email.parser import BytesParser
+import json
+
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +65,20 @@ class OCRProcessor:
         self.rejection_patterns_rev = {
             r"(verified|correct|match).*(weight|poids)": self.rejection_patterns[r"(poids|weight|réel).*(conforme|réel|match|verified|correct)"]
         }
+        
+        # Initialize Gemini if key exists
+        self.gemini_key = os.getenv('GOOGLE_API_KEY')
+        if self.gemini_key and GEMINI_AVAILABLE:
+            try:
+                genai.configure(api_key=self.gemini_key)
+                self.model = genai.GenerativeModel('gemini-1.5-flash')
+                logger.info("Gemini AI initialized successfully for OCRProcessor.")
+            except Exception as e:
+                logger.error(f"Failed to initialize Gemini: {e}")
+                self.model = None
+        else:
+            self.model = None
+
 
     def save_correction(self, original_text: str, corrected_reason_key: str, user_feedback: str = ""):
         """
@@ -109,8 +131,33 @@ class OCRProcessor:
 
     def analyze_rejection_text(self, text: str) -> Dict[str, Any]:
         """
-        Analyse le texte extrait et retourne le motif détecté avec un score de confiance.
+        Analyse le texte extrait et retourne le motif détecté.
+        Utilise Gemini si disponible, sinon retombe sur les regex.
         """
+        if self.model:
+            try:
+                prompt = f"""
+                Analyse la lettre de rejet d'un transporteur e-commerce ci-dessous et identifie le motif de refus.
+                
+                Texte de la lettre :
+                {text[:2000]}
+                
+                Répond uniquement sous format JSON avec ces champs:
+                - reason_key: (bad_signature, weight_match, bad_packaging, deadline_expired, wrong_address, other)
+                - label_fr: Nom court du motif en français
+                - advice_fr: Conseil stratégique pour le marchand (2 phrases maximum)
+                - confidence: 0.0 à 1.0
+                """
+                response = self.model.generate_content(prompt)
+                # Cleanup potential markdown json
+                json_str = response.text.replace('```json', '').replace('```', '').strip()
+                analysis = json.loads(json_str)
+                logger.info(f"Gemini Analysis successful: {analysis.get('reason_key')}")
+                return analysis
+            except Exception as e:
+                logger.error(f"Gemini Analysis failed, falling back to Regex: {e}")
+
+        # Fallback Regex (Ancien système)
         # Test patterns normaux
         for pattern, info in self.rejection_patterns.items():
             if re.search(pattern, text, re.IGNORECASE):

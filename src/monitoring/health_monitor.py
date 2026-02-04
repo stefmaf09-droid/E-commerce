@@ -17,7 +17,9 @@ class HealthMonitor:
         start = time.time()
         try:
             conn = self.db.get_connection()
-            conn.execute("SELECT 1").fetchone()
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                cur.fetchone()
             conn.close()
             latency = (time.time() - start) * 1000
             return {"status": "HEALTHY", "latency_ms": round(latency, 2)}
@@ -34,8 +36,12 @@ class HealthMonitor:
         """Exporte des métriques au format Prometheus."""
         conn = self.db.get_connection()
         try:
-            total_claims = conn.execute("SELECT COUNT(*) FROM claims").fetchone()[0]
-            pending_claims = conn.execute("SELECT COUNT(*) FROM claims WHERE status = 'pending'").fetchone()[0]
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM claims")
+                total_claims = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM claims WHERE status = 'pending'")
+                pending_claims = cur.fetchone()[0]
             
             metrics = [
                 f'recours_total_claims_count {total_claims}',

@@ -75,4 +75,16 @@ Refundly.ai est conçu pour fonctionner dans plusieurs pays et zones géographiq
 | **Hong Kong** | **Control of Exemption Clauses Ordinance** & Common Law. |
 | **Singapour** | **Carriage of Goods by Road Act** & Application of English Law Act. |
 
-L'application détecte automatiquement le pays de destination et ajuste la mise en demeure avec le texte de loi localement applicable pour maximiser vos chances de succès.
+---
+
+## 7. Code vs Data : Quelle est la différence ?
+
+C'est une confusion fréquente lors du passage au Cloud :
+
+* **GitHub (Code)** : C'est le "moteur" de votre voiture. Quand vous faites une mise à jour sur GitHub, vous changez le moteur, ajoutez des fonctionnalités, corrigez des bugs. Cela se déploie automatiquement sur le Cloud.
+* **Base de Données (Data)** : C'est le "carburant" (vos clients, vos dossiers). GitHub ne touche JAMAIS à vos données pour des raisons de sécurité.
+* **Le bouton "Cloud Sync"** : C'est la pompe à essence qui permet de transférer votre carburant (données locales) vers le nouveau moteur (Cloud).
+
+**En résumé :**
+* Je modifie l'appli (couleurs, boutons) -> **GitHub**
+* Je veux voir mes clients sur le site web -> **Cloud Sync**

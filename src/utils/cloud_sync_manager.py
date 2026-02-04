@@ -94,12 +94,21 @@ class CloudSyncManager:
             rows = sqlite_cur.fetchall()
             if not rows: continue
 
-            columns = rows[0].keys()
+            columns = list(rows[0].keys())
             placeholders = ", ".join(["%s"] * len(columns))
             insert_query = f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
 
+            # Columns known to be boolean in Postgres
+            bool_cols = ['is_active', 'stripe_onboarding_completed', 'evidence_uploaded', 'is_claimed']
+
             for row in rows:
-                pg_cur.execute(insert_query, tuple(row))
+                data = list(row)
+                for i, col in enumerate(columns):
+                    if col in bool_cols and data[i] is not None:
+                        # Convert 1/0 to True/False for Postgres
+                        data[i] = bool(data[i])
+                
+                pg_cur.execute(insert_query, tuple(data))
                 total_inserted += 1
         
         pg_conn.commit()

@@ -23,11 +23,20 @@ class CloudSyncManager:
         return all([self.supabase_url, self.supabase_key, self.db_url])
 
     def run_full_sync(self):
-        """Lance la migration complète (Base + Fichiers)."""
+        """Lance la migration complète (Schema + Base + Fichiers)."""
         if not self.is_configured():
              return False, "⚠️ Configuration Cloud manquante dans les Secrets."
              
         results = []
+        
+        # 0. Sync Schema (Init DB if empty)
+        try:
+            schema_success, schema_msg = self._init_schema()
+            results.append(f"Schema: {schema_msg}")
+            if not schema_success:
+                return False, f"Schema Error: {schema_msg}"
+        except Exception as e:
+            return False, f"Schema Critical Error: {str(e)}"
         
         # 1. Sync Base de données
         try:
@@ -46,6 +55,25 @@ class CloudSyncManager:
             results.append(f"Files Error: {str(e)}")
             
         return (db_success and file_success), "\n".join(results)
+
+    def _init_schema(self) -> Tuple[bool, str]:
+        """Initialise le schéma PostgreSQL si nécessaire."""
+        schema_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'database', 'schema_postgres.sql')
+        if not os.path.exists(schema_path):
+            return False, "Fichier schema_postgres.sql introuvable."
+
+        try:
+            pg_conn = psycopg2.connect(self.db_url)
+            with pg_conn.cursor() as cur:
+                with open(schema_path, 'r', encoding='utf-8') as f:
+                    schema_sql = f.read()
+                    # Psycopg2 can execute multiple statements in one go if they are valid SQL
+                    cur.execute(schema_sql)
+            pg_conn.commit()
+            pg_conn.close()
+            return True, "Schéma vérifié/créé."
+        except Exception as e:
+            return False, str(e)
 
     def _sync_database(self) -> Tuple[bool, str]:
         if not os.path.exists(self.local_db_path):

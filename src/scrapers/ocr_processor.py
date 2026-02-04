@@ -55,6 +55,42 @@ class OCRProcessor:
             r"(verified|correct|match).*(weight|poids)": self.rejection_patterns[r"(poids|weight|réel).*(conforme|réel|match|verified|correct)"]
         }
 
+    def save_correction(self, original_text: str, corrected_reason_key: str, user_feedback: str = ""):
+        """
+        Enregistre la correction de l'utilisateur pour améliorer l'IA (Feedback Loop).
+        """
+        import json
+        import os
+        from datetime import datetime
+        
+        feedback_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'ocr_feedback.json')
+        os.makedirs(os.path.dirname(feedback_file), exist_ok=True)
+        
+        entry = {
+            'timestamp': datetime.now().isoformat(),
+            'original_text_snippet': original_text[:200], # Keep snippet
+            'corrected_reason_key': corrected_reason_key,
+            'user_feedback': user_feedback
+        }
+        
+        try:
+            if os.path.exists(feedback_file):
+                with open(feedback_file, 'r', encoding='utf-8') as f:
+                    feedbacks = json.load(f)
+            else:
+                feedbacks = []
+                
+            feedbacks.append(entry)
+            
+            with open(feedback_file, 'w', encoding='utf-8') as f:
+                json.dump(feedbacks, f, indent=2, ensure_ascii=False)
+                
+            logger.info("Feedback saved successfully.")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving feedback: {e}")
+            return False
+
     def preprocess_image(self, image_path: str) -> Dict[str, Any]:
         """
         Simule le prétraitement d'image (Binarisation, Débruitage, Deskewing).
@@ -121,39 +157,59 @@ class OCRProcessor:
             try:
                 from PIL import Image
                 import pytesseract
+                import os
+                import shutil
                 
-                # Configuration Tesseract windows
-                pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+                # Configuration Tesseract Plus Robuste
+                # On cherche dans les chemins standards si pas configuré par défaut
+                tesseract_paths = [
+                    r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+                    r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
+                    '/usr/bin/tesseract',
+                    '/usr/local/bin/tesseract'
+                ]
+                
+                # Vérifier si déjà dans le PATH
+                if shutil.which('tesseract'):
+                     # Déjà configuré dans le PATH, pas besoin de spécifier cmd
+                     pass
+                else:
+                    found = False
+                    for path in tesseract_paths:
+                        if os.path.exists(path):
+                            pytesseract.pytesseract.tesseract_cmd = path
+                            found = True
+                            break
+                    if not found:
+                         logger.warning("Tesseract executable not found. OCR will fail.")
+
                 
                 image = Image.open(file_path_or_buffer)
                 
-                # Stratégie Multi-Angle : On tente l'OCR sous plusieurs angles car l'utilisateur
-                # peut prendre la photo en portrait/paysage
+                # Stratégie Multi-Angle
                 rotations = [0, -90, 90] 
                 full_text = ""
                 
                 for angle in rotations:
-                    # Rotation de l'image
                     rotated_img = image.rotate(angle, expand=True)
+                    rotated_img = rotated_img.convert('L') # Niveaux de gris
                     
-                    # Convertir en niveaux de gris
-                    rotated_img = rotated_img.convert('L')
-                    
-                    # OCR
-                    page_text = pytesseract.image_to_string(rotated_img)
+                    # Configuration : --psm 6 (Assume a single uniform block of text) peut être meilleur pour des lettres
+                    custom_config = r'--oem 3 --psm 6' 
+                    page_text = pytesseract.image_to_string(rotated_img, config=custom_config)
                     full_text += f"\n--- Angle {angle}° ---\n" + page_text
                     
-                    # Optimisation : Si on trouve un transporteur, on peut s'arrêter (optionnel, ici on veut tout)
-                    logger.info(f"OCR Angle {angle}° extracted {len(page_text)} chars.")
+                    if len(page_text) > 50: # Si on trouve du texte significatif, c'est bon signe
+                         logger.info(f"OCR Angle {angle}° extracted {len(page_text)} chars.")
 
                 text = full_text
                 logger.info("Multi-angle OCR completed")
             except ImportError:
-                logger.warning("Pytesseract or Pillow not installed or configured.")
+                logger.warning("Pytesseract or Pillow not installed.")
             except Exception as e:
                 logger.warning(f"Image OCR failed: {e}")
 
-        # 3. Fallback : Si texte vide, utiliser la simulation basée sur le nom
+        # 3. Fallback
         if not text or len(text) < 10:
             logger.info("Fallback to simulation based on filename")
             return self.simulate_ocr_on_file(filename)
@@ -167,7 +223,7 @@ class OCRProcessor:
         filename = filename.lower()
         if "rejet_poids" in filename:
             return "Après vérification, le poids réel du colis lors du transit correspond au poids déclaré."
-        elif "signature" in filename: # Élargi pour capter 'signature'
+        elif "signature" in filename: 
             return "La signature présente sur le document de livraison est reconnue comme valide par nos services."
         elif "rejet_delai" in filename:
             return "Votre demande d'indemnisation est rejetée car le délai de réclamation de 30 jours est dépassé."

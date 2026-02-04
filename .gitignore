@@ -65,3 +65,9 @@ htmlcov/
 *.key
 *.crt
 credentials.json
+
+# Local Data/DB
+*.db
+data/legal_docs/*.pdf
+data/ocr_feedback.json
+

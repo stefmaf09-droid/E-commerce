@@ -18,7 +18,7 @@ from src.utils.i18n import get_i18n_text, format_currency
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_JUSTIFY, TA_RIGHT
 
@@ -93,10 +93,23 @@ class LegalDocumentGenerator:
         
         story = []
         
+        # 0. Logo
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'static', 'refundly_logo.png')
+        if os.path.exists(logo_path):
+            # Ajout du logo (largeur 8cm, hauteur 2.5cm - plus grand)
+            im = Image(logo_path, width=8*cm, height=2.5*cm)
+            im.hAlign = 'LEFT'
+            story.append(im)
+            story.append(Spacer(1, 0.5*cm)) # Reduce spacer slightly as image is taller
+        else:
+            logger.warning(f"Logo PDF introuvable : {logo_path}")
+        
         # 1. En-tête (Expéditeur & Destinataire)
         story.append(Paragraph(f"<b>{get_i18n_text('legal_header_from', lang)}</b>", self.styles['LegalBold']))
-        story.append(Paragraph(f"{claim.get('customer_name', 'Client E-commerce')}", self.styles['LegalBody']))
-        story.append(Paragraph(f"Agissant par mandat de : Recours E-commerce", self.styles['LegalBody']))
+        # Use Refundly.ai identity with client company
+        company = claim.get('company_name', 'Client E-commerce')
+        story.append(Paragraph(f"Refundly.ai", self.styles['LegalBody']))
+        story.append(Paragraph(f"Agissant pour le compte de : {company}", self.styles['LegalBody']))
         story.append(Spacer(1, 1*cm))
         
         story.append(Paragraph(f"<b>{get_i18n_text('legal_header_to', lang)}</b>", self.styles['LegalBold']))

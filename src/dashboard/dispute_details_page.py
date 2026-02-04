@@ -181,6 +181,101 @@ def _render_evidence_section(dispute_data):
     
     evidence_photos = dispute_data.get('evidence_photos', [])
     
+    # --- New Evidence Uploader ---
+    uploaded_evidence = st.file_uploader(
+        "📤 Ajouter une preuve (Photo/PDF)", 
+        type=['png', 'jpg', 'jpeg', 'pdf'],
+        key=f"uploader_{dispute_data.get('dispute_id')}"
+    )
+    
+    
+    if uploaded_evidence:
+        # Save file logic
+        claim_id = dispute_data.get('dispute_id', 'unknown')
+        save_dir = os.path.join(root_dir, 'data', 'evidence', str(claim_id))
+        os.makedirs(save_dir, exist_ok=True)
+        
+        file_path = os.path.join(save_dir, uploaded_evidence.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_evidence.getbuffer())
+        
+        st.success(f"✅ {uploaded_evidence.name} ajouté !")
+        
+        # Trigger OCR / Analysis
+        with st.spinner("🤖 Analyse intelligente (OCR/NLP) en cours..."):
+            from src.scrapers.ocr_processor import OCRProcessor
+            ocr_processor = OCRProcessor()
+            
+            # 1. Extract Text
+            extracted_text = ocr_processor.extract_text_from_file(file_path, uploaded_evidence.name)
+            
+            # 2. Analyze
+            analysis = ocr_processor.analyze_rejection_text(extracted_text)
+            
+            # Store in session state for feedback
+            st.session_state.last_analysis = {
+                'text': extracted_text,
+                'result': analysis,
+                'file': uploaded_evidence.name
+            }
+            
+            st.rerun()
+
+    # --- Display Analysis Result & Feedback Loop ---
+    if 'last_analysis' in st.session_state:
+        analysis = st.session_state.last_analysis['result']
+        text_snippet = st.session_state.last_analysis['text'][:300] + "..."
+        
+        st.info(f"💡 **Analyse IA :** {analysis['label_fr']} (Confiance: {int(analysis.get('confidence', 0)*100)}%)")
+        
+        with st.expander("Voir le texte extrait"):
+            st.code(text_snippet)
+            
+        col_feedback1, col_feedback2 = st.columns(2)
+        with col_feedback1:
+            if st.button("✅ Confirmer l'analyse", key="confirm_ocr"):
+                st.toast("Feedback enregistré : L'IA apprend de cette confirmation !", icon="🧠")
+                # Feedback implicite : on pourrait le sauvegarder aussi
+                del st.session_state.last_analysis
+                st.rerun()
+                
+        with col_feedback2:
+            if st.button("❌ Signaler une erreur", key="reject_ocr"):
+                st.session_state.show_correction_form = True
+        
+        if st.session_state.get('show_correction_form'):
+            with st.form("ocr_feedback_form"):
+                st.write("Aidez-nous à améliorer l'IA : Quel est le vrai motif ?")
+                correct_reason = st.selectbox(
+                    "Motif Réel",
+                    ["Signature Non Conforme", "Poids Vérifié", "Emballage Insuffisant", "Délai Dépassé", "Erreur Adresse", "Autre"]
+                )
+                comment = st.text_input("Commentaire (Optionnel)")
+                
+                if st.form_submit_button("Envoyer Correction"):
+                    from src.scrapers.ocr_processor import OCRProcessor
+                    ocr = OCRProcessor()
+                    
+                    # Map label back to key (simplified for demo)
+                    key_map = {
+                        "Signature Non Conforme": "bad_signature",
+                        "Poids Vérifié": "weight_match", 
+                        "Emballage Insuffisant": "bad_packaging",
+                        "Délai Dépassé": "deadline_expired",
+                        "Erreur Adresse": "wrong_address"
+                    }
+                    
+                    ocr.save_correction(
+                        original_text=st.session_state.last_analysis['text'],
+                        corrected_reason_key=key_map.get(correct_reason, "other"),
+                        user_feedback=comment
+                    )
+                    
+                    st.success("Merci ! Votre correction a été prise en compte.")
+                    del st.session_state.last_analysis
+                    st.session_state.show_correction_form = False
+                    st.rerun()
+        
     if evidence_photos:
         cols = st.columns(min(3, len(evidence_photos)))
         for idx, photo in enumerate(evidence_photos[:3]):

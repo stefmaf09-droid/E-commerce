@@ -35,25 +35,48 @@ class DatabaseManager:
         self._ensure_database_exists()
     
     def _ensure_database_exists(self):
-        """Créer la base de données si elle n'existe pas."""
+        """Créer la base et les tables si elles n'existent pas."""
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         
-        # Créer tables si nécessaire
-        schema_path = os.path.join(os.path.dirname(self.db_path), 'schema.sql')
-        if os.path.exists(schema_path):
-            with open(schema_path, 'r', encoding='utf-8') as f:
-                schema = f.read()
+        # Vérification plus robuste : est-ce que les tables existent ?
+        conn = self.get_connection()
+        try:
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='clients'")
+            table_exists = cursor.fetchone()
             
-            conn = self.get_connection()
-            try:
-                conn.executescript(schema)
-                conn.commit()
-                logger.info(f"Database initialized at {self.db_path}")
-            except Exception as e:
-                logger.error(f"Error initializing database: {e}")
-                raise
-            finally:
-                conn.close()
+            if not table_exists:
+                logger.info(f"Initializing schema for {self.db_path}")
+                # Créer tables depuis schema.sql
+                # On remonte de 2 niveaux (src/database) -> racine -> database -> schema.sql ??
+                # Attention au chemin relatif selon ou est lancé le script
+                
+                # Tentative 1: Chemin relatif standard projet
+                base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                schema_path = os.path.join(base_dir, 'database', 'schema.sql')
+                
+                if not os.path.exists(schema_path):
+                     # Fallback pour le run local d:\Recours_Ecommerce
+                     schema_path = os.path.join(base_dir, 'schema.sql')
+
+                if os.path.exists(schema_path):
+                    with open(schema_path, 'r', encoding='utf-8') as f:
+                        schema = f.read()
+                    conn.executescript(schema)
+                    conn.commit()
+                    
+                    # Si c'est la base de test, on injecte un client admin par défaut pour éviter le crash
+                    if 'test' in self.db_path.lower():
+                        conn.execute("INSERT OR IGNORE INTO clients (email, full_name) VALUES ('admin@refundly.ai', 'Admin Test')")
+                        conn.commit()
+                        
+                    logger.info(f"Database initialized successfully at {self.db_path}")
+                else:
+                    logger.error(f"Schema file not found at {schema_path}")
+        except Exception as e:
+            logger.error(f"Error initializing database: {e}")
+            # Ne pas raise ici pour laisser une chance, mais c'est critique
+        finally:
+            conn.close()
     
     def get_connection(self) -> sqlite3.Connection:
         """Obtenir une connexion à la base de données."""

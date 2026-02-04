@@ -27,9 +27,13 @@ class EmailTemplateManager:
     <div style="text-align: right; margin-bottom: 20px;">
         <p>{location}, le {date}</p>
     </div>
+    <div style="margin-bottom: 30px;">
+        <img src="cid:refundly_logo" alt="Refundly.ai" style="max-height: 80px;">
+    </div>
     <h2>Demande de statut de réclamation</h2>
     <p>Madame, Monsieur,</p>
-    <p>Nous vous contactons concernant notre réclamation <strong>{claim_reference}</strong> 
+    <p>Nous sommes la société <strong>Refundly.ai</strong> et agissons pour le compte de notre client <strong>{company_name}</strong>.</p>
+    <p>Nous vous contactons concernant la réclamation <strong>{claim_reference}</strong> 
     pour le colis <strong>{tracking_number}</strong> expédié via vos services.</p>
     <p><strong>Détails:</strong></p>
     <ul>
@@ -40,7 +44,13 @@ class EmailTemplateManager:
     </ul>
     <p>Nous n'avons pas reçu de réponse concernant cette réclamation. 
     Merci de nous fournir une mise à jour dans les plus brefs délais.</p>
-    <p>Cordialement,<br>{company_name}</p>
+    <p>Cordialement,<br>L'équipe Refundly.ai pour {company_name}</p>
+    
+    <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 10px; font-size: 11px; color: #777;">
+        <p><strong>Refundly.ai</strong> - SAS au capital de 10 000 € - SIRET 123 456 789 00012<br>
+        25 Rue de Ponthieu, 75008 Paris - <a href="#" style="color: #777;">Conditions Générales</a></p>
+        <p><em>Eco-responsabilité : N'imprimez cet email que si nécessaire.</em></p>
+    </div>
 </body>
 </html>'''
             },
@@ -77,10 +87,14 @@ class EmailTemplateManager:
     <div style="text-align: right; margin-bottom: 20px;">
         <p>{location}, le {date}</p>
     </div>
+    <div style="margin-bottom: 30px;">
+        <img src="cid:refundly_logo" alt="Refundly.ai" style="width: 250px; height: auto;">
+    </div>
     <h2 style="color: #d9534f;">⚠️ Avertissement - Réclamation non traitée</h2>
     <p>Madame, Monsieur,</p>
+    <p>Nous sommes la société <strong>Refundly.ai</strong> et agissons pour le compte de notre client <strong>{company_name}</strong>.</p>
     <p>Malgré notre précédente demande, nous n'avons toujours pas reçu de réponse 
-    concernant notre réclamation <strong>{claim_reference}</strong>.</p>
+    concernant la réclamation <strong>{claim_reference}</strong>.</p>
     <p><strong>Détails de la réclamation:</strong></p>
     <ul>
         <li>Référence: {claim_reference}</li>
@@ -92,7 +106,13 @@ class EmailTemplateManager:
     <p><strong style="color: #d9534f;">Sans réponse de votre part sous 7 jours, 
     nous serons contraints de procéder à une mise en demeure formelle.</strong></p>
     <p>Nous vous invitons à traiter cette réclamation dans les meilleurs délais.</p>
-    <p>Cordialement,<br>{company_name}</p>
+    <p>Cordialement,<br>L'équipe Refundly.ai pour {company_name}</p>
+
+    <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 10px; font-size: 11px; color: #777;">
+        <p><strong>Refundly.ai</strong> - SAS au capital de 10 000 € - SIRET 123 456 789 00012<br>
+        25 Rue de Ponthieu, 75008 Paris - <a href="#" style="color: #777;">Conditions Générales</a></p>
+        <p><em>Eco-responsabilité : N'imprimez cet email que si nécessaire.</em></p>
+    </div>
 </body>
 </html>'''
             },
@@ -131,20 +151,42 @@ class EmailTemplateManager:
     <div style="text-align: right; margin-bottom: 20px;">
         <p style="font-weight: bold;">{location}, le {date}</p>
     </div>
+    <div style="margin-bottom: 30px;">
+        <img src="cid:refundly_logo" alt="Refundly.ai" style="width: 250px; height: auto;">
+    </div>
     <h2 style="color: #c9302c;">⚖️ MISE EN DEMEURE OFFICIELLE</h2>
     <p>Madame, Monsieur,</p>
+    <p>Nous sommes la société <strong>Refundly.ai</strong> et agissons pour le compte de notre client <strong>{company_name}</strong>.</p>
     <p><strong>Référence:</strong> {claim_reference}<br>
     <strong>Numéro de suivi:</strong> {tracking_number}</p>
+    
     <p>Par la présente, nous vous mettons formellement en demeure de traiter 
-    notre réclamation concernant le colis ci-dessus référencé.</p>
+    la réclamation concernant le colis ci-dessus référencé.</p>
+    
     <p><strong>Montant réclamé: {amount} {currency}</strong></p>
+    
+    <p>Conformément à l'<strong>article L. 133-3 du Code de commerce</strong>, 
+    le transporteur est garant de la perte et des avaries des objets transportés. 
+    Notre demande d'indemnisation étant restée sans réponse satisfaisante, 
+    nous exigeons le règlement immédiat de ce litige.</p>
+    
     <p>Vous trouverez ci-joint notre mise en demeure officielle avec tous les 
     détails et pièces justificatives.</p>
+    
     <p><strong style="color: #c9302c;">Délai de réponse: 15 jours à compter de la réception de ce courrier.</strong></p>
+    
     <p>À défaut de règlement dans ce délai, nous nous réserverons le droit 
-    d'engager toute action judiciaire appropriée.</p>
+    d'engager toute action judiciaire appropriée devant le Tribunal de Commerce compétent.</p>
+    
     <p>Veuillez agréer, Madame, Monsieur, nos salutations distinguées.</p>
-    <p>{company_name}</p>
+    <p>L'équipe Refundly.ai pour {company_name}</p>
+    <p><small><em>Ce courrier a valeur de notification officielle.</em></small></p>
+
+    <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 10px; font-size: 11px; color: #777;">
+        <p><strong>Refundly.ai</strong> - SAS au capital de 10 000 € - SIRET 123 456 789 00012<br>
+        25 Rue de Ponthieu, 75008 Paris - <a href="#" style="color: #777;">Conditions Générales</a></p>
+        <p><em>Eco-responsabilité : N'imprimez cet email que si nécessaire.</em></p>
+    </div>
 </body>
 </html>'''
             },

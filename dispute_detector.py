@@ -8,8 +8,13 @@ où de l'argent peut être récupéré auprès des transporteurs.
 
 import pandas as pd
 import json
+import logging
 from datetime import datetime
 from typing import Dict, List, Tuple
+
+from src.integrations.carrier_factory import CarrierFactory
+
+logger = logging.getLogger(__name__)
 
 
 class DisputeDetectionEngine:
@@ -132,6 +137,56 @@ class DisputeDetectionEngine:
         # Génération des statistiques
         stats = self._generate_statistics(results_df, results)
         
+        return results_df, stats
+
+    def process_live_feed(self, orders: List[Dict]) -> Tuple[pd.DataFrame, Dict]:
+        """
+        Processes a list of orders using LIVE tracking data from carrier APIs.
+        Replaces the static CSV analysis with real-time checks.
+        """
+        print(f"📡 Processing live feed for {len(orders)} orders...")
+        results = []
+        
+        for idx, order in enumerate(orders):
+            try:
+                # 1. Enrich with Live Tracking Data
+                carrier_name = order.get('carrier', 'Unknown')
+                tracking_number = order.get('tracking_number')
+                
+                if tracking_number:
+                    connector = CarrierFactory.get_connector(carrier_name)
+                    tracking_details = connector.get_tracking_details(tracking_number)
+                    
+                    # Update order dict with live data
+                    order['status'] = tracking_details.get('status')
+                    
+                    # Calculate 'delay_days' based on delivery_date vs expected
+                    # Simplified logic for demo
+                    order['delay_days'] = 0
+                    if tracking_details.get('status') == 'DELIVERED':
+                         # Logic to calculate delay would go here
+                         pass
+                    
+                    # Mock other fields needed for analysis
+                    if 'pod_valid' not in order:
+                        order['pod_valid'] = True
+                    if 'pod_gps_match' not in order:
+                        order['pod_gps_match'] = True
+                        
+                # 2. Analyze
+                # Convert to Series for compatibility with analyze_order
+                row = pd.Series(order)
+                result = self.analyze_order(row)
+                results.append(result)
+                
+            except Exception as e:
+                logger.error(f"Error processing live order {order.get('order_id')}: {e}")
+                
+            if (idx + 1) % 10 == 0:
+                print(f"   ✓ {idx + 1} orders processed...")
+                
+        results_df = pd.DataFrame(results)
+        stats = self._generate_statistics(results_df, results)
         return results_df, stats
     
     def _generate_statistics(self, results_df: pd.DataFrame, results: List[Dict]) -> Dict:

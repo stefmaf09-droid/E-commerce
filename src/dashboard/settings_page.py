@@ -26,6 +26,8 @@ sys.path.insert(0, root_dir)
 
 from auth.credentials_manager import CredentialsManager
 from utils.i18n import get_i18n_text
+from utils.cloud_sync_manager import CloudSyncManager
+
 
 
 def render_settings_page() -> None:
@@ -63,6 +65,12 @@ def render_settings_page() -> None:
     
     # Email templates
     render_email_templates_section()
+
+    st.markdown("---")
+
+    # Cloud Synchronization (Automatic Migration)
+    render_cloud_sync_section()
+
 
 
 def render_store_management() -> None:
@@ -474,4 +482,35 @@ def render_email_templates_section() -> None:
             st.code("{carrier}", language="text")
             st.code("{amount}", language="text")
             st.caption("+ 7 autres variables...")
+
+
+def render_cloud_sync_section() -> None:
+    """
+    Renders a one-click synchronization section to move local data to Supabase.
+    """
+    st.markdown("### ☁️ Synchronisation Cloud")
+    st.caption("Transférez automatiquement toutes vos données locales (comptes, litiges, photos) vers Supabase.")
+    
+    sync_manager = CloudSyncManager()
+    
+    if not sync_manager.is_configured():
+        st.warning("⚠️ La configuration Cloud n'est pas complète dans vos Secrets Streamlit (URL, Clé ou DB URL manquante).")
+        return
+        
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        st.info("💡 Cette action va copier vos données locales vers votre projet Supabase en ligne. Utile pour ne rien perdre lors du passage définitif au Cloud.")
+        
+    with col2:
+        if st.button("🚀 Lancer la Synchro", use_container_width=True, type="primary"):
+            with st.spinner("⏳ Synchronisation en cours..."):
+                success, message = sync_manager.run_full_sync()
+                if success:
+                    st.success("✅ Synchronisation terminée !")
+                    st.balloons()
+                    st.toast(message)
+                else:
+                    st.error(f"❌ Erreur lors de la synchronisation : {message}")
+
 

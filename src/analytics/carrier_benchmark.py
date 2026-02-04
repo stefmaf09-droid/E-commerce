@@ -24,7 +24,15 @@ class CarrierBenchmarkService:
                 GROUP BY carrier
                 HAVING COUNT(*) > 0
             """
-            df = pd.read_sql_query(query, conn)
+            
+            # Use raw cursor execution instead of read_sql_query for better compatibility
+            # (pandas read_sql often prefers sqlalchemy engine over raw connection)
+            with conn.cursor() as cur:
+                cur.execute(query)
+                columns = [desc[0] for desc in cur.description]
+                data = cur.fetchall()
+            
+            df = pd.DataFrame(data, columns=columns)
             
             if df.empty:
                 # Retourner des données simulées si la BDD est vide

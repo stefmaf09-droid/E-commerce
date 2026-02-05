@@ -213,8 +213,8 @@ def main():
         
         selected = option_menu(
             "Menu Principal",
-            ["Tableau de Bord", "Dépôt Preuves", "Mes Litiges", "Rapports", "Réglages", "💬 Assistant"],
-            icons=["speedometer2", "cloud-upload", "list-task", "file-earmark-text", "gear", "chat-top-dots"],
+            ["Tableau de Bord", "Dépôt Preuves", "Mes Litiges", "Gestion Litiges", "Rapports", "Réglages", "💬 Assistant"],
+            icons=["speedometer2", "cloud-upload", "list-task", "clipboard-check", "file-earmark-text", "gear", "chat-dots"],
             menu_icon="cast",
             default_index=0,
         )
@@ -288,6 +288,11 @@ def main():
         render_disputes_table_modern(disputes_df)
         st.markdown("---")
         render_carrier_breakdown(disputes_df)
+    
+    elif selected == "Gestion Litiges":
+        # Claims Management page with bulk actions
+        from src.dashboard.claims_management_page import render_claims_management
+        render_claims_management()
     
     elif selected == "Rapports":
         # Reports & Analytics page

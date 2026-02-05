@@ -309,6 +309,56 @@ class DatabaseManager:
             self._execute(conn, f"UPDATE claims SET {set_clause} WHERE id = ?", tuple(values))
             conn.commit()
             logger.info(f"Claim {claim_id} updated")
+            
+            # Trigger notification if status changed to accepted or rejected
+            if 'status' in updates and updates['status'] in ['accepted', 'rejected']:
+                try:
+                    # Get claim and client info for notification
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT c.claim_reference, c.carrier, c.accepted_amount, cl.email
+                        FROM claims c
+                        JOIN clients cl ON c.client_id = cl.id
+                        WHERE c.id = ?
+                    """, (claim_id,))
+                    result = cursor.fetchone()
+                    
+                    if result:
+                        claim_ref, carrier, accepted_amount, client_email = result
+                        
+                        # Import and queue notification
+                        from src.notifications.notification_manager import NotificationManager
+                        notification_mgr = NotificationManager()
+                        
+                        if updates['status'] == 'accepted':
+                            # Calculate client share (80%)
+                            client_amount = round(accepted_amount * 0.8, 2) if accepted_amount else 0
+                            
+                            notification_mgr.queue_notification(
+                                client_email=client_email,
+                                event_type='claim_accepted',
+                                context={
+                                    'claim_ref': claim_ref,
+                                    'accepted_amount': accepted_amount,
+                                    'client_amount': client_amount
+                                }
+                            )
+                            logger.info(f"📧 Acceptance notification queued for {claim_ref}")
+                        else:  # rejected
+                            notification_mgr.queue_notification(
+                                client_email=client_email,
+                                event_type='claim_updated',
+                                context={
+                                    'claim_ref': claim_ref,
+                                    'carrier': carrier,
+                                    'status': 'rejected'
+                                }
+                            )
+                            logger.info(f"📧 Rejection notification queued for {claim_ref}")
+                            
+                except Exception as e:
+                    logger.warning(f"Failed to queue status change notification: {e}")
+            
         finally:
             conn.close()
     

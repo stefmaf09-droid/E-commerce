@@ -3,6 +3,7 @@ import os
 import sys
 import pandas as pd
 from datetime import datetime, timedelta
+from streamlit_option_menu import option_menu
 
 # Path definitions
 root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -77,7 +78,7 @@ with st.sidebar:
     st.markdown("---")
     
     # Logo & Navigation
-    st.image("https://github.com/user-attachments/assets/5ca99402-2325-4c01-9257-22d26f6eb071", width=180)
+    # st.image("https://github.com/user-attachments/assets/5ca99402-2325-4c01-9257-22d26f6eb071", width=180)
 
 
 def main():
@@ -113,6 +114,7 @@ def main():
     
     # Existing user - show full dashboard
     # --- DATA LOADING ---
+    # --- DATA LOADING ---
     from database.database_manager import DatabaseManager
     
     # Sélection de la BDD selon l'environnement
@@ -121,31 +123,42 @@ def main():
     else:
         db_path = os.path.join(root_dir, 'data', 'recours_ecommerce.db')
         
-    db_manager = DatabaseManager(db_path=db_path)
-    
-    # Get current client and load their claims
-    client = db_manager.get_client(email=st.session_state.client_email)
-    client_id = client['id'] if client else None
-    
-    # Load claims data
-    claims_data = []
-    if client_id:
-        claims = db_manager.get_client_claims(client_id)
-        for claim in claims:
-            claims_data.append({
-                'claim_reference': claim.get('claim_reference', 'N/A'),
-                'order_id': claim.get('order_id', 'N/A'),
-                'carrier': claim.get('carrier', 'Unknown'),
-                'status': claim.get('status', 'pending'),
-                'tracking_number': claim.get('tracking_number', 'N/A'),
-                'total_recoverable': claim.get('amount_requested', 0),
-                'accepted_amount': claim.get('accepted_amount', 0),
-                'submitted_at': claim.get('submitted_at', ''),
-                'dispute_type': claim.get('dispute_type', 'unknown'),
-                'payment_status': claim.get('payment_status', 'unpaid'),
-                'customer_name': claim.get('customer_name', 'N/A'),
-                'delivery_address': claim.get('delivery_address', 'N/A')
-            })
+    # [OFFLINE MODE PATCH] Wrapp DB connection to handle local firewall issues
+    try:
+        db_manager = DatabaseManager(db_path=db_path)
+        
+        # Get current client and load their claims
+        client = db_manager.get_client(email=st.session_state.client_email)
+        client_id = client['id'] if client else None
+        
+        # Load claims data
+        claims_data = []
+        if client_id:
+            claims = db_manager.get_client_claims(client_id)
+            for claim in claims:
+                claims_data.append({
+                    'claim_reference': claim.get('claim_reference', 'N/A'),
+                    'order_id': claim.get('order_id', 'N/A'),
+                    'carrier': claim.get('carrier', 'Unknown'),
+                    'status': claim.get('status', 'pending'),
+                    'tracking_number': claim.get('tracking_number', 'N/A'),
+                    'total_recoverable': claim.get('amount_requested', 0),
+                    'accepted_amount': claim.get('accepted_amount', 0),
+                    'submitted_at': claim.get('submitted_at', ''),
+                    'dispute_type': claim.get('dispute_type', 'unknown'),
+                    'payment_status': claim.get('payment_status', 'unpaid'),
+                    'customer_name': claim.get('customer_name', 'N/A'),
+                    'delivery_address': claim.get('delivery_address', 'N/A')
+                })
+        st.session_state.offline_mode = False
+
+    except Exception as e:
+        # Fallback for local dev with firewall issues
+        st.warning(f"⚠️ **Mode Hors Ligne**: Impossible de joindre la base de données ({str(e)}). L'assistant et les menus restent accessibles.")
+        st.session_state.offline_mode = True
+        client_id = 999
+        claims_data = [] 
+
     
     # Convert to DataFrame
     import pandas as pd
@@ -177,11 +190,42 @@ def main():
     
     # --- NAVIGATION SYSTEM ---
     from src.dashboard.ui_functions import render_navigation_header
-    active_page = render_navigation_header()
+    # The original render_navigation_header is replaced by option_menu as per instruction
+    # from src.dashboard.ui_functions import render_navigation_header
+    # active_page = render_navigation_header() # This line is replaced by the option_menu below
     
+    # Sidebar Navigation
+    with st.sidebar:
+        # The logo and environment toggle are already at the top of the sidebar.
+        # The instruction implies a new navigation menu here.
+        # The original logo and Refundly.ai text at the bottom of the sidebar are removed
+        # as the instruction's code snippet places a logo at the top of this new menu.
+        st.image("static/logo_premium.png", use_container_width=True)
+        st.markdown("---")
+        
+        selected = option_menu(
+            "Menu Principal",
+            ["Tableau de Bord", "Dépôt Preuves", "Mes Litiges", "Rapports", "Réglages", "💬 Assistant"],
+            icons=["speedometer2", "cloud-upload", "list-task", "file-earmark-text", "gear", "chat-top-dots"],
+            menu_icon="cast",
+            default_index=0,
+        )
+        
+        st.markdown("---")
+        # Store Manager logic... (This comment was in the provided snippet, keeping it)
+        
+        # Original controls from the bottom of the sidebar are moved here, after the new menu
+        st.markdown("### ⚙️ Controls")
+        if st.button("🔄 Refresh Data", width='stretch'):
+            st.rerun()
+        if st.button("🚪 Logout", width='stretch'):
+            st.session_state.authenticated = False
+            st.rerun()
+        st.markdown("---")
+        st.caption(f"👤 {st.session_state.client_email}")
     
     # --- PAGE RENDERING BASED ON NAVIGATION ---
-    if active_page == 'Dashboard':
+    if selected == "Tableau de Bord":
         # Main Dashboard with Key Metrics
         # KPI Cards Container
         st.markdown('<div class="kpi-cards-container">', unsafe_allow_html=True)
@@ -225,47 +269,33 @@ def main():
         st.markdown('<div style="margin-top: 32px;"></div>', unsafe_allow_html=True)
         render_disputes_table_modern(disputes_df)
     
-    elif active_page == 'Upload':
+    elif selected == "Dépôt Preuves":
         # Upload page
         from upload_section import render_file_upload
         render_file_upload()
     
-    elif active_page == 'Disputes':
+    elif selected == "Mes Litiges":
         # All Disputes page
         st.markdown('<div class="section-header">All Disputes</div>', unsafe_allow_html=True)
         render_disputes_table_modern(disputes_df)
         st.markdown("---")
         render_carrier_breakdown(disputes_df)
     
-    elif active_page == 'Reports':
+    elif selected == "Rapports":
         # Reports & Analytics page
         render_reports_page(disputes_df)
     
-    elif active_page == 'Settings':
+    elif selected == "Réglages":
         # Settings page
         render_settings_page()
+        
+    elif selected == "💬 Assistant":
+        # Assistant page
+        from src.dashboard.assistant_page import render_assistant_page
+        render_assistant_page()
     
-    elif active_page == 'Email Templates':
-        # Email Templates customization page
-        from src.dashboard.email_templates_page import render_email_templates_page
-        render_email_templates_page()
-    
-    # Sidebar for controls
-    with st.sidebar:
-        st.image("static/logo_premium.png", width='stretch')
-        st.markdown("""
-            <div style="text-align: center; margin-top: -10px; margin-bottom: 20px;">
-                <div style="font-size: 1.2rem; font-weight: 800; color: #1e1b4b;">Refundly.ai</div>
-            </div>
-        """, unsafe_allow_html=True)
-        st.markdown("### ⚙️ Controls")
-        if st.button("🔄 Refresh Data", width='stretch'):
-            st.rerun()
-        if st.button("🚪 Logout", width='stretch'):
-            st.session_state.authenticated = False
-            st.rerun()
-        st.markdown("---")
-        st.caption(f"👤 {st.session_state.client_email}")
+    # Sidebar cleanup - redundant controls removed
+
 
 
 if __name__ == "__main__":

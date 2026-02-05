@@ -49,3 +49,5 @@ supabase>=2.3.0
 google-generativeai>=0.3.0
 
 
+
+streamlit-option-menu>=0.3.6

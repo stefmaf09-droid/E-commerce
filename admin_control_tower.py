@@ -134,7 +134,12 @@ def main():
     st.markdown("<div class='main-header'>Refundly.ai Control Tower v2.0 (Finance Live) 💸</div>", unsafe_allow_html=True)
     
     db = get_db_manager()
-    stats = db.get_all_statistics()
+    db = get_db_manager()
+    try:
+        stats = db.get_all_statistics()
+    except Exception as e:
+        st.warning(f"⚠️ **Mode Hors Ligne / Erreur Connexion**: Impossible de joindre la base de données Cloud ({str(e)}). Affichage en mode dégradé.")
+        stats = []
     
     # 🆕 TABS STRUCTURE: Infra accessible everywhere
     tab_dash, tab_finance, tab_logs, tab_infra = st.tabs(["📊 Dashboard", "💸 Finance & Payouts", "🚨 Audit & Logs", "⚙️ Infra & Cloud Sync"])

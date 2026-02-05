@@ -6,6 +6,8 @@ plotly>=5.18.0
 # API Integration & Security
 cryptography>=41.0.0
 requests>=2.31.0
+zeep>=4.2.1
+backoff>=2.2.1
 
 # Web Scraping & NLP
 beautifulsoup4>=4.12.0

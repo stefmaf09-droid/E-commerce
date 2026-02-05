@@ -78,7 +78,7 @@ with st.sidebar:
     st.markdown("---")
     
     # Logo & Navigation
-    # st.image("https://github.com/user-attachments/assets/5ca99402-2325-4c01-9257-22d26f6eb071", width=180)
+    st.image("static/refundly_logo.png", width=180)
 
 
 def main():

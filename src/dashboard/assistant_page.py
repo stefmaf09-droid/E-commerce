@@ -45,6 +45,18 @@ def render_assistant_page():
             st.warning("⚠️ Cette question contient des éléments suspects.")
             return
         
+        # Rate limiting: enforce cooldown between requests
+        COOLDOWN_SECONDS = 2.0
+        if 'last_request_time' in st.session_state:
+            time_since_last = time.time() - st.session_state.last_request_time
+            if time_since_last < COOLDOWN_SECONDS:
+                remaining = COOLDOWN_SECONDS - time_since_last
+                st.warning(f"⏳ Veuillez patienter {remaining:.1f} secondes avant la prochaine question.")
+                return
+        
+        # Update last request time
+        st.session_state.last_request_time = time.time()
+        
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
         

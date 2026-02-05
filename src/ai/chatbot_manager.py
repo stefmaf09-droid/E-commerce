@@ -1,8 +1,10 @@
 
-import os
 import logging
 import google.generativeai as genai
 from typing import List, Dict, Generator
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -18,27 +20,16 @@ class ChatbotManager:
         self.context = self._load_knowledge_base()
 
     def _setup_gemini(self):
-        """Configure l'API Gemini."""
-        # Try retrieving standard GEMINI_API_KEY or GOOGLE_API_KEY (common alternative)
-        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        
-        # Fallback to streamlit secrets if not in env (for local dev)
-        if not api_key:
-            try:
-                import toml
-                secrets_path = os.path.join(os.path.dirname(__file__), '..', '..', '.streamlit', 'secrets.toml')
-                if os.path.exists(secrets_path):
-                    secrets = toml.load(secrets_path)
-                    api_key = secrets.get("GEMINI_API_KEY") or secrets.get("GOOGLE_API_KEY")
-            except Exception as e:
-                logger.warning(f"Could not load secrets for Gemini: {e}")
+        """Configure l'API Gemini avec config centralisée."""
+        api_key = Config.get_gemini_api_key()
 
         if not api_key:
-            logger.error("GEMINI_API_KEY/GOOGLE_API_KEY non trouvée. Le chatbot ne fonctionnera pas.")
+            logger.error("GEMINI_API_KEY non trouvée. Le chatbot ne fonctionnera pas.")
             return
 
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-pro')
+        logger.info("Gemini model initialized successfully")
 
     def _load_knowledge_base(self) -> str:
         """Charge le contenu du fichier FAQ.md pour servir de contexte."""
@@ -94,12 +85,24 @@ class ChatbotManager:
         full_prompt += f"\nUtilisateur: {user_input}\nAssistant:"
         
         try:
-            response = self.model.generate_content(full_prompt, stream=True)
+            # Call Gemini with retry logic
+            response = self._call_gemini_with_retry(full_prompt)
             for chunk in response:
                 if chunk.text:
                     yield chunk.text
         except Exception as e:
             # Sanitize error to prevent API key leakage
             error_type = type(e).__name__
-            logger.error(f"Gemini API Error: {error_type}")
+            logger.error(f"Gemini API Error after retries: {error_type}")
             yield "Désolé, j'ai rencontré une erreur technique."
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((ConnectionError, TimeoutError)),
+        reraise=True
+    )
+    def _call_gemini_with_retry(self, prompt: str):
+        """Call Gemini API with automatic retry on transient failures."""
+        logger.debug("Calling Gemini API (with retry logic)")
+        return self.model.generate_content(prompt, stream=True)

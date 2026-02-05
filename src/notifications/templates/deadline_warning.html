@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .content {
+            background: #f9fafb;
+            padding: 30px;
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .button {
+            background: #f59e0b;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+        }
+
+        .footer {
+            background: #333;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 10px 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Action requise - Deadline proche</h1>
+        </div>
+        <div class="content">
+            <p>Bonjour,</p>
+
+            <p>Nous vous informons que votre litige arrive bientôt à échéance.</p>
+
+            <div class="warning-box">
+                <h3 style="margin-top: 0;">⏰ Deadline dans {{days_remaining}} jours</h3>
+                <p><strong>Référence :</strong> {{claim_ref}}</p>
+                <p><strong>Transporteur :</strong> {{carrier}}</p>
+                <p><strong>Date limite :</strong> {{deadline_date}}</p>
+            </div>
+
+            <p><strong>Que faire maintenant ?</strong></p>
+            <ul>
+                <li>Vérifiez si le transporteur a répondu</li>
+                <li>Relancez-le si nécessaire</li>
+                <li>Préparez les documents complémentaires si demandés</li>
+            </ul>
+
+            <p style="text-align: center; margin: 30px 0;">
+                <a href="{{dashboard_url}}" class="button">Consulter mon litige</a>
+            </p>
+
+            <p>💡 <strong>Astuce :</strong> Un suivi régulier augmente vos chances de succès.</p>
+
+            <p>Cordialement,<br>
+                <strong>L'équipe Refundly</strong>
+            </p>
+        </div>
+        <div class="footer">
+            <p>© 2026 Refundly.ai - Tous droits réservés</p>
+            <p>Vous pouvez gérer vos préférences de notifications <a href="{{settings_url}}"
+                    style="color: #f59e0b;">ici</a>.</p>
+        </div>
+    </div>
+</body>
+
+</html>

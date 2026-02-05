@@ -69,6 +69,11 @@ def render_settings_page() -> None:
 
     st.markdown("---")
     
+    # Email Notification Preferences
+    render_notification_preferences()
+    
+    st.markdown("---")
+    
     # Email templates
     render_email_templates_section()
 
@@ -423,6 +428,148 @@ def _render_bank_form(client_email: str, existing_info: Optional[Dict[str, Any]]
                         st.error("❌ Erreur lors de l'enregistrement")
                 except Exception as e:
                     st.error(f"❌ Erreur: {str(e)}")
+
+
+def render_notification_preferences() -> None:
+    """
+    Render email notification preferences section.
+    
+    Allows users to:
+    - Enable/disable specific notification types
+    - Choose frequency (Immediate, Daily, Weekly digest)
+    - Prevent notification overload
+    
+    Preferences are stored in clients.notification_preferences (JSON)
+    """
+    st.markdown("### 📧 Préférences de Notifications Email")
+    st.caption("Contrôlez les emails que vous recevez pour ne jamais être submergé")
+    
+    client_email = st.session_state.get('client_email', '')
+    
+    # Load current preferences
+    import json
+    from database.database_manager import get_db_manager
+    
+    db = get_db_manager()
+    conn = db.get_connection()
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT notification_preferences FROM clients WHERE email = ?", (client_email,))
+        result = cursor.fetchone()
+        
+        if result and result[0]:
+            current_prefs = json.loads(result[0])
+        else:
+            # Default preferences
+            current_prefs = {
+                'claim_created': True,
+                'claim_updated': True,
+                'claim_accepted': True,
+                'payment_received': True,
+                'deadline_warning': True,
+                'frequency': 'immediate'
+            }
+    except Exception as e:
+        st.caption(f"⚠️ Erreur de chargement: {e}")
+        current_prefs = {
+            'claim_created': True,
+            'claim_updated': True,
+            'claim_accepted': True,
+            'payment_received': True,
+            'deadline_warning': True,
+            'frequency': 'immediate'
+        }
+    finally:
+        conn.close()
+    
+    # Preferences form
+    with st.form("notification_preferences_form"):
+        st.markdown("**📬 Types de notifications**")
+        st.caption("Décochez les notifications que vous ne souhaitez pas recevoir")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            claim_created = st.checkbox(
+                "✉️ Nouveau litige créé",
+                value=current_prefs.get('claim_created', True),
+                help="Email confirmant la création d'un nouveau litige"
+            )
+            claim_updated = st.checkbox(
+                "🔄 Mise à jour du litige",
+                value=current_prefs.get('claim_updated', True),
+                help="Email lorsque le transporteur répond"
+            )
+            claim_accepted = st.checkbox(
+                "✅ Litige accepté",
+                value=current_prefs.get('claim_accepted', True),
+                help="Email lorsque votre réclamation est acceptée"
+            )
+        
+        with col2:
+            payment_received = st.checkbox(
+                "💰 Paiement reçu",
+                value=current_prefs.get('payment_received', True),
+                help="Email confirmant le transfert de fonds"
+            )
+            deadline_warning = st.checkbox(
+                "⚠️ Deadline proche (J-3)",
+                value=current_prefs.get('deadline_warning', True),
+                help="Rappel 3 jours avant l'expiration"
+            )
+        
+        st.markdown("---")
+        st.markdown("**⏱️ Fréquence d'envoi**")
+        
+        frequency = st.radio(
+            "Choisissez comment recevoir vos notifications",
+            options=['immediate', 'daily', 'weekly'],
+            format_func=lambda x: {
+                'immediate': '📨 Immédiat (dès que l\'événement se produit)',
+                'daily': '📅 Quotidien (résumé une fois par jour à 9h)',
+                'weekly': '📆 Hebdomadaire (résumé le lundi matin)'
+            }[x],
+            index=['immediate', 'daily', 'weekly'].index(current_prefs.get('frequency', 'immediate')),
+            horizontal=False
+        )
+        
+        st.info("💡 **Astuce** : Si vous recevez beaucoup de litiges, le mode 'Quotidien' vous évitera d'être submergé d'emails.")
+        
+        submitted = st.form_submit_button("💾 Enregistrer mes préférences", type="primary", use_container_width=True)
+        
+        if submitted:
+            # Build preferences dict
+            new_prefs = {
+                'claim_created': claim_created,
+                'claim_updated': claim_updated,
+                'claim_accepted': claim_accepted,
+                'payment_received': payment_received,
+                'deadline_warning': deadline_warning,
+                'frequency': frequency
+            }
+            
+            # Save to database
+            try:
+                conn = db.get_connection()
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE clients SET notification_preferences = ? WHERE email = ?",
+                    (json.dumps(new_prefs), client_email)
+                )
+                conn.commit()
+                conn.close()
+                
+                st.success("✅ Préférences enregistrées avec succès !")
+                st.balloons()
+                
+                # Show summary
+                enabled_count = sum([claim_created, claim_updated, claim_accepted, payment_received, deadline_warning])
+                freq_label = {'immediate': 'Immédiat', 'daily': 'Quotidien', 'weekly': 'Hebdomadaire'}[frequency]
+                st.info(f"📊 **{enabled_count}/5** notifications activées · Fréquence : **{freq_label}**")
+                
+            except Exception as e:
+                st.error(f"❌ Erreur lors de l'enregistrement : {str(e)}")
 
 
 def render_email_templates_section() -> None:

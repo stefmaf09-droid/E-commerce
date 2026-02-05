@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .content {
+            background: #f9fafb;
+            padding: 30px;
+        }
+
+        .success-box {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .button {
+            background: #10b981;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+        }
+
+        .footer {
+            background: #333;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 10px 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Excellente nouvelle !</h1>
+        </div>
+        <div class="content">
+            <p>Bonjour,</p>
+
+            <p>Nous avons le plaisir de vous informer que le transporteur a <strong>accepté votre réclamation</strong> !
+            </p>
+
+            <div class="success-box">
+                <h2 style="margin: 0; font-size: 28px; color: #10b981;">{{accepted_amount}}€</h2>
+                <p style="margin: 10px 0 0 0;">Montant accordé</p>
+            </div>
+
+            <p><strong>Référence :</strong> {{claim_ref}}</p>
+
+            <p>🎁 <strong>Votre part (80%) :</strong> {{client_amount}}€</p>
+
+            <p>Le paiement est en cours de traitement. Vous recevrez une notification dès que le virement sera effectué
+                sur votre compte Stripe Connect.</p>
+
+            <p style="text-align: center; margin: 30px 0;">
+                <a href="{{dashboard_url}}" class="button">Voir les détails</a>
+            </p>
+
+            <p>Félicitations ! 🎊</p>
+
+            <p>Cordialement,<br>
+                <strong>L'équipe Refundly</strong>
+            </p>
+        </div>
+        <div class="footer">
+            <p>© 2026 Refundly.ai - Tous droits réservés</p>
+            <p>Vous pouvez gérer vos préférences de notifications <a href="{{settings_url}}"
+                    style="color: #10b981;">ici</a>.</p>
+        </div>
+    </div>
+</body>
+
+</html>

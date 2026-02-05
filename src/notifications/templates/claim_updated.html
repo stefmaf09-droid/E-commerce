@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .content {
+            background: #f9fafb;
+            padding: 30px;
+        }
+
+        .update-box {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .button {
+            background: #3b82f6;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+        }
+
+        .footer {
+            background: #333;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 10px 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 Mise à jour sur votre litige</h1>
+        </div>
+        <div class="content">
+            <p>Bonjour,</p>
+
+            <p>Le transporteur <strong>{{carrier}}</strong> a répondu à votre litige.</p>
+
+            <div class="update-box">
+                <h3>📬 Nouvelle réponse</h3>
+                <p><strong>Référence :</strong> {{claim_ref}}</p>
+                <p><strong>Nouveau statut :</strong> {{status}}</p>
+            </div>
+
+            <p style="text-align: center; margin: 30px 0;">
+                <a href="{{dashboard_url}}" class="button">Consulter la réponse complète</a>
+            </p>
+
+            <p>Connectez-vous à votre tableau de bord pour plus de détails.</p>
+
+            <p>Cordialement,<br>
+                <strong>L'équipe Refundly</strong>
+            </p>
+        </div>
+        <div class="footer">
+            <p>© 2026 Refundly.ai - Tous droits réservés</p>
+            <p>Vous pouvez gérer vos préférences de notifications <a href="{{settings_url}}"
+                    style="color: #3b82f6;">ici</a>.</p>
+        </div>
+    </div>
+</body>
+
+</html>

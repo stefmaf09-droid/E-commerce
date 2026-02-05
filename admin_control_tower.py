@@ -327,6 +327,22 @@ def main():
                                             conn.commit()
                                             conn.close()
                                             
+                                            # Send payment notification
+                                            try:
+                                                from src.notifications.notification_manager import NotificationManager
+                                                notification_mgr = NotificationManager()
+                                                notification_mgr.queue_notification(
+                                                    client_email=row['client_email'],
+                                                    event_type='payment_received',
+                                                    context={
+                                                        'claim_ref': row['claim_reference'],
+                                                        'client_amount': client_share
+                                                    }
+                                                )
+                                                logger.info(f"📧 Payment notification queued for {row['claim_reference']}")
+                                            except Exception as e:
+                                                logger.warning(f"Failed to queue payment notification: {e}")
+                                            
                                             st.success(f"✅ Virement effectué ! ID: {transfer_id}")
                                             st.balloons()
                                             st.rerun()

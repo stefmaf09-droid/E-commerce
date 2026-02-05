@@ -202,6 +202,23 @@ class AutoRecoveryOrchestrator:
                 order_date=dispute.get('order_date')
             )
             
+            # Send notification email for claim creation
+            try:
+                from src.notifications.notification_manager import NotificationManager
+                notification_mgr = NotificationManager()
+                notification_mgr.queue_notification(
+                    client_email=dispute.get('client_email'),
+                    event_type='claim_created',
+                    context={
+                        'claim_ref': claim_ref,
+                        'carrier': carrier.capitalize(),
+                        'amount': dispute.get('total_recoverable', 0.0)
+                    }
+                )
+                logger.info(f"📧 Notification queued for claim creation: {claim_ref}")
+            except Exception as e:
+                logger.warning(f"Failed to queue notification: {e}")
+            
             # Step 2: Attempt submission
             submission_result = {}
             

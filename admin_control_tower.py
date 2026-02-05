@@ -134,7 +134,6 @@ def main():
     st.markdown("<div class='main-header'>Refundly.ai Control Tower v2.0 (Finance Live) 💸</div>", unsafe_allow_html=True)
     
     db = get_db_manager()
-    db = get_db_manager()
     try:
         stats = db.get_all_statistics()
     except Exception as e:

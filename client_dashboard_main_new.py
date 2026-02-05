@@ -83,9 +83,10 @@ with st.sidebar:
     if os.path.exists(logo_path):
         try:
             image = Image.open(logo_path)
-            st.sidebar.image(image, width=180)
+            st.image(image, width=180)
         except Exception as e:
-            st.sidebar.warning(f"Logo introuvable: {e}")
+            logger.error(f"Failed to load logo: {e}")
+            st.warning("Logo temporairement indisponible")
 
 
 def main():

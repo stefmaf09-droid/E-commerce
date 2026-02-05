@@ -99,5 +99,7 @@ class ChatbotManager:
                 if chunk.text:
                     yield chunk.text
         except Exception as e:
-            logger.error(f"Gemini API Error: {e}")
+            # Sanitize error to prevent API key leakage
+            error_type = type(e).__name__
+            logger.error(f"Gemini API Error: {error_type}")
             yield "Désolé, j'ai rencontré une erreur technique."

@@ -27,6 +27,24 @@ def render_assistant_page():
 
     # Accept user input
     if prompt := st.chat_input("Votre question..."):
+        # Input validation and sanitization
+        MAX_PROMPT_LENGTH = 500
+        prompt = prompt.strip()
+        
+        if len(prompt) > MAX_PROMPT_LENGTH:
+            st.error(f"⚠️ Question trop longue (maximum {MAX_PROMPT_LENGTH} caractères)")
+            return
+        
+        if len(prompt) < 3:
+            st.warning("⚠️ Veuillez poser une question plus détaillée")
+            return
+        
+        # Basic prompt injection detection
+        dangerous_patterns = ["ignore previous", "system:", "admin_override", "\n\n\n"]
+        if any(pattern in prompt.lower() for pattern in dangerous_patterns):
+            st.warning("⚠️ Cette question contient des éléments suspects.")
+            return
+        
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
         

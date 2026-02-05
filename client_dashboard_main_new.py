@@ -78,7 +78,9 @@ with st.sidebar:
     st.markdown("---")
     
     # Logo & Navigation
-    st.image("static/refundly_logo.png", width=180)
+    logo_path = os.path.join(root_dir, "static", "refundly_logo.png")
+    if os.path.exists(logo_path):
+        st.image(logo_path, width=180)
 
 
 def main():

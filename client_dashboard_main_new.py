@@ -4,6 +4,7 @@ import sys
 import pandas as pd
 from datetime import datetime, timedelta
 from streamlit_option_menu import option_menu
+from PIL import Image
 
 # Path definitions
 root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -80,7 +81,11 @@ with st.sidebar:
     # Logo & Navigation
     logo_path = os.path.join(root_dir, "static", "refundly_logo.png")
     if os.path.exists(logo_path):
-        st.image(logo_path, width=180)
+        try:
+            image = Image.open(logo_path)
+            st.sidebar.image(image, width=180)
+        except Exception as e:
+            st.sidebar.warning(f"Logo introuvable: {e}")
 
 
 def main():

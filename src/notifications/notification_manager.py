@@ -29,7 +29,7 @@ from typing import Dict, Any, Optional, List
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, root_dir)
 
-from database.database_manager import get_db_manager
+from src.database.database_manager import get_db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +179,7 @@ class NotificationManager:
             True if sent successfully
         """
         try:
-            from notifications.send_notification import send_notification_email
+            from src.notifications.send_notification import send_notification_email
             
             # Send email
             success = send_notification_email(

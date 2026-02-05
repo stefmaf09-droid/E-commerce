@@ -17,6 +17,8 @@ from onboarding.onboarding_manager import OnboardingManager
 from onboarding_functions import render_onboarding
 from ui.theme import apply_premium_theme, render_premium_metric
 from ui.logos import LOGOS, ICONS
+from src.dashboard.auto_refresh import AutoRefresh, setup_auto_refresh
+
 
 # Import UI and authentication functions from dashboard module
 from src.dashboard import (
@@ -87,6 +89,11 @@ with st.sidebar:
         except Exception as e:
             logger.error(f"Failed to load logo: {e}")
             st.warning("Logo temporairement indisponible")
+    
+    # Auto-Refresh Controls
+    refresh_interval = AutoRefresh.render_controls()
+    AutoRefresh.manual_refresh_button()
+
 
 
 def main():
@@ -308,6 +315,11 @@ def main():
         render_assistant_page()
     
     # Sidebar cleanup - redundant controls removed
+    
+    # Trigger auto-refresh
+    refresh_interval = st.session_state.get('refresh_interval', 0)
+    if st.session_state.get('auto_refresh_enabled', False) and refresh_interval > 0:
+        AutoRefresh.auto_refresh_trigger(refresh_interval)
 
 
 

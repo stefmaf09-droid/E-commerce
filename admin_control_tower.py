@@ -14,6 +14,7 @@ sys.path.insert(0, root_dir)
 from database.database_manager import get_db_manager
 from analytics.metrics_calculator import MetricsCalculator
 from utils.cloud_sync_manager import CloudSyncManager
+from src.dashboard.auto_refresh import AutoRefresh, setup_auto_refresh
 
 
 from src.ui.theme import apply_premium_theme, render_premium_metric
@@ -379,6 +380,20 @@ def main():
             </div>
             """, unsafe_allow_html=True)
 
+
 if __name__ == "__main__":
+    # Add auto-refresh controls to sidebar BEFORE rendering main content
+    st.sidebar.markdown("---")
+    st.sidebar.caption("🗼 Refundly Control Tower")
+    
+    # Auto-refresh controls
+    refresh_interval = AutoRefresh.render_controls()
+    AutoRefresh.manual_refresh_button()
+    
+    # Run main dashboard
     main()
+    
+    # Trigger auto-refresh after content rendered
+    if st.session_state.get('auto_refresh_enabled', False) and refresh_interval > 0:
+        AutoRefresh.auto_refresh_trigger(refresh_interval)
 

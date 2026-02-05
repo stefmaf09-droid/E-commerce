@@ -58,7 +58,68 @@ class ColissimoConnector(CarrierConnector):
             "raw_data": {"mock": True, "details": "Simulated Colissimo Response"}
         }
         
+    
     def get_proof_of_delivery(self, tracking_number: str) -> Optional[bytes]:
         """Mock retrieving POD."""
         logger.info(f"Fetching POD for {tracking_number}")
         return b"%PDF-1.4 Mock POD Content from La Poste"
+    
+    def get_pod(self, tracking_number: str) -> Dict[str, Any]:
+        """
+        Fetch structured POD data for auto-fetcher integration.
+        
+        Returns:
+            {
+                'success': bool,
+                'pod_url': str or None,
+                'pod_data': {
+                    'delivery_date': str,
+                    'recipient_name': str,
+                    'delivery_location': str,
+                    'signature_url': str or None
+                },
+                'error': str or None
+            }
+        """
+        try:
+            # Get tracking details
+            tracking = self.get_tracking_details(tracking_number)
+            
+            # Check if delivered
+            if tracking.get('status') == 'DELIVERED':
+                delivery_date = tracking.get('delivery_date')
+                
+                # Extract POD data
+                pod_data = {
+                    'delivery_date': delivery_date,
+                    'recipient_name': 'Destinataire',  # Would come from real API
+                    'delivery_location': 'Domicile',
+                    'signature_url': None
+                }
+                
+                # In a real implementation, would have actual POD URL from API
+                # For now, mock it
+                pod_url = f"https://api.laposte.fr/pod/{tracking_number}.pdf"
+                
+                return {
+                    'success': True,
+                    'pod_url': pod_url,
+                    'pod_data': pod_data,
+                    'error': None
+                }
+            else:
+                return {
+                    'success': False,
+                    'pod_url': None,
+                    'pod_data': {},
+                    'error': f'Package not delivered yet (status: {tracking.get("status")})'
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to get POD for {tracking_number}: {e}")
+            return {
+                'success': False,
+                'pod_url': None,
+                'pod_data': {},
+                'error': str(e)
+            }

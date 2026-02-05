@@ -219,6 +219,42 @@ class AutoRecoveryOrchestrator:
             except Exception as e:
                 logger.warning(f"Failed to queue notification: {e}")
             
+            # Auto-fetch POD (hybrid approach: try auto, fallback to manual)
+            if dispute.get('tracking_number'):
+                try:
+                    from src.integrations.pod_fetcher import PODFetcher
+                    pod_fetcher = PODFetcher()
+                    
+                    logger.info(f"🔍 Attempting POD auto-fetch for {claim_ref}...")
+                    pod_result = pod_fetcher.fetch_pod(
+                        tracking_number=dispute['tracking_number'],
+                        carrier=carrier
+                    )
+                    
+                    if pod_result['success']:
+                        # Update claim with auto-fetched POD
+                        db.update_claim(
+                            claim_id,
+                            pod_url=pod_result['pod_url'],
+                            pod_fetch_status='success',
+                            pod_fetched_at=datetime.now(),
+                            pod_delivery_person=pod_result['pod_data'].get('recipient_name')
+                        )
+                        logger.info(f"✅ POD auto-fetched successfully for {claim_ref}")
+                    else:
+                        # Log failure, user can upload manually
+                        db.update_claim(
+                            claim_id,
+                            pod_fetch_status='failed',
+                            pod_fetch_error=pod_result['error']
+                        )
+                        logger.warning(f"⚠️ POD auto-fetch failed: {pod_result['error']} - Manual upload available")
+                        
+                except Exception as e:
+                    logger.error(f"POD auto-fetch exception: {e}")
+                    db.update_claim(claim_id, pod_fetch_status='failed', pod_fetch_error=str(e))
+            
+            
             # Step 2: Attempt submission
             submission_result = {}
             

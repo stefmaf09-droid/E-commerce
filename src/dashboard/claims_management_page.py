@@ -160,6 +160,13 @@ def render_claims_management():
             elif pod_status == 'pending':
                 st.warning(f"⏳ POD en cours de récupération - {claim_ref}", icon="⏱️")
         
+        # Bulk retry button for failed PODs
+        if failed_count > 0:
+            st.markdown("---")
+            if st.button(f"🔄 Réessayer tous les échecs ({failed_count})", type="primary", use_container_width=True):
+                bulk_retry_failed_pods(df)
+                st.rerun()
+        
         st.markdown("---")
         
         # Bulk Actions Toolbar
@@ -320,6 +327,116 @@ def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
                 
     except Exception as e:
         st.error(f"Erreur lors de la récupération POD: {str(e)}")
+
+
+
+
+
+def bulk_retry_failed_pods(df: pd.DataFrame):
+    """Retry all failed POD fetches in batch with rate limiting."""
+    failed_claims = df[df['pod_fetch_status'] == 'failed']
+    
+    if failed_claims.empty:
+        st.warning("Aucun POD en échec à réessayer")
+        return
+    
+    # Import dependencies
+    from src.integrations.pod_fetcher import PODFetcher
+    from src.integrations.api_request_queue import APIRequestQueue
+    
+    pod_fetcher = PODFetcher()
+    api_queue = APIRequestQueue()
+    db = get_db_manager()
+    
+    # Progress tracking
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    success_count = 0
+    failed_count = 0
+    skipped_count = 0
+    total = len(failed_claims)
+    
+    # Process each failed claim
+    for idx, (_, claim) in enumerate(failed_claims.iterrows()):
+        claim_id = claim['id']
+        tracking_number = claim['tracking_number']
+        carrier = claim['carrier']
+        claim_ref = claim['claim_reference']
+        
+        # Update progress
+        progress = (idx + 1) / total
+        progress_bar.progress(progress)
+        status_text.text(f"⏳ Traitement {idx + 1}/{total}: {claim_ref}")
+        
+        # Skip if no tracking number
+        if not tracking_number:
+            skipped_count += 1
+            continue
+        
+        # Check rate limit
+        if not api_queue.can_execute(carrier):
+            skipped_count += 1
+            continue
+        
+        try:
+            # Attempt POD fetch
+            result = api_queue.execute_with_limit(
+                carrier,
+                pod_fetcher.fetch_pod,
+                tracking_number,
+                carrier
+            )
+            
+            conn = db.get_connection()
+            cursor = conn.cursor()
+            
+            if result.get('success'):
+                # Update success
+                cursor.execute("""
+                    UPDATE claims 
+                    SET pod_url = ?,
+                        pod_fetch_status = 'success',
+                        pod_fetched_at = ?,
+                        pod_delivery_person = ?
+                    WHERE id = ?
+                """, (
+                    result['pod_url'],
+                    datetime.now(),
+                    result['pod_data'].get('recipient_name'),
+                    claim_id
+                ))
+                success_count += 1
+            else:
+                # Update failure
+                cursor.execute("""
+                    UPDATE claims 
+                    SET pod_fetch_status = 'failed',
+                        pod_fetch_error = ?
+                    WHERE id = ?
+                """, (result['error'], claim_id))
+                failed_count += 1
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            failed_count += 1
+    
+    # Clear progress indicators
+    progress_bar.empty()
+    status_text.empty()
+    
+    # Show summary
+    st.success(f"""
+✅ **Réessai en masse terminé !**
+- ✅ Succès: {success_count}
+- ❌ Échecs: {failed_count}
+- ⏭️ Ignorés (rate limit): {skipped_count}
+    """)
+    
+    if success_count > 0:
+        st.balloons()
 
 
 def send_bulk_reminders(df: pd.DataFrame):

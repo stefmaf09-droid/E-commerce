@@ -41,7 +41,7 @@ def render_claims_management():
         
         client_id = result[0]
         
-        # Fetch all claims
+        # Fetch all claims with POD info
         cursor.execute("""
             SELECT 
                 id,
@@ -53,7 +53,10 @@ def render_claims_management():
                 submitted_at,
                 dispute_type,
                 tracking_number,
-                response_deadline
+                response_deadline,
+                pod_fetch_status,
+                pod_url,
+                pod_fetch_error
             FROM claims
             WHERE client_id = ?
             ORDER BY submitted_at DESC
@@ -70,7 +73,7 @@ def render_claims_management():
         df = pd.DataFrame(claims, columns=[
             'id', 'claim_reference', 'carrier', 'status', 'amount_requested',
             'accepted_amount', 'submitted_at', 'dispute_type', 'tracking_number',
-            'response_deadline'
+            'response_deadline', 'pod_fetch_status', 'pod_url', 'pod_fetch_error'
         ])
         
         # Format amounts
@@ -104,6 +107,58 @@ def render_claims_management():
         with col4:
             rejected_count = len(df[df['status'] == 'rejected'])
             st.metric("Rejetés", rejected_count)
+        
+        st.markdown("---")
+        
+        # POD Status Section
+        st.markdown("#### 📄 Statut POD (Proof of Delivery)")
+        st.caption("Visualisez la disponibilité des preuves de livraison et relancez les échecs")
+        
+        # Pod stats
+        pod_col1, pod_col2, pod_col3, pod_col4 = st.columns(4)
+        with pod_col1:
+            success_count = len(df[df['pod_fetch_status'] == 'success'])
+            st.metric("POD Disponibles", success_count, delta=None)
+        with pod_col2:
+            pending_count = len(df[df['pod_fetch_status'] == 'pending'])
+            st.metric("En attente", pending_count, delta=None)
+        with pod_col3:
+            failed_count = len(df[df['pod_fetch_status'] == 'failed'])
+            st.metric("Échecs", failed_count, delta=None)
+        with pod_col4:
+            none_count = len(df[df['pod_fetch_status'].isna()])
+            st.metric("Non demandés", none_count, delta=None)
+        
+        st.markdown("---")
+        
+        # Display POD status with actions for each claim
+        for _, claim in df.iterrows():
+            pod_status = claim.get('pod_fetch_status')
+            claim_ref = claim['claim_reference']
+            
+            if pod_status == 'success':
+                cols = st.columns([3, 1])
+                with cols[0]:
+                    st.success(f"✅ POD disponible - {claim_ref}", icon="📄")
+                with cols[1]:
+                    if claim.get('pod_url'):
+                        st.link_button("⬇️ Télécharger", claim['pod_url'], use_container_width=True)
+                    else:
+                        st.caption("URL non disponible")
+            
+            elif pod_status == 'failed':
+                cols = st.columns([3, 1])
+                with cols[0]:
+                    st.error(f"❌ Échec POD - {claim_ref}", icon="⚠️")
+                    if claim.get('pod_fetch_error'):
+                        st.caption(f"Erreur: {claim['pod_fetch_error'][:80]}")
+                with cols[1]:
+                    if st.button("🔄 Réessayer", key=f"retry_{claim['id']}", use_container_width=True):
+                        retry_pod_fetch(claim['id'], claim['tracking_number'], claim['carrier'])
+                        st.rerun()
+            
+            elif pod_status == 'pending':
+                st.warning(f"⏳ POD en cours de récupération - {claim_ref}", icon="⏱️")
         
         st.markdown("---")
         
@@ -191,6 +246,80 @@ def export_claims_to_csv(df: pd.DataFrame):
         
     except Exception as e:
         st.error(f"Erreur lors de l'export : {str(e)}")
+
+
+
+
+def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
+    """Manually retry POD fetch for a claim."""
+    try:
+        if not tracking_number:
+            st.error("❌ Impossible de réessayer: numéro de suivi manquant")
+            return
+        
+        # Import POD fetcher and rate limiter
+        from src.integrations.pod_fetcher import PODFetcher
+        from src.integrations.api_request_queue import APIRequestQueue
+        
+        pod_fetcher = PODFetcher()
+        api_queue = APIRequestQueue()
+        
+        # Check rate limit
+        if not api_queue.can_execute(carrier):
+            reset_time = api_queue._get_reset_time(carrier)
+            st.warning(f"⚠️ Limite d'API atteinte pour {carrier}. Réessayez après {reset_time.strftime('%H:%M')}")
+            return
+        
+        with st.spinner(f"🔄 Récupération POD pour {tracking_number}..."):
+            # Attempt POD fetch with rate limiting
+            result = api_queue.execute_with_limit(
+                carrier,
+                pod_fetcher.fetch_pod,
+                tracking_number,
+                carrier
+            )
+            
+            db = get_db_manager()
+            
+            if result.get('success'):
+                # Update claim with POD data
+                conn = db.get_connection()
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE claims 
+                    SET pod_url = ?,
+                        pod_fetch_status = 'success',
+                        pod_fetched_at = ?,
+                        pod_delivery_person = ?
+                    WHERE id = ?
+                """, (
+                    result['pod_url'],
+                    datetime.now(),
+                    result['pod_data'].get('recipient_name'),
+                    claim_id
+                ))
+                conn.commit()
+                conn.close()
+                
+                st.success(f"✅ POD récupéré avec succès!")
+                st.balloons()
+            else:
+                # Mark as failed
+                conn = db.get_connection()
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE claims 
+                    SET pod_fetch_status = 'failed',
+                        pod_fetch_error = ?
+                    WHERE id = ?
+                """, (result['error'], claim_id))
+                conn.commit()
+                conn.close()
+                
+                st.error(f"❌ Échec: {result['error']}")
+                
+    except Exception as e:
+        st.error(f"Erreur lors de la récupération POD: {str(e)}")
 
 
 def send_bulk_reminders(df: pd.DataFrame):

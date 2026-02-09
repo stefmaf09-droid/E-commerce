@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .content {
+            background: #f9fafb;
+            padding: 30px;
+        }
+
+        .success-box {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .button {
+            background: #10b981;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .footer {
+            background: #333;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 10px 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✅ {{title}}</h1>
+        </div>
+        <div class="content">
+            <p>{{greeting}},</p>
+
+            <p>{{message}}</p>
+
+            <div class="success-box">
+                <h3>📄 POD</h3>
+                <p><strong>{{claim_ref_label}}:</strong> {{claim_ref}}</p>
+                <p><strong>{{carrier_label}}:</strong> {{carrier}}</p>
+            </div>
+
+            <p style="text-align: center; margin: 30px 0;">
+                <a href="{{pod_url}}" class="button">{{download_button}}</a>
+            </p>
+
+            <p style="text-align: center; margin-top: 20px;">
+                <a href="{{claim_url}}" style="color: #3b82f6; text-decoration: none;">{{view_claim_button}}</a>
+            </p>
+
+            <p>{{signature}},<br>
+                <strong>{{team_name}}</strong>
+            </p>
+        </div>
+        <div class="footer">
+            <p>© 2026 Refundly.ai - All rights reserved</p>
+            <p>{{preferences_text}} <a href="{{settings_url}}" style="color: #3b82f6;">{{here_text}}</a>.</p>
+        </div>
+    </div>
+</body>
+
+</html>

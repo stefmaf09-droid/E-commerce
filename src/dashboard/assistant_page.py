@@ -68,20 +68,34 @@ def render_assistant_page():
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
             full_response = ""
+            csv_data = None
             
-            # Call Gemini
+            # Call Gemini avec contexte client
             try:
-                # Get response stream
+                # Récupérer l'email du client connecté
+                client_email = st.session_state.get('client_email', None)
+                
+                # Get response stream avec contexte client
                 response_stream = st.session_state.chatbot_manager.generate_response_stream(
                     prompt, 
-                    st.session_state.messages[:-1] # Pass history excluding current prompt
+                    st.session_state.messages[:-1],  # Pass history excluding current prompt
+                    client_email=client_email  # Contexte personnalisé
                 )
                 
-                # Stream response
+                # Stream response and detect CSV export
                 for chunk in response_stream:
                     full_response += chunk
                     message_placeholder.markdown(full_response + "▌")
                     time.sleep(0.01) # Petit délai pour effet visuel fluide
+                    
+                    # Detect CSV content in response
+                    if "```csv" in chunk and "```" in full_response:
+                        # Extract CSV content from markdown code block
+                        import re
+                        csv_match = re.search(r'```csv\n(.*?)\n```', full_response, re.DOTALL)
+                        if csv_match:
+                            csv_data = csv_match.group(1)
+                            st.session_state['csv_export_data'] = csv_data
                 
                 message_placeholder.markdown(full_response)
             except Exception as e:
@@ -91,3 +105,14 @@ def render_assistant_page():
 
         # Add assistant response to chat history
         st.session_state.messages.append({"role": "assistant", "content": full_response})
+        
+        # Display CSV download button if CSV was exported
+        if 'csv_export_data' in st.session_state and st.session_state.csv_export_data:
+            from datetime import datetime
+            st.download_button(
+                label="📥 Télécharger le CSV",
+                data=st.session_state.csv_export_data,
+                file_name=f"reclamations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                key=f"csv_download_{len(st.session_state.messages)}"  # Unique key per export
+            )

@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.join(root_dir, 'src'))
 sys.path.insert(0, root_dir)
 
 from auth.credentials_manager import CredentialsManager
-from utils.i18n import get_i18n_text
+from utils.i18n import get_i18n_text, get_browser_language
 
 
 
@@ -45,7 +45,8 @@ def render_settings_page() -> None:
         - Renders Streamlit UI components
         - May trigger database updates via user interactions
     """
-    st.markdown('<div class="section-header">⚙️ Settings</div>', unsafe_allow_html=True)
+    lang = get_browser_language()
+    st.markdown(f'<div class="section-header">⚙️ {get_i18n_text("settings_header", lang)}</div>', unsafe_allow_html=True)
     
     # Multi-store management
     render_store_management()
@@ -105,8 +106,9 @@ def render_store_management() -> None:
     Note:
         Migrated from legacy client_dashboard.py:1146-1227
     """
-    st.markdown("### 🏪 Gestion des Magasins")
-    st.caption("Ajoutez, synchronisez ou supprimez vos boutiques e-commerce")
+    lang = get_browser_language()
+    st.markdown(f"### 🏪 {get_i18n_text('store_management', lang)}")
+    st.caption(get_i18n_text('store_management_caption', lang))
     
     client_email = st.session_state.get('client_email', '')
     manager = CredentialsManager()
@@ -120,7 +122,7 @@ def render_store_management() -> None:
     
     # Display existing stores
     if client_stores:
-        st.markdown("**📋 Vos boutiques connectées**")
+        st.markdown(f"**📋 {get_i18n_text('connected_stores', lang)}**")
         
         for idx, store in enumerate(client_stores):
             col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
@@ -136,36 +138,36 @@ def render_store_management() -> None:
             with col2:
                 st.caption(f"{store.get('platform', 'N/A').capitalize()}")
             with col3:
-                if st.button("🔄", key=f"sync_{idx}", help="Synchroniser"):
-                    st.toast(f"🔄 Synchronisation de {store.get('store_name')}...")
+                if st.button("🔄", key=f"sync_{idx}", help=get_i18n_text('sync', lang)):
+                    st.toast(f"🔄 {get_i18n_text('sync', lang)}...")
             with col4:
-                if st.button("🗑️", key=f"delete_{idx}", help="Supprimer"):
+                if st.button("🗑️", key=f"delete_{idx}", help=get_i18n_text('delete', lang)):
                     if st.session_state.get(f'confirm_delete_{idx}'):
                         # Delete store
                         if hasattr(manager, 'delete_store'):
                             manager.delete_store(client_email, idx)
-                        st.success("✅ Boutique supprimée")
+                        st.success(f"✅ {get_i18n_text('store_deleted', lang)}")
                         st.rerun()
                     else:
                         st.session_state[f'confirm_delete_{idx}'] = True
-                        st.warning("⚠️ Cliquez à nouveau pour confirmer")
+                        st.warning(f"⚠️ {get_i18n_text('confirm_delete', lang)}")
     else:
-        st.info("Aucune boutique connectée pour le moment")
+        st.info(get_i18n_text('no_stores', lang))
     
     st.markdown("---")
     
     # Add new store
-    with st.expander("➕ Ajouter une nouvelle boutique"):
+    with st.expander(f"➕ {get_i18n_text('add_store', lang)}"):
         with st.form("add_store_form"):
-            st.markdown("**Connectez une nouvelle boutique**")
+            st.markdown(f"**{get_i18n_text('connect_store', lang)}**")
             
             platform = st.selectbox(
-                "Plateforme e-commerce",
+                get_i18n_text('platform', lang),
                 ["Shopify", "WooCommerce", "PrestaShop", "Magento", "BigCommerce", "Wix"]
             )
             
-            store_name = st.text_input("Nom de la boutique", placeholder="Ma Nouvelle Boutique")
-            store_url = st.text_input("URL", placeholder="https://maboutique.com")
+            store_name = st.text_input(get_i18n_text('store_name', lang), placeholder="Ma Nouvelle Boutique")
+            store_url = st.text_input(get_i18n_text('url', lang), placeholder="https://maboutique.com")
             
             if platform == "Shopify":
                 api_key = st.text_input("Shop URL", placeholder="maboutique.myshopify.com")
@@ -177,11 +179,11 @@ def render_store_management() -> None:
                 api_key = st.text_input("API Key", placeholder="Votre clé API")
                 api_secret = st.text_input("API Secret", type="password")
             
-            submitted = st.form_submit_button("✅ Ajouter cette boutique", width='stretch')
+            submitted = st.form_submit_button(f"✅ {get_i18n_text('add_this_store', lang)}", width='stretch')
             
             if submitted:
                 if not store_name or not api_key or not api_secret:
-                    st.error("⚠️ Tous les champs sont obligatoires")
+                    st.error(f"⚠️ {get_i18n_text('all_fields_required', lang)}")
                 else:
                     credentials = {
                         'shop_url': store_url if platform == "Shopify" else api_key,
@@ -209,10 +211,10 @@ def render_store_management() -> None:
                         )
                     
                     if success:
-                        st.success(f"✅ Boutique {store_name} ajoutée avec succès !")
+                        st.success(get_i18n_text('store_added_success', lang).format(store_name=store_name))
                         st.rerun()
                     else:
-                        st.error("❌ Erreur lors de l'ajout de la boutique")
+                        st.error(f"❌ {get_i18n_text('error_adding_store', lang)}")
 
 
 def render_platform_info() -> None:
@@ -238,8 +240,9 @@ def render_platform_info() -> None:
     Note:
         Migrated from legacy client_dashboard.py:1229-1284
     """
-    st.markdown("### 🔌 Informations Plateforme")
-    st.caption("Détails de connexion à votre plateforme e-commerce")
+    lang = get_browser_language()
+    st.markdown(f"### 🔌 {get_i18n_text('platform_info', lang)}")
+    st.caption(get_i18n_text('platform_info_caption', lang))
     
     client_email = st.session_state.get('client_email', '')
     selected_store = st.session_state.get('selected_store')
@@ -313,8 +316,9 @@ def render_bank_info() -> None:
     Note:
         Migrated from legacy client_dashboard.py:1286-1357
     """
-    st.markdown("### 💳 Informations Bancaires")
-    st.caption("Vos coordonnées pour recevoir les remboursements (80% des montants récupérés)")
+    lang = get_browser_language()
+    st.markdown(f"### 💳 {get_i18n_text('bank_info', lang)}")
+    st.caption(get_i18n_text('bank_info_caption', lang))
     
     client_email = st.session_state.get('client_email', '')
     
@@ -441,8 +445,9 @@ def render_notification_preferences() -> None:
     
     Preferences are stored in clients.notification_preferences (JSON)
     """
-    st.markdown("### 📧 Préférences de Notifications Email")
-    st.caption("Contrôlez les emails que vous recevez pour ne jamais être submergé")
+    lang = get_browser_language()
+    st.markdown(f"### 📧 {get_i18n_text('notification_prefs', lang)}")
+    st.caption(get_i18n_text('notification_prefs_caption', lang))
     
     client_email = st.session_state.get('client_email', '')
     

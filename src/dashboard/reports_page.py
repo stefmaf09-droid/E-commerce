@@ -40,7 +40,9 @@ def render_reports_page(disputes_df: pd.DataFrame) -> None:
         - Renders analytics charts
         - Displays timeline of events
     """
-    st.markdown('<div class="section-header">📈 Reports & Analytics</div>', unsafe_allow_html=True)
+    from utils.i18n import get_browser_language, get_i18n_text
+    lang = get_browser_language()
+    st.markdown(f'<div class="section-header">📈 {get_i18n_text("reports_header", lang)}</div>', unsafe_allow_html=True)
     
     # Analytics tab with charts
     render_analytics_tab(disputes_df)
@@ -94,8 +96,10 @@ def render_timeline() -> None:
         Currently uses mock data. In production, should fetch from database.
         Migrated from legacy client_dashboard.py:1502-1547
     """
-    st.markdown("### 📅 Timeline des Événements Récents")
-    st.caption("Historique chronologique de vos litiges et actions")
+    from utils.i18n import get_browser_language, get_i18n_text
+    lang = get_browser_language()
+    st.markdown(f"### 📅 {get_i18n_text('timeline_recent_events', lang)}")
+    st.caption(get_i18n_text('timeline_caption', lang))
     
     # Generate timeline events (should come from database in production)
     timeline_events = [

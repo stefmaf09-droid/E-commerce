@@ -77,14 +77,116 @@ Refundly.ai est conçu pour fonctionner dans plusieurs pays et zones géographiq
 
 ---
 
-## 7. Code vs Data : Quelle est la différence ?
+## 7. Comment Refundly récupère-t-il automatiquement les preuves de livraison ?
 
-C'est une confusion fréquente lors du passage au Cloud :
+### Qu'est-ce qu'un POD (Proof of Delivery) ?
 
-* **GitHub (Code)** : C'est le "moteur" de votre voiture. Quand vous faites une mise à jour sur GitHub, vous changez le moteur, ajoutez des fonctionnalités, corrigez des bugs. Cela se déploie automatiquement sur le Cloud.
-* **Base de Données (Data)** : C'est le "carburant" (vos clients, vos dossiers). GitHub ne touche JAMAIS à vos données pour des raisons de sécurité.
-* **Le bouton "Cloud Sync"** : C'est la pompe à essence qui permet de transférer votre carburant (données locales) vers le nouveau moteur (Cloud).
+Le **POD** est la preuve de livraison fournie par le transporteur. C'est un document essentiel pour construire un dossier solide face aux refus abusifs. Il contient :
 
-**En résumé :**
-* Je modifie l'appli (couleurs, boutons) -> **GitHub**
-* Je veux voir mes clients sur le site web -> **Cloud Sync**
+* La signature du destinataire ou photo de dépôt
+* L'heure et la date exacte de livraison
+* Le lieu de remise du colis
+* Des informations sur l'état du colis à la livraison
+
+### Récupération automatique intelligente
+
+Refundly se connecte **automatiquement** aux systèmes des transporteurs pour récupérer ces preuves :
+
+* **Transporteurs supportés** : Colissimo, Chronopost, UPS, DHL, FedEx, GLS, Mondial Relay, et bien d'autres
+* **Temps réel** : Dès qu'une livraison est confirmée, le système interroge le transporteur pour obtenir le POD
+* **Notification instantanée** : Vous recevez un email dès qu'un POD est récupéré avec un lien de téléchargement
+* **Stockage sécurisé** : Les documents sont automatiquement attachés à votre dossier de réclamation
+
+### Pourquoi est-ce important pour vous ?
+
+Quand un transporteur prétend qu'un colis a été livré alors que votre client ne l'a jamais reçu, **le POD est votre arme**. Refundly l'utilise automatiquement pour :
+
+1. Vérifier la signature (est-ce vraiment votre client ?)
+2. Comparer l'adresse de livraison avec celle de la commande
+3. Renforcer votre mise en demeure avec des preuves concrètes
+
+**Vous n'avez rien à faire** : tout est automatisé en arrière-plan.
+
+---
+
+## 8. Assistant IA : Votre expert disponible 24/7
+
+### Qu'est-ce que l'Assistant Refundly ?
+
+C'est un chatbot intelligent qui répond instantanément à toutes vos questions sur :
+
+* Le fonctionnement de la plateforme
+* L'état de vos réclamations
+* Les démarches juridiques
+* Les textes de lois applicables à votre situation
+
+### Comment l'utiliser ?
+
+L'Assistant est accessible directement depuis votre tableau de bord. Il a été formé sur :
+
+* L'ensemble de cette FAQ
+* Les textes de lois internationaux (Article L. 133-3, CMR, Carmack Amendment...)
+* Les meilleures pratiques de récupération
+* **VOS données personnelles** : réclamations, statistiques, litiges détectés
+
+### L'assistant connaît vos données
+
+L'Assistant a accès en temps réel à **votre compte** pour vous donner des réponses précises et personnalisées :
+
+* Vos statistiques (taux de succès, montants récupérés)
+* Vos réclamations en cours et leur statut exact
+* Vos litiges détectés mais pas encore réclamés
+* Vos boutiques connectées
+
+**Exemple de conversation** :
+
+* **Vous** : "Combien de réclamations j'ai en cours ?"
+* **Assistant** : "Vous avez actuellement 3 réclamations en cours : CLM-20260205-001 (Chronopost, sous examen), CLM-20260203-002 (Colissimo, acceptée), et CLM-20260201-003 (UPS, en attente de réponse)."
+
+* **Vous** : "Quel est mon taux de succès ?"
+* **Assistant** : "Votre taux de succès est de 75% (9 réclamations acceptées sur 12 au total). Vous avez récupéré 1,245.50 EUR dont 996.40 EUR ont été versés sur votre compte."
+
+---
+---
+
+## 9. Exportation et Rapports CSV
+
+### Comment exporter mes données ?
+
+Refundly.ai permet d'exporter vos réclamations et litiges à tout moment pour une analyse plus poussée dans Excel ou Google Sheets :
+
+* **Export via l'Assistant** : Demandez simplement au chatbot "Exporte mes litiges en CSV".
+* **Téléchargement Direct** : Une fois le traitement terminé, un bouton **"Télécharger le CSV"** apparaît instantanément.
+* **Format Standard** : Le fichier généré est au format CSV standard (UTF-8) avec point-virgule comme séparateur, prêt à être ouvert.
+
+---
+
+## 10. Gestion des Pièces Jointes Emails
+
+### Comment fonctionne l'extraction automatique des documents ?
+
+Le système de gestion des pièces jointes élimine la saisie manuelle de vos justificatifs :
+
+1. **Surveillance IMAP** : Refundly se connecte (avec votre accord) à votre boîte mail de support ou de litiges.
+2. **Extraction de Documents** : L'IA détecte les pièces jointes (PDF, signatures, photos de dommages) et les télécharge automatiquement.
+3. **Liaison Intelligente** : Si l'objet de l'email contient votre référence de réclamation (ex: CLM-XXXX), le fichier est automatiquement lié au dossier correspondant.
+4. **Interface de Gestion** : Dans l'onglet **"Pièces Jointes"**, vous pouvez synchroniser manuellement, visualiser les fichiers non assignés et les lier en un clic à vos litiges.
+
+## 11. BypassScorer : Prédire le succès de vos réclamations
+
+Le **BypassScorer** est un outil d'intelligence artificielle qui évalue la probabilité que votre réclamation soit acceptée par le transporteur avant même que vous ne la poussiez plus loin.
+
+* **Score en temps réel** : Une barre de progression sur chaque litige vous indique le niveau de confiance de l'IA.
+* **Critères d'analyse** : Le score prend en compte le type de litige, la fiabilité historique du transporteur sur ce motif précis, et les preuves déjà fournies.
+* **Apprentissage continu** : Plus vous l'utilisez, plus il devient précis en apprenant des décisions réelles des transporteurs.
+
+## 12. Conseil Stratégique IA (Bypass Advice)
+
+Lorsqu'un transporteur rejette une réclamation, Refundly.ai ne se contente pas de changer le statut. L'IA analyse la lettre de rejet et vous propose immédiatement un **Conseil Stratégique** :
+
+* **Motif Décodé** : L'IA traduit le jargon du transporteur (ex: "Poids conforme", "Badge d'accès") en termes clairs.
+* **Action Recommandée** : Le système vous dit exactement quelle preuve manque pour renverser la situation (ex: "Demandez une photo de l'étiquette au client" ou "Produisez une attestation de non-réception").
+* **Force Juridique** : Les conseils incluent les références aux articles de loi (L133-3, CMR) pour renforcer votre réponse.
+
+---
+**Refundly.ai** : L'automatisation au service de votre trésorerie.

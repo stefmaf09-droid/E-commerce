@@ -30,7 +30,7 @@ class AutoRefresh:
     """Smart auto-refresh component for Streamlit dashboards."""
     
     # Default settings
-    DEFAULT_ENABLED = True
+    DEFAULT_ENABLED = False
     DEFAULT_INTERVAL = 30  # seconds
     AVAILABLE_INTERVALS = [5, 10, 30, 60]
     

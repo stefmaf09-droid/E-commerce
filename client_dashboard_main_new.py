@@ -33,6 +33,8 @@ from src.dashboard import (
     render_reports_page,
     render_stagnation_escalation_section,
 )
+from src.dashboard.assistant_page import render_assistant_page
+from src.dashboard.attachments_page import render_attachments_page
 
 
 # Page config
@@ -130,7 +132,7 @@ def main():
     # Existing user - show full dashboard
     # --- DATA LOADING ---
     # --- DATA LOADING ---
-    from database.database_manager import DatabaseManager
+    from database.database_manager import DatabaseManager, set_db_manager
     
     # Sélection de la BDD selon l'environnement
     if st.session_state.env_mode == 'TEST':
@@ -141,6 +143,7 @@ def main():
     # [OFFLINE MODE PATCH] Wrapp DB connection to handle local firewall issues
     try:
         db_manager = DatabaseManager(db_path=db_path)
+        set_db_manager(db_manager)
         
         # Get current client and load their claims
         client = db_manager.get_client(email=st.session_state.client_email)
@@ -163,7 +166,9 @@ def main():
                     'dispute_type': claim.get('dispute_type', 'unknown'),
                     'payment_status': claim.get('payment_status', 'unpaid'),
                     'customer_name': claim.get('customer_name', 'N/A'),
-                    'delivery_address': claim.get('delivery_address', 'N/A')
+                    'delivery_address': claim.get('delivery_address', 'N/A'),
+                    'ai_reason_key': claim.get('ai_reason_key'),
+                    'ai_advice': claim.get('ai_advice')
                 })
         st.session_state.offline_mode = False
 
@@ -220,8 +225,8 @@ def main():
         
         selected = option_menu(
             "Menu Principal",
-            ["Tableau de Bord", "Dépôt Preuves", "Mes Litiges", "Gestion Litiges", "Rapports", "Réglages", "💬 Assistant"],
-            icons=["speedometer2", "cloud-upload", "list-task", "clipboard-check", "file-earmark-text", "gear", "chat-dots"],
+            ["Tableau de Bord", "💬 Assistant", "📎 Pièces Jointes", "Dépôt Preuves", "Mes Litiges", "Gestion Litiges", "📊 POD Analytics", "Rapports", "Réglages"],
+            icons=["speedometer2", "chat-dots", "paperclip", "cloud-upload", "list-task", "clipboard-check", "bar-chart", "file-earmark-text", "gear"],
             menu_icon="cast",
             default_index=0,
         )
@@ -301,6 +306,11 @@ def main():
         from src.dashboard.claims_management_page import render_claims_management
         render_claims_management()
     
+    elif selected == "📊 POD Analytics":
+        # POD Analytics Dashboard
+        from src.dashboard.pod_analytics_page import render_pod_analytics_page
+        render_pod_analytics_page()
+    
     elif selected == "Rapports":
         # Reports & Analytics page
         render_reports_page(disputes_df)
@@ -311,8 +321,13 @@ def main():
         
     elif selected == "💬 Assistant":
         # Assistant page
-        from src.dashboard.assistant_page import render_assistant_page
         render_assistant_page()
+        return  # Stop execution to prevent Dashboard content from rendering
+    
+    elif selected == "📎 Pièces Jointes":
+        # Attachments page
+        render_attachments_page()
+        return
     
     # Sidebar cleanup - redundant controls removed
     

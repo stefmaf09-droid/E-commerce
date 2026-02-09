@@ -20,6 +20,12 @@ from auth.credentials_manager import CredentialsManager
 from workers.order_sync_worker import OrderSyncWorker
 from ui.theme import render_premium_metric
 from utils.i18n import format_currency, get_i18n_text
+from ai.bypass_scorer import BypassScorer
+
+@st.cache_resource
+def get_cached_scorer():
+    """Cached instance of BypassScorer to avoid DB thrashing."""
+    return BypassScorer()
 
 
 def render_navigation_header():
@@ -172,8 +178,17 @@ def render_disputes_table_modern(disputes_df):
         'Processing': {'class': 'status-processing', 'label': 'Processing'},
         'Under Review': {'class': 'status-review', 'label': 'Under Review'},
         'Awaiting Carrier': {'class': 'status-awaiting', 'label': 'Awaiting Carrier'},
-        'Pending': {'class': 'status-pending', 'label': 'Pending'}
+        'Pending': {'class': 'status-pending', 'label': 'Pending'},
+        'Accepted': {'class': 'status-resolved', 'label': 'Accepted'},
+        'Rejected': {'class': 'status-error', 'label': 'Rejected'}
     }
+    
+    
+    try:
+        scorer = get_cached_scorer()
+    except Exception as e:
+        st.error(f"AI Scorer Error: {e}")
+        scorer = None
     
     # Start table
     st.markdown("""
@@ -192,8 +207,19 @@ def render_disputes_table_modern(disputes_df):
         carrier = row.get('carrier', 'UPS')
         carrier_info = carriers_info.get(carrier, {'logo': '📦', 'name': carrier})
         
-        # Calculate AI confidence (simulation based on data)
-        confidence = min(98, 60 + (idx * 7) % 35)
+        # Calculate AI confidence using BypassScorer
+        if scorer:
+            try:
+                success_prob = scorer.predict_success({
+                    'carrier': carrier,
+                    'dispute_type': row.get('dispute_type', 'unknown')
+                })
+                confidence = int(success_prob * 100)
+            except Exception:
+                confidence = 50
+        else:
+            confidence = 50
+            
         confidence_color = '#4338ca' if confidence >= 90 else ('#10b981' if confidence >= 75 else '#f59e0b')
         confidence_icon = '✓' if confidence >= 90 else ('⚠️' if confidence < 75 else '')
         
@@ -201,9 +227,16 @@ def render_disputes_table_modern(disputes_df):
         refund_date = (datetime.now() + timedelta(days=15 + idx * 3)).strftime('%b %d, %Y')
         
         # Status
-        statuses = list(status_configs.keys())
-        status = statuses[idx % len(statuses)]
-        status_config = status_configs[status]
+        status_map = {
+            'pending': 'Pending',
+            'submitted': 'Processing',
+            'under_review': 'Under Review',
+            'accepted': 'Accepted',
+            'rejected': 'Rejected'
+        }
+        raw_status = row.get('status', 'pending')
+        status = status_map.get(raw_status, 'Pending')
+        status_config = status_configs.get(status, status_configs['Pending'])
         
         # Create row container
         st.markdown('<div class="table-row" style="display: grid; grid-template-columns: 1fr 2fr 1.2fr 1fr 1.5fr; align-items: center; padding: 16px; border-bottom: 1px solid #f1f5f9;">', unsafe_allow_html=True)

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header.warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .content {
+            background: #f9fafb;
+            padding: 30px;
+        }
+
+        .error-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .action-box {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .button {
+            background: #3b82f6;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .footer {
+            background: #333;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 10px 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header warning">
+            <h1>⚠️ {{title}}</h1>
+        </div>
+        <div class="content">
+            <p>{{greeting}},</p>
+
+            <p>{{message}}</p>
+
+            <div class="error-box">
+                <h3>❌ {{error_title}}</h3>
+                <p><strong>{{claim_ref_label}}:</strong> {{claim_ref}}</p>
+                <p><strong>{{carrier_label}}:</strong> {{carrier}}</p>
+                <p><strong>{{reason_label}}:</strong> {{error}}</p>
+            </div>
+
+            <div class="action-box">
+                <p><strong>{{action_required_title}}</strong></p>
+                <p>{{action_text}}</p>
+            </div>
+
+            <p style="text-align: center; margin: 30px 0;">
+                <a href="{{claim_url}}" class="button">{{view_claim_button}}</a>
+            </p>
+
+            <p>{{signature}},<br>
+                <strong>{{team_name}}</strong>
+            </p>
+        </div>
+        <div class="footer">
+            <p>© 2026 Refundly.ai - All rights reserved</p>
+            <p>{{preferences_text}} <a href="{{settings_url}}" style="color: #3b82f6;">{{here_text}}</a>.</p>
+        </div>
+    </div>
+</body>
+
+</html>

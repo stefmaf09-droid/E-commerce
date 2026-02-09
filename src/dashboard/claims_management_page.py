@@ -14,13 +14,16 @@ from datetime import datetime
 from typing import List
 
 from src.database.database_manager import get_db_manager
+from src.utils.i18n import get_i18n_text, get_browser_language
 
 
 def render_claims_management():
     """Render enhanced claims management page with bulk actions."""
     
-    st.markdown("### 📋 Gestion des Litiges")
-    st.caption("Visualisez et gérez vos réclamations en masse")
+    lang = get_browser_language()
+    
+    st.markdown(f"### 📋 {get_i18n_text('claims_management_title', lang)}")
+    st.caption(get_i18n_text('claims_management_caption', lang))
     
     # Load claims from database
     client_email = st.session_state.get('client_email')
@@ -35,7 +38,7 @@ def render_claims_management():
         result = cursor.fetchone()
         
         if not result:
-            st.error("Client non trouvé")
+            st.error(get_i18n_text('client_not_found', lang))
             conn.close()
             return
         
@@ -111,7 +114,7 @@ def render_claims_management():
         st.markdown("---")
         
         # POD Status Section
-        st.markdown("#### 📄 Statut POD (Proof of Delivery)")
+        st.markdown(f"#### 📄 {get_i18n_text('pod_status_title', lang)}")
         st.caption("Visualisez la disponibilité des preuves de livraison et relancez les échecs")
         
         # Pod stats
@@ -137,40 +140,52 @@ def render_claims_management():
             claim_ref = claim['claim_reference']
             
             if pod_status == 'success':
-                cols = st.columns([3, 1])
+                cols = st.columns([3, 1, 1])
                 with cols[0]:
-                    st.success(f"✅ POD disponible - {claim_ref}", icon="📄")
+                    st.success(get_i18n_text('pod_status_available', lang).format(claim_ref=claim_ref), icon="📄")
                 with cols[1]:
                     if claim.get('pod_url'):
-                        st.link_button("⬇️ Télécharger", claim['pod_url'], use_container_width=True)
+                        # View POD button - show inline viewer
+                        if st.button(f"👁️ {get_i18n_text('view_pod', lang)}", key=f"view_{claim['id']}", use_container_width=True):
+                            st.session_state[f"show_pod_{claim_ref}"] = True
+                            st.rerun()
+                with cols[2]:
+                    if claim.get('pod_url'):
+                        st.link_button(f"⬇️", claim['pod_url'], use_container_width=True, help=get_i18n_text('download_csv', lang))
                     else:
                         st.caption("URL non disponible")
+                
+                # Display POD viewer if requested
+                if st.session_state.get(f"show_pod_{claim_ref}", False):
+                    from src.dashboard.pod_viewer import render_pod_viewer
+                    with st.container():
+                        render_pod_viewer(claim['pod_url'], claim_ref, display_mode="inline")
             
             elif pod_status == 'failed':
                 cols = st.columns([3, 1])
                 with cols[0]:
-                    st.error(f"❌ Échec POD - {claim_ref}", icon="⚠️")
+                    st.error(get_i18n_text('pod_status_failed', lang).format(claim_ref=claim_ref), icon="⚠️")
                     if claim.get('pod_fetch_error'):
                         st.caption(f"Erreur: {claim['pod_fetch_error'][:80]}")
                 with cols[1]:
-                    if st.button("🔄 Réessayer", key=f"retry_{claim['id']}", use_container_width=True):
+                    if st.button(f"🔄 {get_i18n_text('btn_retry_pod', lang)}", key=f"retry_{claim['id']}", use_container_width=True):
                         retry_pod_fetch(claim['id'], claim['tracking_number'], claim['carrier'])
                         st.rerun()
             
             elif pod_status == 'pending':
-                st.warning(f"⏳ POD en cours de récupération - {claim_ref}", icon="⏱️")
+                st.warning(get_i18n_text('pod_status_fetching', lang).format(claim_ref=claim_ref), icon="⏱️")
         
         # Bulk retry button for failed PODs
         if failed_count > 0:
             st.markdown("---")
-            if st.button(f"🔄 Réessayer tous les échecs ({failed_count})", type="primary", use_container_width=True):
+            if st.button(f"🔄 {get_i18n_text('btn_retry_all', lang)} ({failed_count})", type="primary", use_container_width=True):
                 bulk_retry_failed_pods(df)
                 st.rerun()
         
         st.markdown("---")
         
         # Bulk Actions Toolbar
-        st.markdown("#### ⚡ Actions groupées")
+        st.markdown(f"#### ⚡ {get_i18n_text('bulk_actions_title', lang)}")
         
         col_bulk1, col_bulk2, col_bulk3 = st.columns(3)
         
@@ -189,7 +204,7 @@ def render_claims_management():
         st.markdown("---")
         
         # Display claims table with selection
-        st.markdown("#### 📊 Liste des litiges")
+        st.markdown(f"#### 📊 {get_i18n_text('claims_list_title', lang)}")
         
         # Use data_editor with checkbox for selection
         display_df = df[['claim_reference', 'carrier', 'status_display', 'amount_requested', 'submitted_at', 'response_deadline']].copy()
@@ -212,25 +227,27 @@ def render_claims_management():
         
         # Delete confirmation dialog
         if st.session_state.get('show_delete_confirmation'):
-            st.error("⚠️ **Attention** : La suppression est définitive !")
+            st.error(f"⚠️ **{get_i18n_text('delete_warning', lang)}**")
             col_conf1, col_conf2 = st.columns(2)
             with col_conf1:
-                if st.button("✅ Confirmer la suppression", type="primary"):
+                if st.button(f"✅ {get_i18n_text('btn_confirm_delete', lang)}", type="primary"):
                     # TODO: Implement bulk delete
-                    st.success("🗑️ Litiges supprimés")
+                    st.success(f"🗑️ {get_i18n_text('claims_deleted', lang)}")
                     st.session_state.show_delete_confirmation = False
                     st.rerun()
             with col_conf2:
-                if st.button("❌ Annuler"):
+                if st.button(f"❌ {get_i18n_text('btn_cancel', lang)}"):
                     st.session_state.show_delete_confirmation = False
                     st.rerun()
         
     except Exception as e:
-        st.error(f"Erreur lors du chargement des litiges : {str(e)}")
+        st.error(f"{get_i18n_text('error_loading_claims', lang)}: {str(e)}")
 
 
 def export_claims_to_csv(df: pd.DataFrame):
     """Export claims to CSV file."""
+    lang = get_browser_language()
+    
     try:
         # Prepare CSV
         csv_df = df[[
@@ -242,26 +259,28 @@ def export_claims_to_csv(df: pd.DataFrame):
         
         # Provide download button
         st.download_button(
-            label="📥 Télécharger le CSV",
+            label=f"📥 {get_i18n_text('download_csv', lang)}",
             data=csv_data,
             file_name=f"litiges_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
             key="download_claims_csv"
         )
         
-        st.success(f"✅ {len(df)} litiges prêts à être exportés !")
+        st.success(f"✅ {len(df)} {get_i18n_text('csv_ready', lang)}")
         
     except Exception as e:
-        st.error(f"Erreur lors de l'export : {str(e)}")
+        st.error(f"{get_i18n_text('error_export', lang)}: {str(e)}")
 
 
 
 
 def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
     """Manually retry POD fetch for a claim."""
+    lang = get_browser_language()
+    
     try:
         if not tracking_number:
-            st.error("❌ Impossible de réessayer: numéro de suivi manquant")
+            st.error(f"❌ {get_i18n_text('no_tracking', lang)}")
             return
         
         # Import POD fetcher and rate limiter
@@ -274,10 +293,13 @@ def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
         # Check rate limit
         if not api_queue.can_execute(carrier):
             reset_time = api_queue._get_reset_time(carrier)
-            st.warning(f"⚠️ Limite d'API atteinte pour {carrier}. Réessayez après {reset_time.strftime('%H:%M')}")
+            st.warning(get_i18n_text('rate_limit_reached', lang).format(
+                carrier=carrier,
+                time=reset_time.strftime('%H:%M')
+            ))
             return
         
-        with st.spinner(f"🔄 Récupération POD pour {tracking_number}..."):
+        with st.spinner(get_i18n_text('retrieving_pod', lang).format(tracking=tracking_number)):
             # Attempt POD fetch with rate limiting
             result = api_queue.execute_with_limit(
                 carrier,
@@ -308,10 +330,46 @@ def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
                 conn.commit()
                 conn.close()
                 
-                st.success(f"✅ POD récupéré avec succès!")
+                st.success(f"✅ {get_i18n_text('pod_retrieved_success', lang)}")
                 st.balloons()
+                
+                # Send success notification
+                try:
+                    from src.notifications.notification_manager import NotificationManager
+                    from src.utils.i18n import get_browser_language
+                    
+                    # Get claim info for notification
+                    conn = db.get_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT c.claim_reference, c.carrier, cl.email
+                        FROM claims c
+                        JOIN clients cl ON c.client_id = cl.id
+                        WHERE c.id = ?
+                    """, (claim_id,))
+                    claim_info = cursor.fetchone()
+                    conn.close()
+                    
+                    if claim_info:
+                        notif_manager = NotificationManager()
+                        lang = get_browser_language()
+                        notif_manager.queue_notification(
+                            client_email=claim_info[2],
+                            event_type='pod_retrieved',
+                            context={
+                                'claim_ref': claim_info[0],
+                                'carrier': claim_info[1],
+                                'pod_url': result['pod_url'],
+                                'lang': lang
+                            }
+                        )
+                except Exception as notif_error:
+                    # Don't fail the whole operation if notification fails
+                    st.warning(get_i18n_text('pod_retrieved_notification_failed', lang).format(error=str(notif_error)))
+                    
             else:
                 # Mark as failed
+                error_msg = result['error']
                 conn = db.get_connection()
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -319,14 +377,51 @@ def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
                     SET pod_fetch_status = 'failed',
                         pod_fetch_error = ?
                     WHERE id = ?
-                """, (result['error'], claim_id))
+                """, (error_msg, claim_id))
                 conn.commit()
+                
+                # Get claim info for notification
+                cursor.execute("""
+                    SELECT c.claim_reference, c.carrier, cl.email
+                    FROM claims c
+                    JOIN clients cl ON c.client_id = cl.id
+                    WHERE c.id = ?
+                """, (claim_id,))
+                claim_info = cursor.fetchone()
                 conn.close()
+                
+                st.error(get_i18n_text('pod_failed_error', lang).format(error=error_msg))
+                
+                # Send notification ONLY for persistent errors
+                try:
+                    from src.integrations.pod_error_classifier import is_persistent_pod_error
+                    from src.notifications.notification_manager import NotificationManager
+                    from src.utils.i18n import get_browser_language
+                    
+                    if is_persistent_pod_error(error_msg):
+                        if claim_info:
+                            notif_manager = NotificationManager()
+                            lang = get_browser_language()
+                            notif_manager.queue_notification(
+                                client_email=claim_info[2],
+                                event_type='pod_failed',
+                                context={
+                                    'claim_ref': claim_info[0],
+                                    'carrier': claim_info[1],
+                                    'error': error_msg,
+                                    'lang': lang
+                                }
+                            )
+                            st.info(f"📧 {get_i18n_text('notification_sent_persistent', lang)}")
+                    else:
+                        st.info(f"⏳ {get_i18n_text('notification_temp_error', lang)}")
+                except Exception as notif_error:
+                    st.warning(get_i18n_text('notification_failed', lang).format(error=str(notif_error)))
                 
                 st.error(f"❌ Échec: {result['error']}")
                 
     except Exception as e:
-        st.error(f"Erreur lors de la récupération POD: {str(e)}")
+        st.error(get_i18n_text('error_pod_retrieval', lang).format(error=str(e)))
 
 
 
@@ -334,10 +429,11 @@ def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
 
 def bulk_retry_failed_pods(df: pd.DataFrame):
     """Retry all failed POD fetches in batch with rate limiting."""
+    lang = get_browser_language()
     failed_claims = df[df['pod_fetch_status'] == 'failed']
     
     if failed_claims.empty:
-        st.warning("Aucun POD en échec à réessayer")
+        st.warning(get_i18n_text('no_failed_pods', lang))
         return
     
     # Import dependencies

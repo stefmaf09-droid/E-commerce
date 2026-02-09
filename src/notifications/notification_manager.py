@@ -47,6 +47,8 @@ class NotificationManager:
         'claim_accepted': True,
         'payment_received': True,
         'deadline_warning': True,
+        'pod_retrieved': True,     # POD successfully fetched
+        'pod_failed': True,        # POD fetch failed (persistent errors only)
         'frequency': 'immediate'
     }
     
@@ -314,12 +316,18 @@ class NotificationManager:
     
     def _get_email_subject(self, event_type: str, context: Dict[str, Any]) -> str:
         """Generate email subject based on event type."""
+        from src.utils.i18n import get_i18n_text
+        
+        lang = context.get('lang', 'FR')
+        
         subjects = {
             'claim_created': f"✅ Nouveau litige {context.get('claim_ref', 'créé')}",
             'claim_updated': f"🔄 Mise à jour - {context.get('claim_ref', 'Litige')}",
             'claim_accepted': f"🎉 Litige accepté - {context.get('claim_ref', '')}",
             'payment_received': f"💰 Remboursement reçu - {context.get('amount', '')}€",
-            'deadline_warning': f"⚠️ Action requise - {context.get('claim_ref', 'Litige')}"
+            'deadline_warning': f"⚠️ Action requise - {context.get('claim_ref', 'Litige')}",
+            'pod_retrieved': get_i18n_text('email_pod_retrieved_subject', lang),
+            'pod_failed': get_i18n_text('email_pod_failed_subject', lang)
         }
         return subjects.get(event_type, "Notification Refundly")
     

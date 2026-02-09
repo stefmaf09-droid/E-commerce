@@ -14,6 +14,7 @@ from typing import Optional, List, Dict, Any, Tuple
 import json
 import logging
 from urllib.parse import urlparse
+from src.config import Config
 
 try:
     import psycopg2
@@ -31,16 +32,17 @@ class DatabaseManager:
     def __init__(self, db_path: str = None):
         """
         Initialize database manager.
-        
-        Args:
-            db_path: Chemin vers la base SQLite. Si None, utilise database/main.db
         """
         if db_path is None:
-            db_path = os.path.join(os.path.dirname(__file__), '..', '..', 'database', 'main.db')
+            db_path = Config.get('DATABASE_PATH')
+            if not db_path:
+                # Default to project-specific path
+                db_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'recours_ecommerce.db')
         
         self.db_path = db_path
-        self.db_type = os.getenv('DATABASE_TYPE', 'sqlite').lower()
-        self.pg_url = os.getenv('DATABASE_URL')
+        print(f"DEBUG: DatabaseManager using path: {self.db_path}")
+        self.db_type = Config.get('DATABASE_TYPE', 'sqlite').lower()
+        self.pg_url = Config.get_database_url()
         
         # Caractère de substitution (placeholder) pour SQL
         self.placeholder = '?' if self.db_type == 'sqlite' else '%s'
@@ -569,6 +571,88 @@ class DatabaseManager:
             conn.close()
 
 
+    # ========================================
+    # EMAIL ATTACHMENTS
+    # ========================================
+    
+    def create_email_attachment(self, client_email: str, **kwargs) -> int:
+        """Enregistrer une pièce jointe d'email."""
+        conn = self.get_connection()
+        try:
+            claim_reference = kwargs.get('claim_reference')
+            carrier = kwargs.get('carrier')
+            email_subject = kwargs.get('email_subject')
+            email_from = kwargs.get('email_from')
+            email_received_at = kwargs.get('email_received_at')
+            attachment_filename = kwargs.get('attachment_filename')
+            attachment_path = kwargs.get('attachment_path')
+            file_size = kwargs.get('file_size')
+            mime_type = kwargs.get('mime_type')
+            
+            query = """
+                INSERT INTO email_attachments (
+                    client_email, claim_reference, carrier, email_subject, email_from,
+                    email_received_at, attachment_filename, attachment_path,
+                    file_size, mime_type, ai_analysis
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            if self.db_type == 'postgres':
+                query += " RETURNING id"
+                
+            cursor = self._execute(conn, query, (
+                client_email, claim_reference, carrier, email_subject, email_from,
+                email_received_at, attachment_filename, attachment_path,
+                file_size, mime_type, kwargs.get('ai_analysis')
+            ))
+            
+            new_id = cursor.fetchone()[0] if self.db_type == 'postgres' else cursor.lastrowid
+            conn.commit()
+            logger.info(f"Email attachment saved: {attachment_filename} for {client_email}")
+            return new_id
+        finally:
+            conn.close()
+            
+    def get_client_attachments(self, client_email: str, claim_reference: str = None) -> List[Dict[str, Any]]:
+        """Récupérer les pièces jointes d'un client."""
+        conn = self.get_connection()
+        try:
+            if claim_reference:
+                query = "SELECT * FROM email_attachments WHERE client_email = ? AND claim_reference = ? ORDER BY created_at DESC"
+                cursor = self._execute(conn, query, (client_email, claim_reference))
+            else:
+                query = "SELECT * FROM email_attachments WHERE client_email = ? ORDER BY created_at DESC"
+                cursor = self._execute(conn, query, (client_email,))
+            
+            return [dict(row) for row in cursor.fetchall()]
+        finally:
+            conn.close()
+            
+    def link_attachment_to_claim(self, attachment_id: int, claim_reference: str):
+        """Associer une pièce jointe à une réclamation."""
+        conn = self.get_connection()
+        try:
+            self._execute(conn, "UPDATE email_attachments SET claim_reference = ? WHERE id = ?", (claim_reference, attachment_id))
+            conn.commit()
+            logger.info(f"Attachment {attachment_id} linked to claim {claim_reference}")
+        finally:
+            conn.close()
+
+    def update_claim_ai_analysis(self, claim_reference: str, reason_key: str, advice: str, status: str = None):
+        """Mettre à jour l'analyse IA d'une réclamation."""
+        conn = self.get_connection()
+        try:
+            if status:
+                query = "UPDATE claims SET ai_reason_key = ?, ai_advice = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE claim_reference = ?"
+                self._execute(conn, query, (reason_key, advice, status, claim_reference))
+            else:
+                query = "UPDATE claims SET ai_reason_key = ?, ai_advice = ?, updated_at = CURRENT_TIMESTAMP WHERE claim_reference = ?"
+                self._execute(conn, query, (reason_key, advice, claim_reference))
+            conn.commit()
+            logger.info(f"AI analysis updated for claim {claim_reference}")
+        finally:
+            conn.close()
+
+
 # Instance globale
 _db_manager = None
 
@@ -578,3 +662,8 @@ def get_db_manager() -> DatabaseManager:
     if _db_manager is None:
         _db_manager = DatabaseManager()
     return _db_manager
+
+def set_db_manager(manager: DatabaseManager):
+    """Définir l'instance globale du gestionnaire de BDD."""
+    global _db_manager
+    _db_manager = manager

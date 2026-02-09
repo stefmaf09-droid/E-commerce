@@ -17,6 +17,12 @@ sys.path.insert(0, root_dir)
 
 # Import i18n
 from utils.i18n import get_i18n_text
+from ai.bypass_scorer import BypassScorer
+
+@st.cache_resource
+def get_cached_scorer():
+    """Cached instance of BypassScorer for details page."""
+    return BypassScorer()
 
 
 def render_dispute_details_page(dispute_data):
@@ -43,6 +49,7 @@ def render_dispute_details_page(dispute_data):
     
     with col2:
         _render_status_card(dispute_data)
+        _render_ai_advice_section(dispute_data)
         _render_financial_card(dispute_data)
         _render_actions_card(dispute_data)
 
@@ -327,7 +334,17 @@ def _render_evidence_section(dispute_data):
 def _render_status_card(dispute_data):
     """Render status card."""
     status = dispute_data.get('status', 'pending')
-    probability = dispute_data.get('probability_success', 85)
+    
+    # Calculate success probability using AI
+    try:
+        scorer = get_cached_scorer()
+        success_prob = scorer.predict_success({
+            'carrier': dispute_data.get('carrier', 'Unknown'),
+            'dispute_type': dispute_data.get('dispute_type', 'unknown')
+        })
+        probability = int(success_prob * 100)
+    except Exception:
+        probability = 50
     
     # Status labels using i18n
     status_labels = {
@@ -367,6 +384,43 @@ def _render_status_card(dispute_data):
                 <div style="width: {probability}%; height: 100%; background: #4338ca;"></div>
             </div>
             <span style="font-weight: 700; color: #4338ca;">{probability}%</span>
+        </div>
+    """, unsafe_allow_html=True)
+
+
+def _render_ai_advice_section(dispute_data):
+    """Render the AI Strategic Advice section if available."""
+    ai_advice = dispute_data.get('ai_advice')
+    ai_reason = dispute_data.get('ai_reason_key')
+    
+    if not ai_advice:
+        return
+        
+    st.markdown(f"""
+    <div style="
+        background: #f0f4ff;
+        padding: 20px;
+        border-radius: 12px;
+        border-left: 5px solid #4338ca;
+        box-shadow: 0 4px 12px rgba(67, 56, 202, 0.1);
+        margin-bottom: 24px;
+    ">
+        <h3 style="margin: 0 0 12px 0; font-size: 18px; color: #4338ca;">
+            🤖 Conseil Stratégique IA
+        </h3>
+        <p style="margin: 0 0 16px 0; font-size: 15px; color: #1e293b; line-height: 1.5;">
+            {ai_advice}
+        </p>
+        <div style="
+            display: inline-block;
+            padding: 4px 10px;
+            background: rgba(67, 56, 202, 0.1);
+            color: #4338ca;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        ">
+            Code Motif: {ai_reason}
         </div>
     </div>
     """, unsafe_allow_html=True)

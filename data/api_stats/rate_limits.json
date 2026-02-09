@@ -1,0 +1,27 @@
+{
+  "last_updated": "2026-02-05T20:00:38.882773",
+  "daily_counts": {
+    "Colissimo": {
+      "count": 2,
+      "reset_at": "2026-02-06T20:00:29.765077"
+    },
+    "FedEx": {
+      "count": 3,
+      "reset_at": "2026-02-06T20:00:32.793431"
+    },
+    "Chronopost": {
+      "count": 1,
+      "reset_at": "2026-02-06T20:00:32.827005"
+    },
+    "DHL": {
+      "count": 1,
+      "reset_at": "2026-02-06T20:00:32.842426"
+    }
+  },
+  "hourly_counts": {
+    "UPS": {
+      "count": 1,
+      "reset_at": "2026-02-05T21:00:35.861264"
+    }
+  }
+}

@@ -18,6 +18,7 @@ sys.path.insert(0, root_dir)
 # Import i18n
 from utils.i18n import get_i18n_text
 from ai.bypass_scorer import BypassScorer
+from ai.appeal_generator import AppealGenerator
 
 @st.cache_resource
 def get_cached_scorer():
@@ -266,6 +267,10 @@ def _render_evidence_section(dispute_data):
         with col_feedback1:
             if st.button("✅ Confirmer l'analyse", key="confirm_ocr"):
                 st.toast("Feedback enregistré : L'IA apprend de cette confirmation !", icon="🧠")
+                # Update local data for immediate feedback
+                dispute_data['ai_reason_key'] = st.session_state.last_analysis['result']['reason_key']
+                dispute_data['ai_advice'] = st.session_state.last_analysis['result']['advice_fr']
+                
                 # Feedback implicite : on pourrait le sauvegarder aussi
                 del st.session_state.last_analysis
                 st.rerun()
@@ -463,6 +468,48 @@ def _render_actions_card(dispute_data):
     
     if st.button(f"🚀 {get_i18n_text('btn_escalate')}", key="escalate_action", width='stretch', type="primary"):
         st.toast(f"⚡ {get_i18n_text('btn_escalate')}...")
+        
+    # --- New: Appeal Generation ---
+    ai_reason = dispute_data.get('ai_reason_key')
+    status = dispute_data.get('status')
+    
+    # Show if rejected or if AI detected a refusal reason
+    if status == 'rejected' or ai_reason:
+        if st.button("📄 Générer Courrier de Contestation", key="btn_gen_appeal", type="secondary"):
+            generator = AppealGenerator()
+            # Use AI reason or default to 'default'
+            reason = ai_reason if ai_reason else 'default'
+            appeal_text = generator.generate(dispute_data, reason)
+            st.session_state[f'appeal_{dispute_data.get("dispute_id")}'] = appeal_text
+            st.rerun()
+            
+    if f'appeal_{dispute_data.get("dispute_id")}' in st.session_state:
+        # Editable Preview
+        st.caption("Aperçu du contenu (Modifiable avant téléchargement) :")
+        current_appeal_text = st.session_state[f'appeal_{dispute_data.get("dispute_id")}']
+        
+        edited_appeal_text = st.text_area(
+            "Contenu du courrier", 
+            value=current_appeal_text, 
+            height=300, 
+            label_visibility="collapsed",
+            key=f"edit_appeal_{dispute_data.get('dispute_id')}"
+        )
+        
+        # PDF Download Button (Uses edited text)
+        pdf_bytes = AppealGenerator.generate_pdf(edited_appeal_text, f"recours_{dispute_data.get('order_id')}.pdf")
+        if pdf_bytes:
+            st.download_button(
+                label="📄 Télécharger le courrier officiel (.pdf)",
+                data=pdf_bytes,
+                file_name=f"recours_{dispute_data.get('order_id')}.pdf",
+                mime="application/pdf",
+                type="primary",
+                use_container_width=True
+            )
+        else:
+            st.error("Erreur : Impossible de générer le PDF.")
+    # -------------------------------
     
     if st.button(f"📄 {get_i18n_text('btn_download_pdf')}", key="download_pdf", width='stretch'):
         st.toast(f"📄 {get_i18n_text('btn_download_pdf')}...")

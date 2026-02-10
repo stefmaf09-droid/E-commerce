@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class DatabaseManager:
     """Gestionnaire centralisé de base de données."""
     
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: str = None, db_type: str = None):
         """
         Initialize database manager.
         """
@@ -41,7 +41,9 @@ class DatabaseManager:
         
         self.db_path = db_path
         print(f"DEBUG: DatabaseManager using path: {self.db_path}")
-        self.db_type = Config.get('DATABASE_TYPE', 'sqlite').lower()
+        
+        # Priority: explicit arg > config > default sqlite
+        self.db_type = (db_type or Config.get('DATABASE_TYPE', 'sqlite')).lower()
         self.pg_url = Config.get_database_url()
         
         # Caractère de substitution (placeholder) pour SQL

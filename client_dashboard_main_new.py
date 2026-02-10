@@ -45,64 +45,76 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Apply unified premium theme
-apply_premium_theme()
 
-# --- MODE TEST / PROD ---
-if 'env_mode' not in st.session_state:
-    st.session_state.env_mode = 'TEST' # Par défaut en Test pour la sécurité
+def initialize_session():
+    """Initialize session state variables."""
+    # Apply unified premium theme
+    apply_premium_theme()
 
-# --- Sidebar ---
-with st.sidebar:
-    # Toggle Environnement
-    st.markdown("### 🌍 Environnement")
-    env_col1, env_col2 = st.columns([1, 4])
-    with env_col1:
+    # --- MODE TEST / PROD ---
+    if 'env_mode' not in st.session_state:
+        st.session_state.env_mode = 'TEST'  # Par défaut en Test pour la sécurité
+
+
+def render_application_sidebar():
+    """Render the application sidebar."""
+    with st.sidebar:
+        # Toggle Environnement
+        st.markdown("### 🌍 Environnement")
+        env_col1, env_col2 = st.columns([1, 4])
+        with env_col1:
+            if st.session_state.env_mode == 'TEST':
+                st.markdown("🔴")
+            else:
+                st.markdown("🟢")
+        with env_col2:
+            mode = st.radio(
+                "Mode",
+                ['TEST', 'RÉEL'],
+                index=0 if st.session_state.env_mode == 'TEST' else 1,
+                label_visibility="collapsed",
+                horizontal=True
+            )
+
+        # Mise à jour du mode
+        new_mode = 'TEST' if mode == 'TEST' else 'PROD'
+        if new_mode != st.session_state.env_mode:
+            st.session_state.env_mode = new_mode
+            st.rerun()
+
         if st.session_state.env_mode == 'TEST':
-            st.markdown("🔴")
-        else:
-            st.markdown("🟢")
-    with env_col2:
-        mode = st.radio(
-            "Mode",
-            ['TEST', 'RÉEL'],
-            index=0 if st.session_state.env_mode == 'TEST' else 1,
-            label_visibility="collapsed",
-            horizontal=True
-        )
+            st.warning("🛠️ Mode Test Actif\n(Données fictives)")
 
-    # Mise à jour du mode
-    new_mode = 'TEST' if mode == 'TEST' else 'PROD'
-    if new_mode != st.session_state.env_mode:
-        st.session_state.env_mode = new_mode
-        st.rerun()
-        
-    if st.session_state.env_mode == 'TEST':
-        st.warning("🛠️ Mode Test Actif\n(Données fictives)")
-    
-    st.markdown("---")
-    
-    # Logo & Navigation
-    logo_path = os.path.join(root_dir, "static", "refundly_logo.png")
-    if os.path.exists(logo_path):
-        try:
-            image = Image.open(logo_path)
-            st.image(image, width=180)
-        except Exception as e:
-            logger.error(f"Failed to load logo: {e}")
-            st.warning("Logo temporairement indisponible")
-    
-    # Auto-Refresh Controls
-    refresh_interval = AutoRefresh.render_controls()
-    AutoRefresh.manual_refresh_button()
+        st.markdown("---")
+
+        # Logo & Navigation
+        logo_path = os.path.join(root_dir, "static", "refundly_logo.png")
+        if os.path.exists(logo_path):
+            try:
+                image = Image.open(logo_path)
+                st.image(image, width=180)
+            except Exception as e:
+                # Fallback logging
+                print(f"Failed to load logo: {e}")
+                st.warning("Logo temporairement indisponible")
+
+        # Auto-Refresh Controls
+        refresh_interval = AutoRefresh.render_controls()
+        AutoRefresh.manual_refresh_button()
 
 
 
 def main():
     """Main dashboard application with dispute details and carrier overview pages."""
+    # Ensure session state is initialized
+    initialize_session()
+
     # Initialize and check authentication
     if not authenticate():
         return
+    
+    # Render Sidebar (now that we are authenticated)
+    render_application_sidebar()
     
     # Check if we're on detail pages (skip onboarding for detail pages)
     active_page = st.session_state.get('active_page', 'Dashboard')
@@ -142,7 +154,9 @@ def main():
         
     # [OFFLINE MODE PATCH] Wrapp DB connection to handle local firewall issues
     try:
-        db_manager = DatabaseManager(db_path=db_path)
+        # Force SQLite in TEST mode to ensure local file usage
+        db_type_override = 'sqlite' if st.session_state.env_mode == 'TEST' else None
+        db_manager = DatabaseManager(db_path=db_path, db_type=db_type_override)
         set_db_manager(db_manager)
         
         # Get current client and load their claims
@@ -225,8 +239,8 @@ def main():
         
         selected = option_menu(
             "Menu Principal",
-            ["Tableau de Bord", "💬 Assistant", "📎 Pièces Jointes", "Dépôt Preuves", "Mes Litiges", "Gestion Litiges", "📊 POD Analytics", "Rapports", "Réglages"],
-            icons=["speedometer2", "chat-dots", "paperclip", "cloud-upload", "list-task", "clipboard-check", "bar-chart", "file-earmark-text", "gear"],
+            ["Tableau de Bord", "💬 Assistant", "📎 Pièces Jointes", "Dépôt Preuves", "Mes Litiges", "Gestion Litiges", "📊 POD Analytics", "Rapports", "Modèles", "Réglages"],
+            icons=["speedometer2", "chat-dots", "paperclip", "cloud-upload", "list-task", "clipboard-check", "bar-chart", "file-earmark-text", "pen", "gear"],
             menu_icon="cast",
             default_index=0,
         )
@@ -314,6 +328,11 @@ def main():
     elif selected == "Rapports":
         # Reports & Analytics page
         render_reports_page(disputes_df)
+
+    elif selected == "Modèles":
+        # Templates Management page
+        from src.dashboard.templates_page import render_templates_page
+        render_templates_page()
     
     elif selected == "Réglages":
         # Settings page

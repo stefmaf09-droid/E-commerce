@@ -20,6 +20,8 @@ from .carrier_overview_page import render_carrier_overview_page
 
 from .settings_page import render_settings_page, render_platform_info, render_bank_info
 from .reports_page import render_reports_page, render_stagnation_escalation_section
+from .templates_page import render_templates_page
+from .email_templates_page import render_email_templates_page
 
 __all__ = [
     'render_navigation_header',
@@ -34,4 +36,6 @@ __all__ = [
     'render_bank_info',
     'render_reports_page',
     'render_stagnation_escalation_section',
+    'render_templates_page',
+    'render_email_templates_page',
 ]

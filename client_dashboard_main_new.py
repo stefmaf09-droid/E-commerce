@@ -45,6 +45,37 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Force sidebar visibility with custom CSS
+st.markdown("""
+    <style>
+        /* Force sidebar to be visible */
+        [data-testid="stSidebar"] {
+            transform: translateX(0px) !important;
+            left: 0 !important;
+            min-width: 21rem !important;
+            max-width: 21rem !important;
+            width: 21rem !important;
+        }
+        
+        /* Ensure sidebar is always expanded */
+        [data-testid="stSidebar"][aria-expanded="false"] {
+            transform: translateX(0px) !important;
+            left: 0 !important;
+        }
+        
+        /* Hide the collapse button if it causes issues */
+        [data-testid="stSidebarCollapseButton"] {
+            display: none !important;
+        }
+        
+        /* Adjust main content to account for sidebar */
+        [data-testid="stAppViewContainer"] > section:first-child {
+            padding-left: 2rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+
 
 def initialize_session():
     """Initialize session state variables."""
@@ -152,7 +183,7 @@ def main():
     else:
         db_path = os.path.join(root_dir, 'data', 'recours_ecommerce.db')
         
-    # [OFFLINE MODE PATCH] Wrapp DB connection to handle local firewall issues
+    # [DATABASE CONNECTION] Try to connect to database based on environment mode
     try:
         # Force SQLite in TEST mode to ensure local file usage
         db_type_override = 'sqlite' if st.session_state.env_mode == 'TEST' else None
@@ -184,14 +215,34 @@ def main():
                     'ai_reason_key': claim.get('ai_reason_key'),
                     'ai_advice': claim.get('ai_advice')
                 })
-        st.session_state.offline_mode = False
 
     except Exception as e:
-        # Fallback for local dev with firewall issues
-        st.warning(f"⚠️ **Mode Hors Ligne**: Impossible de joindre la base de données ({str(e)}). L'assistant et les menus restent accessibles.")
-        st.session_state.offline_mode = True
-        client_id = 999
-        claims_data = [] 
+        # Show clear error message with actionable suggestions
+        st.error(f"❌ **Erreur de connexion à la base de données**")
+        st.error(f"**Détails**: {str(e)}")
+        
+        with st.expander("🔧 Actions correctives suggérées"):
+            st.markdown("""
+            **Pour résoudre ce problème :**
+            
+            1. **En mode TEST** : Vérifiez que le fichier SQLite existe :
+               - Chemin : `data/test_recours_ecommerce.db`
+               - Si manquant, exécutez le script d'initialisation
+            
+            2. **En mode RÉEL (PostgreSQL)** :
+               - Vérifiez le fichier `.env` à la racine du projet
+               - Assurez-vous que `DATABASE_URL` est correctement configuré
+               - Vérifiez votre connexion réseau/VPN si la base est distante
+            
+            3. **Autres vérifications** :
+               - Permissions de lecture/écriture sur le dossier `data/`
+               - Version de Python compatible (requis: Python 3.12)
+               - Toutes les dépendances installées : `pip install -r requirements.txt`
+            """)
+        
+        # Stop execution - don't continue with empty data
+        st.warning("⚠️ Impossible de continuer sans connexion à la base de données. Veuillez corriger l'erreur ci-dessus.")
+        st.stop() 
 
     
     # Convert to DataFrame
@@ -231,16 +282,12 @@ def main():
     # Sidebar Navigation
     with st.sidebar:
         # The logo and environment toggle are already at the top of the sidebar.
-        # The instruction implies a new navigation menu here.
-        # The original logo and Refundly.ai text at the bottom of the sidebar are removed
-        # as the instruction's code snippet places a logo at the top of this new menu.
-        st.image("static/logo_premium.png", use_container_width=True)
         st.markdown("---")
         
         selected = option_menu(
             "Menu Principal",
-            ["Tableau de Bord", "💬 Assistant", "📎 Pièces Jointes", "Dépôt Preuves", "Mes Litiges", "Gestion Litiges", "📊 POD Analytics", "Rapports", "Modèles", "Réglages"],
-            icons=["speedometer2", "chat-dots", "paperclip", "cloud-upload", "list-task", "clipboard-check", "bar-chart", "file-earmark-text", "pen", "gear"],
+            ["Tableau de Bord", "💬 Assistant", "📎 Pièces Jointes", "Dépôt Preuves", "Mes Litiges", "Gestion Litiges", "📊 POD Analytics", "Rapports", "📝 Modèles Lettres", "📧 Modèles Emails", "Réglages"],
+            icons=["speedometer2", "chat-dots", "paperclip", "cloud-upload", "list-task", "clipboard-check", "bar-chart", "file-earmark-text", "envelope-paper", "envelope", "gear"],
             menu_icon="cast",
             default_index=0,
         )
@@ -329,10 +376,15 @@ def main():
         # Reports & Analytics page
         render_reports_page(disputes_df)
 
-    elif selected == "Modèles":
-        # Templates Management page
+    elif selected == "📝 Modèles Lettres":
+        # Appeal Letter Templates Management page
         from src.dashboard.templates_page import render_templates_page
         render_templates_page()
+    
+    elif selected == "📧 Modèles Emails":
+        # Email Templates Management page (escalation emails)
+        from src.dashboard.email_templates_page import render_email_templates_page
+        render_email_templates_page()
     
     elif selected == "Réglages":
         # Settings page

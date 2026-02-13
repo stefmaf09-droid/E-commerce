@@ -1,7 +1,6 @@
 import streamlit as st
 import json
 import os
-from utils.i18n import get_i18n_text
 
 # Path to the templates file
 TEMPLATE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'appeal_templates.json')
@@ -19,9 +18,9 @@ def save_templates(templates):
         json.dump(templates, f, indent=4, ensure_ascii=False)
 
 def render_templates_page():
-    """Render the templates management page."""
-    st.title("📝 Gestion des Modèles de Courrier")
-    st.markdown("Personnalisez les modèles de lettres de contestation générés par l'IA.")
+    """Render the appeal letter templates management page."""
+    st.title("📝 Gestion des Modèles de Lettres de Contestation")
+    st.markdown("Personnalisez les modèles de lettres de contestation (appeals) générés par l'IA pour contester les refus des transporteurs.")
 
     # 1. Cheat Sheet for Variables
     with st.expander("ℹ️  Variables disponibles (insérez-les dans votre texte)"):

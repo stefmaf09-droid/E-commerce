@@ -166,7 +166,11 @@ class LegalDocumentGenerator:
                 law_text = get_i18n_text('legal_law_ca', lang)
             elif 'TX' in address or 'TEXAS' in address:
                 law_text = get_i18n_text('legal_law_tx', lang)
-            elif any(usa_key in address for usa_key in ['USA', 'UNITED STATES', 'FL', 'IL', 'PA', 'OH', 'GA', 'NC', 'MI']):
+            elif 'FL' in address or 'FLORIDA' in address:
+                law_text = get_i18n_text('legal_law_fl', lang)
+            elif 'IL' in address or 'ILLINOIS' in address:
+                law_text = get_i18n_text('legal_law_il', lang)
+            elif any(usa_key in address for usa_key in ['USA', 'UNITED STATES', 'PA', 'OH', 'GA', 'NC', 'MI']):
                 law_text = get_i18n_text('legal_law_us_federal', lang)
         body_text = f"""
         {get_i18n_text('legal_body_intro', lang)}

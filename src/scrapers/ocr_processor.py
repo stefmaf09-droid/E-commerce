@@ -116,6 +116,28 @@ class OCRProcessor:
             logger.error(f"Error saving feedback: {e}")
             return False
 
+    def _get_feedback_context(self) -> str:
+        """Récupère les dernières corrections pour améliorer le prompt Gemini."""
+        feedback_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'ocr_feedback.json')
+        if not os.path.exists(feedback_file):
+            return ""
+            
+        try:
+            with open(feedback_file, 'r', encoding='utf-8') as f:
+                feedbacks = json.load(f)
+                
+            if not feedbacks:
+                return ""
+                
+            # On prend les 5 plus récents
+            recent = feedbacks[-5:]
+            context = "\nVoici des exemples de corrections manuelles passées (utiles pour apprendre des erreurs précédentes) :\n"
+            for f in recent:
+                context += f"- Texte: '{f['original_text_snippet'][:100]}...' -> Corrigé en: {f['corrected_reason_key']}\n"
+            return context
+        except Exception:
+            return ""
+
     def preprocess_image(self, image_path: str) -> Dict[str, Any]:
         """
         Simule le prétraitement d'image (Binarisation, Débruitage, Deskewing).
@@ -136,8 +158,11 @@ class OCRProcessor:
         """
         if self.model:
             try:
+                feedback_context = self._get_feedback_context()
+                
                 prompt = f"""
                 Analyse la lettre de rejet d'un transporteur e-commerce ci-dessous et identifie le motif de refus.
+                {feedback_context}
                 
                 Texte de la lettre :
                 {text[:2000]}

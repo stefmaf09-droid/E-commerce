@@ -42,8 +42,8 @@ class EmailTemplateManager:
         <li>Montant réclamé: {amount} {currency}</li>
         <li>Type: {dispute_type}</li>
     </ul>
-    <p>Nous n'avons pas reçu de réponse concernant cette réclamation. 
-    Merci de nous fournir une mise à jour dans les plus brefs délais.</p>
+    <p>Nous souhaitons obtenir une mise à jour concernant le statut de cette réclamation.</p>
+    <p>Merci de nous faire parvenir votre réponse dans un délai de <strong>15 jours ouvrés</strong> à compter de la réception de cet email.</p>
     <p>Cordialement,<br>L'équipe Refundly.ai pour {company_name}</p>
     
     <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 10px; font-size: 11px; color: #777;">
@@ -72,8 +72,8 @@ class EmailTemplateManager:
         <li>Amount claimed: {amount} {currency}</li>
         <li>Type: {dispute_type}</li>
     </ul>
-    <p>We have not received a response regarding this claim. 
-    Please provide an update at your earliest convenience.</p>
+    <p>We would like to obtain a status update regarding this claim.</p>
+    <p>Please provide your response within <strong>15 business days</strong> from receipt of this email.</p>
     <p>Best regards,<br>{company_name}</p>
 </body>
 </html>'''

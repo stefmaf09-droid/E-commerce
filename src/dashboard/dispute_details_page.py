@@ -188,6 +188,11 @@ def _render_evidence_section(dispute_data):
     st.markdown(f"### 🖼️ {get_i18n_text('evidence_photos')}")
     
     evidence_photos = dispute_data.get('evidence_photos', [])
+    claim_id = str(dispute_data.get('dispute_id', 'unknown'))
+    
+    # Setup Storage
+    from src.database.supabase_storage import get_storage_manager
+    storage = get_storage_manager()
     
     # --- New Evidence Uploader ---
     uploaded_evidence = st.file_uploader(
@@ -198,10 +203,7 @@ def _render_evidence_section(dispute_data):
     
     
     if uploaded_evidence:
-        # 1. Setup Storage (Cloud vs Local)
-        from src.database.supabase_storage import get_storage_manager
-        storage = get_storage_manager()
-        claim_id = str(dispute_data.get('dispute_id', 'unknown'))
+        # 1. Setup Storage (already done above)
         
         with st.spinner("📤 Envoi et analyse de la preuve..."):
             # A. Cloud Upload

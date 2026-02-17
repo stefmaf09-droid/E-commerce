@@ -21,7 +21,7 @@ def run_verification_phase2():
     db_path = "database/verify_phase2.db"
     if os.path.exists(db_path):
         os.remove(db_path)
-    db = DatabaseManager(db_path=db_path)
+    db = DatabaseManager(db_path=db_path, db_type="sqlite")
 
     # 1. Test Scoring IA
     print("\n[1] Testing AI Scoring...")

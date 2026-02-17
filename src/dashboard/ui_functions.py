@@ -157,7 +157,7 @@ def render_disputes_table_modern(disputes_df):
     Args:
         disputes_df (pd.DataFrame): DataFrame containing disputes data.
     """
-    st.markdown('<div class="section-header">Recent Delivery Disputes</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Litiges de Livraison Récents</div>', unsafe_allow_html=True)
     
     if disputes_df.empty:
         st.info("✨ Aucun litige détecté actuellement. C'est une bonne nouvelle !")
@@ -175,12 +175,12 @@ def render_disputes_table_modern(disputes_df):
     }
     
     status_configs = {
-        'Processing': {'class': 'status-processing', 'label': 'Processing'},
-        'Under Review': {'class': 'status-review', 'label': 'Under Review'},
-        'Awaiting Carrier': {'class': 'status-awaiting', 'label': 'Awaiting Carrier'},
-        'Pending': {'class': 'status-pending', 'label': 'Pending'},
-        'Accepted': {'class': 'status-resolved', 'label': 'Accepted'},
-        'Rejected': {'class': 'status-error', 'label': 'Rejected'}
+        'Processing': {'class': 'status-processing', 'label': 'En cours'},
+        'Under Review': {'class': 'status-review', 'label': 'En révision'},
+        'Awaiting Carrier': {'class': 'status-awaiting', 'label': 'En attente transporteur'},
+        'Pending': {'class': 'status-pending', 'label': 'En attente'},
+        'Accepted': {'class': 'status-resolved', 'label': 'Accepté'},
+        'Rejected': {'class': 'status-error', 'label': 'Rejeté'}
     }
     
     
@@ -191,16 +191,27 @@ def render_disputes_table_modern(disputes_df):
         scorer = None
     
     # Start table
-    st.markdown("""
-    <div class="disputes-table">
-        <div class="table-header">
-            <div>Carrier</div>
-            <div>AI Confidence</div>
-            <div>Estimated Refund Date</div>
-            <div>Status</div>
-            <div>Actions</div>
-        </div>
-    """, unsafe_allow_html=True)
+    # Start table container
+    st.markdown('<div class="disputes-table">', unsafe_allow_html=True)
+    
+    # Header using columns for perfect alignment
+    # Must match the columns used in the loop: st.columns([1, 2, 1.2, 1, 1.5])
+    h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([1, 2, 1.2, 1, 1.5])
+    
+    header_style = "color: #64748b; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;"
+    
+    with h_col1:
+        st.markdown(f'<div style="{header_style}">TRANSPORTEUR</div>', unsafe_allow_html=True)
+    with h_col2:
+        st.markdown(f'<div style="{header_style}">CONFIANCE IA</div>', unsafe_allow_html=True)
+    with h_col3:
+        st.markdown(f'<div style="{header_style} width: 100%; text-align: center;">DATE REMBOURSEMENT</div>', unsafe_allow_html=True)
+    with h_col4:
+        st.markdown(f'<div style="{header_style} width: 100%; text-align: center;">STATUT</div>', unsafe_allow_html=True)
+    with h_col5:
+        st.markdown(f'<div style="{header_style} width: 100%; text-align: center;">ACTIONS</div>', unsafe_allow_html=True)
+        
+    st.markdown('<div style="height: 1px; background-color: #e2e8f0; margin-top: 8px; margin-bottom: 16px;"></div>', unsafe_allow_html=True)
     
     # Render each row with functional buttons
     for idx, row in disputes_df.head(5).iterrows():

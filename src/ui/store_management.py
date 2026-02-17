@@ -8,15 +8,13 @@ import json
 import sqlite3
 from cryptography.fernet import Fernet
 from pathlib import Path
+from src.auth.credentials_manager import CredentialsManager
 
 
 def render_multi_store_management():
     """Complete multi-store management interface."""
     
     st.markdown("### 🏪 Gestion de vos Magasins")
-    
-    # Import credentials manager
-    from src.auth.credentials_manager import CredentialsManager
     
     manager = CredentialsManager()
     client_email = st.session_state.get('client_email', '')

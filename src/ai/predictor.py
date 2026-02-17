@@ -69,6 +69,17 @@ class AIPredictor:
             "reasoning": f"Basé sur un taux de succès de {base_proba*100:.0f}% pour {carrier} sur les {d_type}."
         }
 
+
+    def get_legal_reasoning(self, carrier: str, dispute_type: str) -> str:
+        """Fournit une base d'argumentation juridique simplifiée par type de litige."""
+        reasoning = {
+            'late_delivery': "Conformément aux conditions générales de vente et au contrat de transport, tout retard de livraison au-delà du délai garanti engage la responsabilité contractuelle du transporteur, ouvrant droit à une indemnisation forfaitaire ou intégrale des frais de port.",
+            'lost': "En l'absence de preuve de livraison (POD) valide ou en cas de constat de perte par les services internes du transporteur, la présomption de responsabilité pèse sur ce dernier jusqu'à la remise effective au destinataire, conformément aux articles L133-1 et suivants du Code de Commerce.",
+            'damaged': "La livraison de marchandises endommagées constitue un manquement à l'obligation de résultat du transporteur. Bien que les réserves au moment de la livraison soient cruciales, l'absence de preuve de manipulation conforme par le transporteur permet d'engager un recours.",
+            'invalid_pod': "Une preuve de livraison sans signature manuscrite ou avec une signature ne correspondant pas au destinataire est nulle. La charge de la preuve de livraison conforme incombe exclusivement au transporteur."
+        }
+        return reasoning.get(dispute_type, "Le litige fait l'objet d'une analyse approfondie basée sur les obligations contractuelles du transporteur.")
+
     def get_forecasted_cashflow(self, disputes: list) -> Dict[str, Any]:
         """Calcule le cashflow attendu pondéré par la probabilité."""
         total_potential = 0.0

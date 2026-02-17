@@ -86,6 +86,21 @@ CREATE TABLE IF NOT EXISTS claims (
     follow_up_level INTEGER DEFAULT 0,
     -- 0: none, 1: status_request, 2: warning, 3: formal_notice
     last_follow_up_at TIMESTAMP,
+    -- POD (Proof of Delivery) Management
+    pod_fetch_status TEXT,
+    -- null (not requested), 'pending', 'success', 'failed'
+    pod_url TEXT,
+    -- URL to download POD
+    pod_fetched_at TIMESTAMP,
+    pod_delivery_person TEXT,
+    -- Recipient name from POD
+    pod_fetch_error TEXT,
+    -- Error message if fetch failed
+    -- AI Analysis
+    ai_reason_key TEXT,
+    -- AI-detected refusal reason key (bad_signature, weight_match, etc.)
+    ai_advice TEXT,
+    -- AI-generated advice for handling this claim
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
@@ -228,6 +243,16 @@ CREATE TABLE IF NOT EXISTS global_fraud_registry (
     UNIQUE(entity_type, entity_value)
 );
 CREATE INDEX IF NOT EXISTS idx_fraud_entity ON global_fraud_registry(entity_value);
+-- Table: Webhook Events (Idempotency)
+CREATE TABLE IF NOT EXISTS webhook_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tracking_number TEXT NOT NULL,
+    event_tag TEXT NOT NULL,
+    received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payload_json TEXT,
+    UNIQUE(tracking_number, event_tag)
+);
+CREATE INDEX IF NOT EXISTS idx_webhook_tracking ON webhook_events(tracking_number);
 -- Table: System Settings
 CREATE TABLE IF NOT EXISTS system_settings (
     key TEXT PRIMARY KEY,

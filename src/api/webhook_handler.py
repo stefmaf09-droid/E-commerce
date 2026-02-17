@@ -30,54 +30,87 @@ class WebhookHandler:
             
             logger.info(f"Webhook received: {tracking_number} -> {new_status}")
             
-            # 1. Rechercher la réclamation associée
+            # Idempotency Check
             conn = self.db.get_connection()
-            claim = conn.execute("SELECT id, status, payment_status FROM claims WHERE tracking_number = ?", 
+            existing = conn.execute(
+                "SELECT 1 FROM webhook_events WHERE tracking_number = ? AND event_tag = ?",
+                (tracking_number, new_status)
+            ).fetchone()
+            if existing:
+                logger.info(f"Webhook event already processed: {tracking_number} / {new_status}")
+                conn.close()
+                return True
+            
+            # 1. Rechercher la réclamation associée
+            claim = conn.execute("SELECT id, status, payment_status, dispute_type FROM claims WHERE tracking_number = ?", 
                                (tracking_number,)).fetchone()
-            conn.close()
             
             if not claim:
                 logger.warning(f"No claim found for tracking {tracking_number}")
+                conn.close()
                 return False
             
-            claim_id = claim[0]
+            claim_id, current_status, payment_status, dispute_type = claim
             
-            # 2. Logique de mise à jour automatique
+            # 2. Logique de mise à jour automatique basée sur le statut
+            automation_status = 'automated'
+            status_to_update = None
+            
             if new_status == 'Delivered':
-                # Si le colis est livré mais qu'un litige "Perte" était en cours
-                # C'est une anomalie majeure (Potentiel Bypass ou erreur transporteur)
-                conn = self.db.get_connection()
-                current_claim = conn.execute("SELECT dispute_type FROM claims WHERE id = ?", (claim_id,)).fetchone()
-                conn.close()
-                
-                if current_claim and current_claim[0] == 'lost':
+                if dispute_type == 'lost':
                     logger.warning(f"Bypass possibility: Claim {claim_id} marked as 'lost' but now 'Delivered'")
-                    self.db.update_claim(claim_id, automation_status='action_required', status='rejected')
-                    
+                    status_to_update = 'rejected'
+                    automation_status = 'action_required'
                     # Déclencher une alerte bypass
-                    from src.automation.follow_up_manager import FollowUpManager
-                    manager = FollowUpManager(self.db)
-                    manager._create_bypass_alert({
-                        'id': claim_id, 
-                        'tracking_number': tracking_number, 
-                        'claim_reference': f"AUTO-WH-DELIV-{claim_id}"
-                    })
+                    self._trigger_bypass_alert(claim_id, tracking_number)
                 else:
-                    self.db.update_claim(claim_id, status='under_review', automation_status='automated')
+                    status_to_update = 'under_review'
             
             elif new_status == 'Lost':
-                # Dossier validé par le transporteur en amont?
-                self.db.update_claim(claim_id, automation_status='automated', status='under_review')
+                status_to_update = 'under_review'
+                
+            elif new_status == 'InTransit':
+                status_to_update = 'submitted'
+                
+            elif new_status == 'OutForDelivery':
+                status_to_update = 'under_review'
+                
+            elif new_status == 'Exception':
+                status_to_update = 'under_review'
+                automation_status = 'action_required'
+                logger.error(f"Carrier exception detected for {tracking_number}")
+
+            # Appliquer la mise à jour si nécessaire
+            if status_to_update:
+                self.db.update_claim(claim_id, status=status_to_update, automation_status=automation_status)
+
+            # 3. Déclenchement de l'analyse Bypass si le statut est 'Compensated' 
+            if (new_status == 'Compensated' or new_status == 'Delivered') and payment_status == 'unpaid':
+                self._trigger_bypass_alert(claim_id, tracking_number)
             
-            # 3. Déclenchement de l'analyse Bypass si le statut est 'Compensated' (Spécifique certains providers)
-            if new_status == 'Compensated' or new_status == 'Delivered':
-                if claim[2] == 'unpaid':
-                    from src.automation.follow_up_manager import FollowUpManager
-                    manager = FollowUpManager(self.db)
-                    manager._create_bypass_alert({'id': claim_id, 'tracking_number': tracking_number, 'claim_reference': 'AUTO-WH'})
-            
+            # Enregistrer l'événement (Idempotence)
+            import json
+            conn.execute(
+                "INSERT INTO webhook_events (tracking_number, event_tag, payload_json) VALUES (?, ?, ?)",
+                (tracking_number, new_status, json.dumps(payload))
+            )
+            conn.commit()
+            conn.close()
             return True
             
         except Exception as e:
             logger.error(f"Error processing webhook: {e}")
             return False
+
+    def _trigger_bypass_alert(self, claim_id: int, tracking_number: str):
+        """Helper pour créer une alerte bypass."""
+        try:
+            from src.automation.follow_up_manager import FollowUpManager
+            manager = FollowUpManager(self.db)
+            manager._create_bypass_alert({
+                'id': claim_id, 
+                'tracking_number': tracking_number, 
+                'claim_reference': f"AUTO-WH-ALERT-{claim_id}"
+            })
+        except Exception as e:
+            logger.error(f"Failed to trigger bypass alert: {e}")

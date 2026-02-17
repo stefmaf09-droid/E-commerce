@@ -236,11 +236,11 @@ def _render_dispute_card(idx, dispute_row, carrier):
     
     # Format dispute type
     dispute_types = {
-        'delayed_delivery': 'Delayed delivery',
-        'lost_package': 'Lost package',
-        'damaged_package': 'Damaged package',
-        'invalid_pod': 'Invalid POD',
-        'unknown': 'Unknown issue'
+        'delayed_delivery': 'Livraison retardée',
+        'lost_package': 'Colis perdu',
+        'damaged_package': 'Colis endommagé',
+        'invalid_pod': 'POD invalide',
+        'unknown': 'Problème inconnu'
     }
     dispute_type_label = dispute_types.get(dispute_type, dispute_type)
     
@@ -249,11 +249,11 @@ def _render_dispute_card(idx, dispute_row, carrier):
     
     # Status badge
     status_badges = {
-        'pending': ('⏳ Pending', '#f59e0b'),
-        'processing': ('🔄 Processing', '#3b82f6'),
-        'under_review': ('📋 Under Review', '#f59e0b'),
-        'resolved': ('✅ Resolved', '#10b981'),
-        'rejected': ('❌ Rejected', '#ef4444')
+        'pending': ('⏳ En attente', '#f59e0b'),
+        'processing': ('🔄 En cours', '#3b82f6'),
+        'under_review': ('📋 En révision', '#f59e0b'),
+        'resolved': ('✅ Résolu', '#10b981'),
+        'rejected': ('❌ Rejeté', '#ef4444')
     }
     status_label, status_color = status_badges.get(status, ('Unknown', '#6b7280'))
     
@@ -272,7 +272,7 @@ def _render_dispute_card(idx, dispute_row, carrier):
                     #{dispute_id}
                 </h4>
                 <p style="margin: 0; color: #64748b; font-size: 14px;">
-                    Order #{order_id} • {tracking_number}
+                    Commande #{order_id} • {tracking_number}
                 </p>
             </div>
             <div style="
@@ -285,7 +285,7 @@ def _render_dispute_card(idx, dispute_row, carrier):
             ">{status_label}</div>
         </div>
         <p style="margin: 0 0 12px 0; color: #475569;">
-            {dispute_type_label} • €{total_recoverable:.2f} • {ai_confidence}% AI Confidence
+            {dispute_type_label} • €{total_recoverable:.2f} • {ai_confidence}% Confiance IA
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -314,10 +314,10 @@ def _render_dispute_card(idx, dispute_row, carrier):
             st.rerun()
     
     with col2:
-        action_label = '⚡ Escalate' if idx % 2 == 0 else '📁 Archive'
+        action_label = '⚡ Escalader' if idx % 2 == 0 else '📁 Archiver'
         if st.button(action_label, key=f"action_{carrier}_{idx}", width='stretch'):
-            st.toast(f"✅ Action performed on #{dispute_id}")
+            st.toast(f"✅ Action effectuée sur #{dispute_id}")
     
     with col3:
         if st.button("📄 PDF", key=f"pdf_{carrier}_{idx}", width='stretch'):
-            st.toast(f"📄 Generating PDF for #{dispute_id}...")
+            st.toast(f"📄 Génération PDF pour #{dispute_id}...")

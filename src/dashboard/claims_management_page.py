@@ -30,22 +30,18 @@ def render_claims_management():
     db = get_db_manager()
     
     try:
-        conn = db.get_connection()
-        cursor = conn.cursor()
+        # Use DatabaseManager methods instead of direct SQL to handle PostgreSQL compatibility
+        client = db.get_client(email=client_email)
         
-        # Get client ID
-        cursor.execute("SELECT id FROM clients WHERE email = ?", (client_email,))
-        result = cursor.fetchone()
-        
-        if not result:
+        if not client:
             st.error(get_i18n_text('client_not_found', lang))
-            conn.close()
             return
         
-        client_id = result[0]
+        client_id = client['id']
         
-        # Fetch all claims with POD info
-        cursor.execute("""
+        # Fetch all claims with POD info using db._execute for special queries
+        conn = db.get_connection()
+        cursor = db._execute(conn, """
             SELECT 
                 id,
                 claim_reference,
@@ -112,6 +108,29 @@ def render_claims_management():
             st.metric("Rejetés", rejected_count)
         
         st.markdown("---")
+        
+        # 🔍 Filters Section
+        filter_col1, filter_col2 = st.columns([2, 1])
+        with filter_col1:
+            search_term = st.text_input("🔍 Recherche", placeholder="Référence, transporteur ou tracking...", label_visibility="collapsed")
+        with filter_col2:
+            status_options = list(df['status'].unique())
+            selected_statuses = st.multiselect("Statut", options=status_options, placeholder="Filtrer par statut", label_visibility="collapsed", format_func=lambda x: f"{status_emoji.get(x, '❓')} {x.capitalize()}")
+
+        # Apply filters
+        filtered_df = df.copy()
+        if search_term:
+            search_lower = search_term.lower()
+            filtered_df = filtered_df[
+                filtered_df['claim_reference'].str.lower().str.contains(search_lower) |
+                filtered_df['carrier'].str.lower().str.contains(search_lower) |
+                filtered_df['tracking_number'].str.lower().str.contains(search_lower)
+            ]
+        
+        if selected_statuses:
+            filtered_df = filtered_df[filtered_df['status'].isin(selected_statuses)]
+        
+        st.markdown("")
         
         # POD Status Section
         st.markdown(f"#### 📄 {get_i18n_text('pod_status_title', lang)}")
@@ -201,14 +220,16 @@ def render_claims_management():
             if st.button("🗑️ Supprimer sélection", use_container_width=True, type="secondary"):
                 st.session_state.show_delete_confirmation = True
         
+
         st.markdown("---")
         
         # Display claims table with selection
         st.markdown(f"#### 📊 {get_i18n_text('claims_list_title', lang)}")
         
         # Use data_editor with checkbox for selection
-        display_df = df[['claim_reference', 'carrier', 'status_display', 'amount_requested', 'submitted_at', 'response_deadline']].copy()
+        display_df = filtered_df[['claim_reference', 'carrier', 'status_display', 'amount_requested', 'submitted_at', 'response_deadline']].copy()
         display_df.columns = ['Référence', 'Transporteur', 'Statut', 'Montant', 'Soumis le', 'Deadline']
+        display_df.insert(0, "select", False)
         
         edited_df = st.data_editor(
             display_df,
@@ -224,6 +245,54 @@ def render_claims_management():
             disabled=["Référence", "Transporteur", "Statut", "Montant", "Soumis le", "Deadline"],
             key="claims_table"
         )
+
+        # Handle View Details Action
+        selected_rows = edited_df[edited_df["select"]]
+        
+        # We need to find the full row data for selected items
+        # The edited_df only has display columns. We need to map back to original df via index if possible, 
+        # but hide_index=True makes it harder. 
+        # Workaround: Use Claim Reference as key since it's unique
+        
+        if not selected_rows.empty:
+            # Check if "Voir Détails" was clicked (we need a way to detect button click OR just show button below)
+            # Actually, let's put the action buttons BELOW the table for context-aware actions
+            
+            selected_refs = selected_rows['Référence'].tolist()
+            
+            col_actions1, col_actions2 = st.columns([1, 4])
+            with col_actions1:
+                if st.button(f"👁️ Voir ({len(selected_rows)})", type="primary", use_container_width=True):
+                    if len(selected_rows) == 1:
+                        # Navigate
+                        ref = selected_refs[0]
+                        # Find full claim data
+                        original_claim = df[df['claim_reference'] == ref].iloc[0]
+                        
+                        st.session_state.selected_dispute = {
+                            'dispute_id': original_claim['claim_reference'],
+                            'order_id': original_claim.get('order_id', 'N/A'),
+                            'tracking_number': original_claim['tracking_number'],
+                            'carrier': original_claim['carrier'],
+                            'dispute_type': original_claim['dispute_type'],
+                            'amount': original_claim['amount_requested'],
+                            'status': original_claim['status'],
+                            'created_at': original_claim['submitted_at'],
+                             # Add other necessary fields for details page
+                            'customer_email': st.session_state.get('client_email'),
+                            'customer_name': original_claim.get('customer_name', 'Client'),
+                            'delivery_address': original_claim.get('delivery_address', 'Adresse inconnue')
+                        }
+                        st.session_state.active_page = 'Dispute Details'
+                        st.rerun()
+                    else:
+                        st.warning("Veuillez sélectionner un seul litige pour voir les détails.")
+            
+            with col_actions2:
+                if st.button("🗑️ Supprimer", type="secondary"):
+                    st.session_state.show_delete_confirmation = True
+
+        st.caption(f"Affichage de {len(filtered_df)} litiges")
         
         # Delete confirmation dialog
         if st.session_state.get('show_delete_confirmation'):
@@ -313,8 +382,7 @@ def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
             if result.get('success'):
                 # Update claim with POD data
                 conn = db.get_connection()
-                cursor = conn.cursor()
-                cursor.execute("""
+                cursor = db._execute(conn, """
                     UPDATE claims 
                     SET pod_url = ?,
                         pod_fetch_status = 'success',
@@ -340,8 +408,7 @@ def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
                     
                     # Get claim info for notification
                     conn = db.get_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("""
+                    cursor = db._execute(conn, """
                         SELECT c.claim_reference, c.carrier, cl.email
                         FROM claims c
                         JOIN clients cl ON c.client_id = cl.id
@@ -371,8 +438,7 @@ def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
                 # Mark as failed
                 error_msg = result['error']
                 conn = db.get_connection()
-                cursor = conn.cursor()
-                cursor.execute("""
+                cursor = db._execute(conn, """
                     UPDATE claims 
                     SET pod_fetch_status = 'failed',
                         pod_fetch_error = ?
@@ -381,7 +447,7 @@ def retry_pod_fetch(claim_id: int, tracking_number: str, carrier: str):
                 conn.commit()
                 
                 # Get claim info for notification
-                cursor.execute("""
+                cursor = db._execute(conn, """
                     SELECT c.claim_reference, c.carrier, cl.email
                     FROM claims c
                     JOIN clients cl ON c.client_id = cl.id
@@ -485,11 +551,10 @@ def bulk_retry_failed_pods(df: pd.DataFrame):
             )
             
             conn = db.get_connection()
-            cursor = conn.cursor()
             
             if result.get('success'):
                 # Update success
-                cursor.execute("""
+                cursor = db._execute(conn, """
                     UPDATE claims 
                     SET pod_url = ?,
                         pod_fetch_status = 'success',
@@ -505,7 +570,7 @@ def bulk_retry_failed_pods(df: pd.DataFrame):
                 success_count += 1
             else:
                 # Update failure
-                cursor.execute("""
+                cursor = db._execute(conn, """
                     UPDATE claims 
                     SET pod_fetch_status = 'failed',
                         pod_fetch_error = ?

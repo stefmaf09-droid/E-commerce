@@ -497,6 +497,121 @@ class DatabaseManager:
             logger.info(f"Payment {payment_id} updated")
         finally:
             conn.close()
+
+    # ========================================
+    # ACTIVITY LOGGING & ANALYTICS
+    # ========================================
+
+    def log_activity(self, client_id: int, action: str, 
+                     resource_type: str = None, resource_id: int = None,
+                     details: Dict[str, Any] = None, ip_address: str = None) -> bool:
+        """Log user activity."""
+        conn = self.get_connection()
+        try:
+            query = """
+                INSERT INTO activity_logs (
+                    client_id, action, resource_type, resource_id, 
+                    details, ip_address
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """
+            
+            detail_json = json.dumps(details) if details else None
+            
+            self._execute(conn, query, (
+                client_id, action, resource_type, resource_id,
+                detail_json, ip_address
+            ))
+            conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to log activity: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def get_recent_activity(self, client_id: int, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get recent activity logs for a client."""
+        conn = self.get_connection()
+        try:
+            query = """
+                SELECT * FROM activity_logs 
+                WHERE client_id = ? 
+                ORDER BY timestamp DESC 
+                LIMIT ?
+            """
+            cursor = self._execute(conn, query, (client_id, limit))
+            logs = [dict(row) for row in cursor.fetchall()]
+            return logs
+        finally:
+            conn.close()
+
+    def get_business_analytics(self, client_id: int) -> Dict[str, Any]:
+        """Aggregate business metrics for analytics dashboard."""
+        conn = self.get_connection()
+        try:
+            # 1. Global stats
+            stats_query = """
+                SELECT 
+                    COUNT(*) as total_claims,
+                    SUM(CASE WHEN status='accepted' THEN 1 ELSE 0 END) as accepted_count,
+                    SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) as rejected_count,
+                    SUM(amount_requested) as total_volume_requested,
+                    SUM(accepted_amount) as total_volume_recovered
+                FROM claims
+                WHERE client_id = ?
+            """
+            cursor = self._execute(conn, stats_query, (client_id,))
+            result = cursor.fetchone()
+            global_stats = dict(result) if result else {}
+            
+            # 2. Monthly Evolution (Last 6 months)
+            # Adapt timestamp parsing for SQLite vs Postgres
+            if self.db_type == 'postgres':
+                monthly_query = """
+                    SELECT 
+                        TO_CHAR(created_at, 'YYYY-MM') as month,
+                        COUNT(*) as count,
+                        SUM(accepted_amount) as recovered
+                    FROM claims
+                    WHERE client_id = ? AND created_at >= NOW() - INTERVAL '6 months'
+                    GROUP BY month
+                    ORDER BY month ASC
+                """
+            else:
+                monthly_query = """
+                    SELECT 
+                        strftime('%Y-%m', created_at) as month,
+                        COUNT(*) as count,
+                        SUM(accepted_amount) as recovered
+                    FROM claims
+                    WHERE client_id = ? AND created_at >= date('now', '-6 months')
+                    GROUP BY month
+                    ORDER BY month ASC
+                """
+                
+            cursor = self._execute(conn, monthly_query, (client_id,))
+            monthly_stats = [dict(row) for row in cursor.fetchall()]
+            
+            # 3. By Carrier
+            carrier_query = """
+                SELECT 
+                    carrier,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status='accepted' THEN 1 ELSE 0 END) as accepted
+                FROM claims
+                WHERE client_id = ?
+                GROUP BY carrier
+            """
+            cursor = self._execute(conn, carrier_query, (client_id,))
+            carrier_stats = [dict(row) for row in cursor.fetchall()]
+            
+            return {
+                "global": global_stats,
+                "monthly": monthly_stats,
+                "by_carrier": carrier_stats
+            }
+        finally:
+            conn.close()
     
     # ========================================
     # NOTIFICATIONS

@@ -38,6 +38,28 @@ class ClaimAutomation:
         """Initialize claim automation."""
         self.claims_dir = Path("data/claims")
         self.claims_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Load carrier config
+        config_path = Path("config/carrier_config.json")
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                self.carrier_config = json.load(f)
+        else:
+            logger.warning("Carrier config not found, using defaults")
+            self.carrier_config = {}
+        
+        # Initialize Email Sender
+        # In a real app, we'd inject this dependency or load creds from secure storage
+        import os
+        from src.email_service.email_sender import EmailSender
+        from src.utils.pdf_generator import ClaimPDFGenerator
+        
+        self.email_sender = EmailSender(
+            smtp_user=os.getenv('GMAIL_SENDER'),
+            smtp_password=os.getenv('GMAIL_APP_PASSWORD'),
+            from_email=os.getenv('GMAIL_SENDER')
+        )
+        self.pdf_generator = ClaimPDFGenerator()
     
     def analyze_photos(self, photo_paths: List[str]) -> Dict[str, Any]:
         """
@@ -188,7 +210,7 @@ Nous demandons le remboursement complet du montant de {amount}€ conformément 
         claim_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Submit claim to carrier (simulated for now).
+        Submit claim to carrier via Email (with PDF).
         
         Args:
             order_id: Order ID
@@ -201,7 +223,53 @@ Nous demandons le remboursement complet du montant de {amount}€ conformément 
         try:
             claim_reference = self._generate_claim_reference()
             
-            # Build claim record
+            # 1. Identify carrier email settings
+            carrier_key = carrier.lower()
+            carrier_settings = self.carrier_config.get(carrier_key, self.carrier_config.get('default'))
+            
+            carrier_email = carrier_settings['email']
+            subject_template = carrier_settings['claim_subject_template']
+            
+            tracking_number = f"TRK-{order_id}" # Simplified for now, should come from dispute_data
+            
+            # Format subject
+            subject = subject_template.format(
+                tracking_number=tracking_number,
+                claim_reference=claim_reference
+            )
+            
+            # 2. Prepare attachments (Images + PDF Claim)
+            attachments = list(claim_data.get('photos', []))
+            
+            # Generate PDF
+            try:
+                pdf_data = {
+                    'claim_reference': claim_reference,
+                    'order_id': order_id,
+                    'tracking_number': tracking_number,
+                    'carrier': carrier,
+                    'amount': claim_data.get('amount', 0.0),
+                    'dispute_type': 'damage', # Should pass this from claim_data if available
+                    'photos': claim_data.get('photos', [])
+                }
+                pdf_path = self.pdf_generator.generate_claim_pdf(pdf_data)
+                attachments.append(pdf_path)
+                logger.info(f"Generated PDF claim for {claim_reference}: {pdf_path}")
+            except Exception as e:
+                logger.error(f"Failed to generate PDF for {claim_reference}: {e}")
+                # Continue without PDF if it fails (or fail hard? let's continue for resilience)
+            
+            # 3. Send Email
+            email_success = self.email_sender.send_claim_to_carrier(
+                carrier_email=carrier_email,
+                claim_reference=claim_reference,
+                tracking_number=tracking_number,
+                subject=subject,
+                body=claim_data.get('text', ''),
+                attachments=attachments
+            )
+            
+            # 4. Save record locally regardless of email success (for retry)
             claim_record = {
                 'claim_reference': claim_reference,
                 'order_id': order_id,
@@ -210,38 +278,45 @@ Nous demandons le remboursement complet du montant de {amount}€ conformément 
                 'claim_amount': claim_data.get('amount', 0.0),
                 'photos': claim_data.get('photos', []),
                 'submitted_at': datetime.now().isoformat(),
-                'status': 'submitted',
-                'submission_method': 'automated'
+                'status': 'submitted' if email_success else 'failed_to_send',
+                'submission_method': 'email_automation',
+                'target_email': carrier_email,
+                'pdf_path': pdf_path if 'pdf_path' in locals() else None
             }
             
-            # Save claim record
             claim_file = self.claims_dir / f"{claim_reference}.json"
             with open(claim_file, 'w', encoding='utf-8') as f:
                 json.dump(claim_record, f, indent=2, ensure_ascii=False)
             
-            logger.info(f"Claim submitted successfully: {claim_reference} for order {order_id}")
-            
-            # Délai légal de réponse selon le transporteur
-            carrier_lower = carrier.lower()
-            estimated_days = LEGAL_RESPONSE_TIMES.get(carrier_lower, LEGAL_RESPONSE_TIMES['default'])
-            
-            # Simulated carrier response (in production, use actual API)
-            return {
-                'success': True,
-                'claim_reference': claim_reference,
-                'carrier': carrier,
-                'submitted_at': claim_record['submitted_at'],
-                'estimated_response_days': estimated_days,
-                'legal_deadline': True,  # Indicateur que c'est un délai légal
-                'message': f"Réclamation soumise avec succès à {carrier}"
-            }
+            if email_success:
+                logger.info(f"Claim emailed successfully: {claim_reference} to {carrier_email}")
+                
+                # Délai légal
+                estimated_days = LEGAL_RESPONSE_TIMES.get(carrier_key, LEGAL_RESPONSE_TIMES['default'])
+                
+                return {
+                    'success': True,
+                    'claim_reference': claim_reference,
+                    'carrier': carrier,
+                    'submitted_at': claim_record['submitted_at'],
+                    'estimated_response_days': estimated_days,
+                    'legal_deadline': True,
+                    'message': f"Réclamation envoyée à {carrier} ({carrier_email})"
+                }
+            else:
+                logger.error(f"Failed to email claim {claim_reference} to {carrier_email}")
+                return {
+                    'success': False, 
+                    'error': "Email sending failed",
+                    'message': "Erreur lors de l'envoi email, sauvegardé pour réessai."
+                }
             
         except Exception as e:
             logger.error(f"Claim submission failed: {e}")
             return {
                 'success': False,
                 'error': str(e),
-                'message': "Erreur lors de la soumission"
+                'message': "Erreur critique de soumission"
             }
     
     def update_dispute_status(

@@ -475,6 +475,46 @@ class EmailSender:
         return self.send_email(to_email, subject, html_body)
 
 
+    def send_claim_to_carrier(
+        self,
+        carrier_email: str,
+        claim_reference: str,
+        tracking_number: str,
+        subject: str,
+        body: str,
+        attachments: List[str]
+    ) -> bool:
+        """
+        Send a formal claim email to a carrier with attachments.
+        
+        Args:
+            carrier_email: Carrier's claim service email
+            claim_reference: Our internal claim reference
+            tracking_number: Carrier's tracking number
+            subject: Formatted subject line
+            body: Email body text
+            attachments: List of file paths (PDFs, Images)
+            
+        Returns:
+            True if successful
+        """
+        try:
+            # Use the generic send_email method which already handles attachments
+            # We just ensure the body is properly formatted as HTML/Text
+            
+            # Simple wrapper to allow future carrier-specific logic if needed
+            return self.send_email(
+                to_email=carrier_email,
+                subject=subject,
+                html_body=f"<pre style='font-family: sans-serif;'>{body}</pre>", # Wrap text in pre for formatting
+                text_body=body,
+                attachments=attachments
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to send claim to carrier {carrier_email}: {e}")
+            return False
+
 # Helper functions for convenient access
 def send_disputes_detected_email(client_email: str, disputes_count: int,
                                  total_amount: float, disputes_summary: list) -> bool:

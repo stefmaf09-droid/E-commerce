@@ -1,0 +1,14 @@
+{
+  "claim_reference": "CLM-20260218203532-44YJ",
+  "order_id": "ORD-TEST-EMAIL",
+  "carrier": "Colissimo",
+  "claim_text": "Ceci est un test de réclamation.",
+  "claim_amount": 50.0,
+  "photos": [
+    "data/photo1.jpg"
+  ],
+  "submitted_at": "2026-02-18T20:35:32.887386",
+  "status": "submitted",
+  "submission_method": "email_automation",
+  "target_email": "service.client@colissimo.fr"
+}

@@ -175,7 +175,8 @@ def main():
     # Existing user - show full dashboard
     # --- DATA LOADING ---
     # --- DATA LOADING ---
-    from database.database_manager import DatabaseManager, set_db_manager
+    # --- DATA LOADING ---
+    from src.database.database_manager import DatabaseManager, set_db_manager
     
     # Sélection de la BDD selon l'environnement
     if st.session_state.env_mode == 'TEST':
@@ -284,10 +285,20 @@ def main():
         # The logo and environment toggle are already at the top of the sidebar.
         st.markdown("---")
         
+        # Dynamic Menu based on Role
+        role = st.session_state.get('role', 'client')
+        
+        menu_options = ["Tableau de Bord", "📊 Analytics", "💬 Assistant", "📎 Pièces Jointes", "Dépôt Preuves", "Mes Litiges", "Gestion Litiges", "📊 POD Analytics", "Rapports", "📝 Modèles Lettres", "📧 Modèles Emails", "Réglages"]
+        menu_icons = ["speedometer2", "graph-up", "chat-dots", "paperclip", "cloud-upload", "list-task", "clipboard-check", "bar-chart", "file-earmark-text", "envelope-paper", "envelope", "gear"]
+        
+        if role == 'admin':
+            menu_options.insert(2, "👑 Admin Panel")
+            menu_icons.insert(2, "shield-lock")
+        
         selected = option_menu(
             "Menu Principal",
-            ["Tableau de Bord", "💬 Assistant", "📎 Pièces Jointes", "Dépôt Preuves", "Mes Litiges", "Gestion Litiges", "📊 POD Analytics", "Rapports", "📝 Modèles Lettres", "📧 Modèles Emails", "Réglages"],
-            icons=["speedometer2", "chat-dots", "paperclip", "cloud-upload", "list-task", "clipboard-check", "bar-chart", "file-earmark-text", "envelope-paper", "envelope", "gear"],
+            menu_options,
+            icons=menu_icons,
             menu_icon="cast",
             default_index=0,
         )
@@ -297,9 +308,9 @@ def main():
         
         # Original controls from the bottom of the sidebar are moved here, after the new menu
         st.markdown("### ⚙️ Controls")
-        if st.button("🔄 Refresh Data", width='stretch'):
+        if st.button("🔄 Actualiser", width='stretch'):
             st.rerun()
-        if st.button("🚪 Logout", width='stretch'):
+        if st.button("🚪 Déconnexion", width='stretch'):
             st.session_state.authenticated = False
             st.rerun()
         st.markdown("---")
@@ -315,27 +326,27 @@ def main():
         
         with col1:
             render_premium_metric(
-                "Recoverable",
+                "Récupérable",
                 f"{total_recoverable:,.0f}€",
-                "Potential Recovery this month",
+                "Récupération potentielle ce mois",
                 icon="💰",
                 progress=recoverable_progress
             )
         
         with col2:
             render_premium_metric(
-                "Success Rate",
+                "Taux de Succès",
                 f"{success_rate}%",
-                "Based on closed cases",
+                "Basé sur les dossiers clos",
                 icon="🎯",
                 progress=success_rate
             )
         
         with col3:
             render_premium_metric(
-                "Active Disputes",
+                "Litiges Actifs",
                 f"{disputes_count:,}",
-                "Processing currently",
+                "En cours de traitement",
                 icon="📦",
                 progress=disputes_progress
             )
@@ -349,6 +360,11 @@ def main():
         # Disputes Table
         st.markdown('<div style="margin-top: 32px;"></div>', unsafe_allow_html=True)
         render_disputes_table_modern(disputes_df)
+
+    elif selected == "📊 Analytics":
+        # New Analytics Dashboard
+        from src.dashboard.analytics_dashboard import render_analytics_dashboard
+        render_analytics_dashboard()
     
     elif selected == "Dépôt Preuves":
         # Upload page
@@ -357,7 +373,7 @@ def main():
     
     elif selected == "Mes Litiges":
         # All Disputes page
-        st.markdown('<div class="section-header">All Disputes</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">Tous les Litiges</div>', unsafe_allow_html=True)
         render_disputes_table_modern(disputes_df)
         st.markdown("---")
         render_carrier_breakdown(disputes_df)
@@ -375,7 +391,7 @@ def main():
     elif selected == "Rapports":
         # Reports & Analytics page
         render_reports_page(disputes_df)
-
+    
     elif selected == "📝 Modèles Lettres":
         # Appeal Letter Templates Management page
         from src.dashboard.templates_page import render_templates_page
@@ -398,6 +414,16 @@ def main():
     elif selected == "📎 Pièces Jointes":
         # Attachments page
         render_attachments_page()
+        return
+        
+    elif selected == "👑 Admin Panel":
+        # Admin Panel (RBAC Protected)
+        if st.session_state.get('role') != 'admin':
+            st.error("⛔ Accès refusé. Vous n'avez pas les droits d'administrateur.")
+            return
+
+        from src.dashboard.admin_panel import render_admin_panel
+        render_admin_panel()
         return
     
     # Sidebar cleanup - redundant controls removed

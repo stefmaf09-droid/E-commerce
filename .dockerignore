@@ -1,57 +1,29 @@
-__pycache__/
+__pycache__
 *.pyc
 *.pyo
 *.pyd
 .Python
-*.so
-*.egg
-*.egg-info/
-dist/
-build/
-
-# Environment
-.env
-.venv
+env/
 venv/
-ENV/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Data (exclude from image)
-data/scraped/
-data/reports/
-data/claims/
-data/confirmations/
-*.json
-*.csv
-*.log
-
-# Test files
-.pytest_cache/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
 .coverage
-htmlcov/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Git
-.git/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
 .gitignore
+.mypy_cache
+.pytest_cache
+.hypothesize
 
-# Documentation (not needed in image)
-*.md
-docs/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Temporary
-*.tmp
-temp/
+# Secrets
+.streamlit/secrets.toml
+config/.secret_key
+.env
+database/*.db

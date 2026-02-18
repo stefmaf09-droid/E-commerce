@@ -364,7 +364,14 @@ def get_i18n_text(key: str, lang: str = None) -> str:
             'legal_body_law': 'En vertu de l\'article L133-1 du Code des Transports, vous êtes garant de la perte ou de l\'avarie des objets à transporter.',
             'legal_body_demand': 'Par la présente, nous vous METTONS EN DEMEURE d\'effectuer le règlement sous 8 jours.',
             'legal_body_closing': 'À défaut, nous saisirons le Médiateur compétent.',
-            'legal_signature': 'POUR ORDRE : L\'AGENT MANDATAIRE AUTOMATISÉ'
+            'legal_signature': 'POUR ORDRE : L\'AGENT MANDATAIRE AUTOMATISÉ',
+            
+            # Lois Internationales (Fallback sur le texte Anglais ou traduit si pertinent)
+            'legal_law_ny': 'En vertu de la loi générale des affaires de l\'État de New York (§ 396-u) et de l\'Amendement Carmack fédéral (49 U.S.C. § 14706), le transporteur est responsable en tant qu\'assureur de la perte ou des dommages.',
+            'legal_law_ca': 'En vertu du Code de commerce de Californie § 7309, un transporteur qui émet un connaissement est tenu d\'exercer le degré de soin qu\'une personne raisonnablement prudente exercerait.',
+            'legal_law_us_federal': 'En vertu de l\'Amendement Carmack fédéral (49 U.S.C. § 14706), un transporteur public est responsable de la "perte ou du préjudice réel à la propriété" survenant pendant le transport.',
+            'legal_law_uk': 'En vertu de la Loi sur les droits des consommateurs de 2015 (UK) et de la Loi sur le transport de marchandises par route de 1965, le transporteur est strictement responsable de la perte ou des dommages.',
+            'legal_law_eu_cmr': 'Conformément à la Convention CMR (Article 17) et aux réglementations de transport de l\'UE, le transporteur est responsable de la perte totale ou partielle des marchandises.'
         },
         'EN': {
             # Dashboard
@@ -1413,5 +1420,27 @@ def get_i18n_text(key: str, lang: str = None) -> str:
         }
     }
     
-    return translations.get(lang.upper(), translations['FR']).get(key, key)
+    # Auto-detect language if not provided
+    if lang is None:
+        lang = get_browser_language()
+        
+    target_lang = lang.upper()
+    
+    # 1. Try target language
+    val = translations.get(target_lang, {}).get(key)
+    if val:
+        return val
+        
+    # 2. Fallback to English (Global)
+    val_en = translations.get('EN', {}).get(key)
+    if val_en:
+        return val_en
+        
+    # 3. Fallback to French (Default)
+    val_fr = translations.get('FR', {}).get(key)
+    if val_fr:
+        return val_fr
+        
+    # 4. Return key as last resort
+    return key
 

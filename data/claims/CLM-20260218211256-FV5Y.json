@@ -1,0 +1,13 @@
+{
+  "claim_reference": "CLM-20260218211256-FV5Y",
+  "order_id": "ORD-PDF-TEST-001",
+  "carrier": "Colissimo",
+  "claim_text": "Claim text body.",
+  "claim_amount": 75.5,
+  "photos": [],
+  "submitted_at": "2026-02-18T21:12:56.958335",
+  "status": "submitted",
+  "submission_method": "email_automation",
+  "target_email": "service.client@colissimo.fr",
+  "pdf_path": "data\\claims\\pdfs\\CLM-20260218211256-FV5Y.pdf"
+}

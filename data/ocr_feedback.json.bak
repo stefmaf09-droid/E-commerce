@@ -1,0 +1,8 @@
+[
+  {
+    "timestamp": "2026-02-04T08:43:08.060514",
+    "original_text_snippet": "Refus pour signature non conforme.",
+    "corrected_reason_key": "bad_signature",
+    "user_feedback": "La signature est illisible"
+  }
+]

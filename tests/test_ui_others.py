@@ -9,8 +9,8 @@ class TestUIComponents:
     @patch('src.ui.store_management.Fernet')
     @patch('src.ui.store_management.Path.exists')
     def test_render_store_management(self, mock_exists, mock_fernet, mock_connect):
-        # Mock credentials manager at its source
-        with patch('src.auth.credentials_manager.CredentialsManager') as mock_cm:
+        # Mock credentials manager
+        with patch('src.ui.store_management.CredentialsManager') as mock_cm:
             mock_manager = mock_cm.return_value
             mock_manager.get_all_stores.return_value = [{'id': 1, 'store_name': 'My Shop', 'platform': 'shopify'}]
             
@@ -96,7 +96,7 @@ class TestUIComponents:
         assert mock_email.invalidate_token.called
 
     @patch('src.ui.store_management.sqlite3.connect')
-    @patch('src.auth.credentials_manager.CredentialsManager')
+    @patch('src.ui.store_management.CredentialsManager')
     def test_store_management_errors(self, mock_cm_class, mock_connect):
         mock_cm = mock_cm_class.return_value
         mock_cm.get_all_stores.return_value = [] # No stores, so no delete buttons

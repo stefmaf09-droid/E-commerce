@@ -6,6 +6,7 @@ import email
 from email import policy
 from email.parser import BytesParser
 import json
+from src.config import Config
 
 try:
     import google.generativeai as genai
@@ -25,35 +26,35 @@ class OCRProcessor:
     def __init__(self):
         # Dictionnaire des motifs de rejet et conseils associés
         self.rejection_patterns = {
-            r"(signature|signature).*(correspond pas|manquante|non reconnue|invalid|missing|not match)": {
+            r"(signature|signature|émargement).*(correspond pas|manquante|non reconnue|invalid|missing|not match|driver|chauffeur|covid|sans contact)": {
                 "reason_key": "bad_signature",
                 "label_fr": "Signature Non Conforme",
                 "label_en": "Invalid Signature",
                 "advice_fr": "Le transporteur conteste la signature sur le bordereau. Veuillez fournir une attestation sur l'honneur signée par le client final avec une copie de sa pièce d'identité.",
                 "advice_en": "Carrier disputes the signature on the POD. Please provide a signed declaration from the end customer along with a copy of their ID."
             },
-            r"(poids|weight|réel).*(conforme|réel|match|verified|correct)": {
+            r"(poids|weight|réel|tare|volumétrique).*(conforme|réel|match|verified|correct|identique|cohérent)": {
                 "reason_key": "weight_match",
                 "label_fr": "Poids Vérifié",
                 "label_en": "Weight Verified",
                 "advice_fr": "Le transporteur affirme que le poids au départ correspond au poids à l'arrivée. Veuillez fournir une photo de l'emballage d'origine montrant l'absence de scotch de sécurité transporteur.",
                 "advice_en": "Carrier claims departure weight matches arrival weight. Please provide a photo of the original packaging showing the absence of carrier security tape."
             },
-            r"(emballage|conditionnement|packaging|packing).*(insuffisant|fragile|insufficient|inadequate)": {
+            r"(emballage|conditionnement|packaging|packing|carton|interne|calage|protection).*(insuffisant|fragile|insufficient|inadequate|non conforme|inadapté)": {
                 "reason_key": "bad_packaging",
                 "label_fr": "Emballage Insuffisant",
                 "label_en": "Inadequate Packaging",
-                "advice_fr": "Le refus est basé sur la fragilité de l'emballage. Contre-attaquez en fournissant les spécifications techniques de vos cartons (normes AFCO/FEFCO).",
+                "advice_fr": "Le refus est basé sur la fragilité de l'emballage. Contre-attaquez en fournissant les spécifications techniques de vos cartons (normes AFCO/FEFCO) et photos du calage interne.",
                 "advice_en": "Refusal based on fragile packaging. Counter-attack by providing technical specifications of your boxes (AFCO/FEFCO standards)."
             },
-            r"(délai|delai|deadline|late|expired|prescrit)": {
+            r"(délai|delai|deadline|late|expired|prescrit|hors délai|statutaire)": {
                 "reason_key": "deadline_expired",
                 "label_fr": "Délai de Prescription Dépassé",
                 "label_en": "Claim Deadline Expired",
                 "advice_fr": "Le transporteur invoque un dépassement de délai. Vérifiez la date de livraison réelle. Si le retard est de leur fait, la prescription peut être contestée.",
                 "advice_en": "Carrier claims the deadline has expired. Check the actual delivery date. If the delay is their fault, the prescription can be contested."
             },
-            r"(adresse|address).*(incorrect|wrong|incomplète|incomplete)": {
+            r"(adresse|address|destinataire).*(incorrect|wrong|incomplète|incomplete|inconnue|n'habite pas)": {
                 "reason_key": "wrong_address",
                 "label_fr": "Erreur d'Adresse",
                 "label_en": "Address Error",
@@ -63,11 +64,12 @@ class OCRProcessor:
         }
         # On ajoute aussi l'ordre inverse pour plus de robustesse
         self.rejection_patterns_rev = {
-            r"(verified|correct|match).*(weight|poids)": self.rejection_patterns[r"(poids|weight|réel).*(conforme|réel|match|verified|correct)"]
+            r"(verified|correct|match|identique).*(weight|poids)": self.rejection_patterns[r"(poids|weight|réel|tare|volumétrique).*(conforme|réel|match|verified|correct|identique|cohérent)"]
         }
         
+        
         # Initialize Gemini if key exists
-        self.gemini_key = os.getenv('GOOGLE_API_KEY')
+        self.gemini_key = Config.get_gemini_api_key()
         if self.gemini_key and GEMINI_AVAILABLE:
             try:
                 genai.configure(api_key=self.gemini_key)
@@ -78,6 +80,10 @@ class OCRProcessor:
                 self.model = None
         else:
             self.model = None
+            if not self.gemini_key:
+                logger.warning("No Gemini API key found in Config.")
+            if not GEMINI_AVAILABLE:
+                logger.warning("google-generativeai package not installed.")
 
 
     def save_correction(self, original_text: str, corrected_reason_key: str, user_feedback: str = ""):
@@ -93,9 +99,10 @@ class OCRProcessor:
         
         entry = {
             'timestamp': datetime.now().isoformat(),
-            'original_text_snippet': original_text[:200], # Keep snippet
+            'original_text_snippet': original_text[:500], # Keep larger snippet
             'corrected_reason_key': corrected_reason_key,
-            'user_feedback': user_feedback
+            'user_feedback': user_feedback,
+            'type': 'positive' if not user_feedback else 'negative_correction' 
         }
         
         try:
@@ -110,7 +117,7 @@ class OCRProcessor:
             with open(feedback_file, 'w', encoding='utf-8') as f:
                 json.dump(feedbacks, f, indent=2, ensure_ascii=False)
                 
-            logger.info("Feedback saved successfully.")
+            logger.info(f"Feedback ({entry['type']}) saved successfully.")
             return True
         except Exception as e:
             logger.error(f"Error saving feedback: {e}")
@@ -129,11 +136,13 @@ class OCRProcessor:
             if not feedbacks:
                 return ""
                 
-            # On prend les 5 plus récents
-            recent = feedbacks[-5:]
-            context = "\nVoici des exemples de corrections manuelles passées (utiles pour apprendre des erreurs précédentes) :\n"
+            # On prend les 5 plus récents qui sont pertinents (corrections négatives surtout)
+            corrections = [f for f in feedbacks if f.get('type') == 'negative_correction']
+            recent = corrections[-3:] if corrections else feedbacks[-3:]
+            
+            context = "\nCONTEXTE D'APPRENTISSAGE (Erreurs passées à éviter) :\n"
             for f in recent:
-                context += f"- Texte: '{f['original_text_snippet'][:100]}...' -> Corrigé en: {f['corrected_reason_key']}\n"
+                context += f"- Texte: '{f['original_text_snippet'][:100]}...' -> Le VRAI motif était: {f['corrected_reason_key']}\n"
             return context
         except Exception:
             return ""
@@ -161,17 +170,27 @@ class OCRProcessor:
                 feedback_context = self._get_feedback_context()
                 
                 prompt = f"""
-                Analyse la lettre de rejet d'un transporteur e-commerce ci-dessous et identifie le motif de refus.
+                Tu es un expert en logistique et litiges transport. Analyse la lettre de rejet ci-dessous.
+                Ton objectif est de trouver la RAISON PRINCIPALE du refus d'indemnisation.
+                
                 {feedback_context}
                 
                 Texte de la lettre :
-                {text[:2000]}
+                {text[:3000]}
                 
-                Répond uniquement sous format JSON avec ces champs:
-                - reason_key: (bad_signature, weight_match, bad_packaging, deadline_expired, wrong_address, other)
-                - label_fr: Nom court du motif en français
-                - advice_fr: Conseil stratégique pour le marchand (2 phrases maximum)
-                - confidence: 0.0 à 1.0
+                Instructions :
+                1. Ignore les formules de politesse.
+                2. Cherche des mots clés comme "emballage", "poids", "signature", "délai", "réserves".
+                3. Si le transporteur dit que "le poids correspond", c'est un motif de rejet "weight_match".
+                4. Si le transporteur dit "signature conforme", c'est "bad_signature".
+                
+                Répond UNIQUEMENT au format JSON valide :
+                {{
+                    "reason_key": "CHOISIR PARMI [bad_signature, weight_match, bad_packaging, deadline_expired, wrong_address, other]",
+                    "label_fr": "Nom court du motif en français",
+                    "advice_fr": "Conseil juridique précis pour contester ce refus (max 2 phrases)",
+                    "confidence": 0.0 à 1.0
+                }}
                 """
                 response = self.model.generate_content(prompt)
                 # Cleanup potential markdown json

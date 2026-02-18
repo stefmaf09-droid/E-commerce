@@ -1,0 +1,36 @@
+{
+    "colissimo": {
+        "email": "service.client@colissimo.fr",
+        "claim_subject_template": "Réclamation Colissimo - {tracking_number} - {claim_reference}",
+        "requires_form": true
+    },
+    "chronopost": {
+        "email": "service.client@chronopost.fr",
+        "claim_subject_template": "Réclamation - {tracking_number}",
+        "requires_form": false
+    },
+    "ups": {
+        "email": "claims@ups.com",
+        "claim_subject_template": "Claim Request - {tracking_number}",
+        "requires_form": true
+    },
+    "dhl": {
+        "email": "fr.claims@dhl.com",
+        "claim_subject_template": "Réclamation DHL {tracking_number}",
+        "requires_form": false
+    },
+    "fedex": {
+        "email": "fr.claims@fedex.com",
+        "claim_subject_template": "Claim {tracking_number}",
+        "requires_form": true
+    },
+    "mondial_relay": {
+        "email": "suav@mondialrelay.fr",
+        "claim_subject_template": "Litige Colis {tracking_number}",
+        "requires_form": false
+    },
+    "default": {
+        "email": "test-claims@refundly.ai",
+        "claim_subject_template": "Réclamation Transport - {tracking_number}"
+    }
+}

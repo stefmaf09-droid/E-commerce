@@ -20,12 +20,14 @@ from auth.credentials_manager import CredentialsManager
 from workers.order_sync_worker import OrderSyncWorker
 from ui.theme import render_premium_metric
 from utils.i18n import format_currency, get_i18n_text
-from ai.bypass_scorer import BypassScorer
+from analytics.bypass_scorer import BypassScorer
+from database.database_manager import DatabaseManager
 
 @st.cache_resource
 def get_cached_scorer():
     """Cached instance of BypassScorer to avoid DB thrashing."""
-    return BypassScorer()
+    # Le dashboard peut fonctionner de manière autonome, mais l'idéal est d'avoir la DB
+    return BypassScorer(DatabaseManager())
 
 
 def render_navigation_header():

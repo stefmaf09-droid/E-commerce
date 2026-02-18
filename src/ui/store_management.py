@@ -111,20 +111,28 @@ def render_multi_store_management():
                 st.error("⚠️ Veuillez remplir le nom et l'URL du magasin")
             else:
                 # Build credentials
-                credentials = {'shop_url': shop_url}
+                credentials = {}
                 
                 if platform == 'shopify':
+                    credentials['shop_domain'] = shop_url
                     credentials['api_key'] = api_key
                     credentials['api_password'] = api_password
                 elif platform == 'woocommerce':
+                    credentials['store_url'] = shop_url
                     credentials['consumer_key'] = consumer_key
                     credentials['consumer_secret'] = consumer_secret
-                elif platform in ['prestashop', 'magento']:
+                elif platform == 'prestashop':
+                    credentials['store_url'] = shop_url
+                    credentials['api_key'] = api_key
+                elif platform == 'magento':
+                    credentials['store_url'] = shop_url
                     credentials['api_key'] = api_key
                 elif platform == 'bigcommerce':
+                    credentials['store_url'] = shop_url
                     credentials['client_id'] = api_key
                     credentials['access_token'] = api_password
                 elif platform == 'wix':
+                    credentials['store_url'] = shop_url
                     credentials['api_key'] = api_key
                     credentials['site_id'] = api_password
                 

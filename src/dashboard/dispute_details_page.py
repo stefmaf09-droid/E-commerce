@@ -17,13 +17,14 @@ sys.path.insert(0, root_dir)
 
 # Import i18n
 from utils.i18n import get_i18n_text
-from ai.bypass_scorer import BypassScorer
+from analytics.bypass_scorer import BypassScorer
 from ai.appeal_generator import AppealGenerator
+from database.database_manager import DatabaseManager
 
 @st.cache_resource
 def get_cached_scorer():
     """Cached instance of BypassScorer for details page."""
-    return BypassScorer()
+    return BypassScorer(DatabaseManager())
 
 
 def render_dispute_details_page(dispute_data):
@@ -268,12 +269,29 @@ def _render_evidence_section(dispute_data):
         col_feedback1, col_feedback2 = st.columns(2)
         with col_feedback1:
             if st.button("✅ Confirmer l'analyse", key="confirm_ocr"):
-                st.toast("Feedback enregistré : L'IA apprend de cette confirmation !", icon="🧠")
+                # Save Positive Feedback Loop
+                from src.scrapers.ocr_processor import OCRProcessor
+                ocr = OCRProcessor()
+                ocr.save_correction(
+                    original_text=st.session_state.last_analysis['text'],
+                    corrected_reason_key=st.session_state.last_analysis['result']['reason_key'],
+                    user_feedback="" # Empty feedback = Positive confirmation
+                )
+                
+                st.toast("✅ Feedback positif enregistré ! L'IA apprend de cette confirmation.", icon="🧠")
+                
                 # Update local data for immediate feedback
                 dispute_data['ai_reason_key'] = st.session_state.last_analysis['result']['reason_key']
                 dispute_data['ai_advice'] = st.session_state.last_analysis['result']['advice_fr']
                 
-                # Feedback implicite : on pourrait le sauvegarder aussi
+                # Update DB
+                db_manager = DatabaseManager()
+                db_manager.update_claim_ai_analysis(
+                    claim_reference=dispute_data.get('claim_reference'),
+                    reason_key=dispute_data['ai_reason_key'],
+                    advice=dispute_data['ai_advice']
+                )
+                
                 del st.session_state.last_analysis
                 st.rerun()
                 
@@ -284,32 +302,47 @@ def _render_evidence_section(dispute_data):
         if st.session_state.get('show_correction_form'):
             with st.form("ocr_feedback_form"):
                 st.write("Aidez-nous à améliorer l'IA : Quel est le vrai motif ?")
-                correct_reason = st.selectbox(
+                
+                reason_options = {
+                    "Signature Non Conforme": "bad_signature",
+                    "Poids Vérifié": "weight_match", 
+                    "Emballage Insuffisant": "bad_packaging",
+                    "Délai Dépassé": "deadline_expired",
+                    "Erreur Adresse": "wrong_address",
+                    "Autre / Non listé": "other"
+                }
+                
+                correct_reason_label = st.selectbox(
                     "Motif Réel",
-                    ["Signature Non Conforme", "Poids Vérifié", "Emballage Insuffisant", "Délai Dépassé", "Erreur Adresse", "Autre"]
+                    list(reason_options.keys())
                 )
-                comment = st.text_input("Commentaire (Optionnel)")
+                
+                comment = st.text_input("Commentaire / Précision (Utile pour l'apprentissage)")
                 
                 if st.form_submit_button("Envoyer Correction"):
                     from src.scrapers.ocr_processor import OCRProcessor
                     ocr = OCRProcessor()
                     
-                    # Map label back to key (simplified for demo)
-                    key_map = {
-                        "Signature Non Conforme": "bad_signature",
-                        "Poids Vérifié": "weight_match", 
-                        "Emballage Insuffisant": "bad_packaging",
-                        "Délai Dépassé": "deadline_expired",
-                        "Erreur Adresse": "wrong_address"
-                    }
+                    selected_key = reason_options.get(correct_reason_label, "other")
                     
                     ocr.save_correction(
                         original_text=st.session_state.last_analysis['text'],
-                        corrected_reason_key=key_map.get(correct_reason, "other"),
-                        user_feedback=comment
+                        corrected_reason_key=selected_key,
+                        user_feedback=comment # Feedback present = Negative/Correction
                     )
                     
-                    st.success("Merci ! Votre correction a été prise en compte.")
+                    # Update DB with corrected values
+                    db_manager = DatabaseManager()
+                    dispute_data['ai_reason_key'] = selected_key
+                    # We could regenerate advice here, but for now we keep previous or empty
+                    
+                    db_manager.update_claim_ai_analysis(
+                        claim_reference=dispute_data.get('claim_reference'),
+                        reason_key=selected_key,
+                        advice="Motif corrigé manuellement. En attente de nouvelle analyse."
+                    )
+                    
+                    st.success("Merci ! Votre correction a été prise en compte et servira à l'entraînement.")
                     del st.session_state.last_analysis
                     st.session_state.show_correction_form = False
                     st.rerun()

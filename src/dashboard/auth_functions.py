@@ -67,7 +67,7 @@ def _render_login_form():
             
             if creds:
                 # SÉCURITÉ: Vérification du mot de passe avec bcrypt
-                from auth.password_manager import verify_client_password, has_password
+                from auth.password_manager import verify_client_password, has_password, get_user_role
                 
                 # Check if user has a password set
                 if not has_password(email):
@@ -78,7 +78,28 @@ def _render_login_form():
                 if verify_client_password(email, password):
                     st.session_state.authenticated = True
                     st.session_state.client_email = email
-                    st.success("✅ Connexion réussie !")
+                    
+                    # Fetch and store user role
+                    role = get_user_role(email)
+                    st.session_state.role = role
+                    
+                    # Fetch client_id for logging
+                    from src.database.database_manager import DatabaseManager
+                    db = DatabaseManager()
+                    client = db.get_client(email=email)
+                    if client:
+                        st.session_state.client_id = client['id']
+                        
+                        # Log Login Activity
+                        from src.utils.activity_logger import ActivityLogger
+                        ActivityLogger.log(
+                            client_id=client['id'],
+                            action='login',
+                            details={'role': role},
+                            ip_address='127.0.0.1' 
+                        )
+                    
+                    st.success(f"✅ Connexion réussie ! (Rôle: {role})")
                     st.rerun()
                 else:
                     st.error("❌ Mot de passe incorrect")
@@ -381,6 +402,7 @@ def _process_registration(reg_email, reg_password, reg_password_confirm, store_n
     # Auto-login
     st.session_state.authenticated = True
     st.session_state.client_email = reg_email
+    st.session_state.role = 'client'  # Default role for new users
 
     # Set flags to open portal and redirect to dashboard inline
     st.session_state.show_portal = True

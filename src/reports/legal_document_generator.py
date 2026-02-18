@@ -129,7 +129,45 @@ class LegalDocumentGenerator:
         # 4. Corps de la lettre
         story.append(Paragraph(f"Madame, Monsieur,", self.styles['LegalBody']))
         
-        # Listes de pays pour détection
+        # Sélection de la loi spécifique basée sur l'adresse (indépendamment de la langue)
+        address = claim.get('delivery_address', '').upper()
+        law_key = self._determine_applicable_law(address)
+        law_text = get_i18n_text(law_key, lang)
+
+    def _determine_applicable_law(self, address: str) -> str:
+        """Détermine la clé de traduction de la loi applicable selon l'adresse."""
+        import re
+        
+        # Helper for whole word matching
+        def has_word(text, word):
+            return re.search(r'\b' + re.escape(word) + r'\b', text, re.IGNORECASE)
+        
+        # 1. USA (Priorité aux états spécifiques)
+        if has_word(address, 'NY') or has_word(address, 'NEW YORK'):
+            return 'legal_law_ny'
+        elif has_word(address, 'CA') or has_word(address, 'CALIFORNIA'):
+            return 'legal_law_ca'
+        elif has_word(address, 'TX') or has_word(address, 'TEXAS'):
+            return 'legal_law_tx'
+        elif has_word(address, 'FL') or has_word(address, 'FLORIDA'):
+            return 'legal_law_fl'
+        elif has_word(address, 'IL') or has_word(address, 'ILLINOIS'):
+            return 'legal_law_il'
+        elif any(has_word(address, usa_key) for usa_key in ['USA', 'UNITED STATES']):
+            return 'legal_law_us_federal'
+        # Fallback US States (si USA n'est pas explicite mais qu'on a un code état connu)
+        elif any(has_word(address, state) for state in ['PA', 'OH', 'GA', 'NC', 'MI']):
+             return 'legal_law_us_federal'
+            
+        # 2. UK / Commonwealth
+        elif any(has_word(address, uk_key) for uk_key in ['UK', 'UNITED KINGDOM', 'LONDON', 'MANCHESTER', 'BIRMINGHAM']):
+            return 'legal_law_uk'
+        elif any(has_word(address, hk_key) for hk_key in ['HK', 'HONG KONG', 'KOWLOON']):
+            return 'legal_law_hk'
+        elif any(has_word(address, sg_key) for sg_key in ['SG', 'SINGAPORE']):
+            return 'legal_law_sg'
+
+        # 3. Union Européenne
         EU_COUNTRIES = [
             'AUSTRIA', 'BELGIUM', 'BULGARIA', 'CROATIA', 'CYPRUS', 'CZECH REPUBLIC', 
             'DENMARK', 'ESTONIA', 'FINLAND', 'FRANCE', 'GERMANY', 'GREECE', 'HUNGARY', 
@@ -139,39 +177,11 @@ class LegalDocumentGenerator:
             'FINLANDE', 'GRÈCE', 'HONGRIE', 'IRLANDE', 'ITALIE', 'LETTONIE', 'LITUANIE', 
             'PAYS-BAS', 'POLOGNE', 'ROUMANIE', 'SLOVAQUIE', 'SLOVÉNIE', 'SUÈDE'
         ]
+        if any(has_word(address, country) for country in EU_COUNTRIES):
+             return 'legal_law_eu_cmr'
 
-        # Sélection de la loi spécifique
-        law_text = get_i18n_text('legal_body_law', lang)
-        address = claim.get('delivery_address', '').upper()
-        
-        if lang == 'DE':
-             law_text = get_i18n_text('legal_body_law', 'DE')
-        elif lang == 'IT':
-             law_text = get_i18n_text('legal_body_law', 'IT')
-        elif lang == 'ES':
-             law_text = get_i18n_text('legal_body_law', 'ES')
-        elif any(country in address for country in EU_COUNTRIES):
-             # Fallback CMR pour toute l'Union Européenne
-             law_text = get_i18n_text('legal_law_eu_cmr', 'EN' if lang == 'EN' else 'FR')
-        elif lang == 'EN':
-            if any(uk_key in address for uk_key in ['UK', 'UNITED KINGDOM', 'LONDON', 'MANCHESTER', 'BIRMINGHAM']):
-                law_text = get_i18n_text('legal_law_uk', lang)
-            elif any(hk_key in address for hk_key in ['HK', 'HONG KONG', 'KOWLOON', 'LANTAU']):
-                law_text = get_i18n_text('legal_law_hk', lang)
-            elif any(sg_key in address for sg_key in ['SG', 'SINGAPORE', 'SENTOSA']):
-                law_text = get_i18n_text('legal_law_sg', lang)
-            elif 'NY' in address or 'NEW YORK' in address:
-                law_text = get_i18n_text('legal_law_ny', lang)
-            elif 'CA' in address or 'CALIFORNIA' in address:
-                law_text = get_i18n_text('legal_law_ca', lang)
-            elif 'TX' in address or 'TEXAS' in address:
-                law_text = get_i18n_text('legal_law_tx', lang)
-            elif 'FL' in address or 'FLORIDA' in address:
-                law_text = get_i18n_text('legal_law_fl', lang)
-            elif 'IL' in address or 'ILLINOIS' in address:
-                law_text = get_i18n_text('legal_law_il', lang)
-            elif any(usa_key in address for usa_key in ['USA', 'UNITED STATES', 'PA', 'OH', 'GA', 'NC', 'MI']):
-                law_text = get_i18n_text('legal_law_us_federal', lang)
+        # 4. Fallback (Loi par défaut définie dans la langue de destination)
+        return 'legal_body_law'
         body_text = f"""
         {get_i18n_text('legal_body_intro', lang)}
         (Type : {claim['dispute_type']}) - {get_i18n_text('legal_ref_claim', lang)} {claim['claim_reference']} 

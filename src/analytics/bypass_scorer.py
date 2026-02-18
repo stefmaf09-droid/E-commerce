@@ -12,9 +12,28 @@ class BypassScorer:
     et l'estimation des chances de succès.
     """
     
-    def __init__(self, db_manager):
+    def __init__(self, db_manager=None):
         self.db = db_manager
         self.predictor = AIPredictor()
+        
+        # Expert Rules (Baseline for fallback/UI)
+        self.base_weights = {
+            'dispute_type': {
+                'lost': 0.95,
+                'late_delivery': 0.85,
+                'damaged': 0.40,
+                'invalid_pod': 0.70,
+                'unknown': 0.50
+            },
+            'carrier': {
+                'Chronopost': 1.0,
+                'Colissimo': 1.0,
+                'UPS': 0.9,
+                'DHL': 0.9,
+                'FedEx': 0.8,
+                'DPD': 0.7
+            }
+        }
 
     def calculate_client_risk_score(self, client_id: int) -> float:
         """
@@ -26,6 +45,9 @@ class BypassScorer:
         - Volume de réclamations vs âge du compte
         - Bypass density (ratio alertes/total)
         """
+        if not self.db:
+            return 0.0
+            
         score = 0
         
         conn = self.db.get_connection()
@@ -88,27 +110,31 @@ class BypassScorer:
         
         # 2. Historique local (30%)
         hist_proba = ai_proba # Fallback
-        conn = self.db.get_connection()
-        try:
-            stats = conn.execute("""
-                SELECT 
-                    SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) as accepted,
-                    COUNT(*) as total
-                FROM claims 
-                WHERE carrier = ? AND dispute_type = ?
-            """, (carrier, dispute_type)).fetchone()
-            
-            if stats and stats[1] >= 3: 
-                hist_proba = stats[0] / stats[1]
+        
+        if self.db:
+            conn = self.db.get_connection()
+            try:
+                stats = conn.execute("""
+                    SELECT 
+                        SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) as accepted,
+                        COUNT(*) as total
+                    FROM claims 
+                    WHERE carrier = ? AND dispute_type = ?
+                """, (carrier, dispute_type)).fetchone()
                 
-            # 3. Facteur de rejet par transporteur (Nouveauté)
-            rejection_factor = self._calculate_rejection_factor(conn, carrier)
-            
-            final_proba = (0.7 * ai_proba) + (0.3 * hist_proba)
-            return max(0.05, min(0.98, final_proba - rejection_factor))
-            
-        finally:
-            conn.close()
+                if stats and stats[1] >= 3: 
+                    hist_proba = stats[0] / stats[1]
+                    
+                # 3. Facteur de rejet par transporteur (Nouveauté)
+                rejection_factor = self._calculate_rejection_factor(conn, carrier)
+                
+                final_proba = (0.7 * ai_proba) + (0.3 * hist_proba)
+                return max(0.05, min(0.98, final_proba - rejection_factor))
+                
+            finally:
+                conn.close()
+        
+        return ai_proba
 
     def _calculate_rejection_factor(self, conn, carrier: str) -> float:
         """Calcule un malus basé sur le taux de rejet récent du transporteur."""
@@ -139,3 +165,26 @@ class BypassScorer:
             return {"label": "Vigilance", "color": "orange", "description": "Anomalies détectées, monitoring accru."}
         else:
             return {"label": "CRITIQUE", "color": "red", "description": "Forte suspicion de bypass. Gel des paiements conseillé."}
+
+    # --- UI Adapter Methods (Migration from src.ai.bypass_scorer) ---
+
+    def predict_success(self, dispute_data: Dict[str, Any]) -> float:
+        """
+        Adapter for UI calls. Delegates to estimate_success_probability.
+        """
+        return self.estimate_success_probability(
+            carrier=dispute_data.get('carrier', 'Unknown'),
+            dispute_type=dispute_data.get('dispute_type', 'unknown'),
+            amount=dispute_data.get('amount', 0.0)
+        )
+
+    def get_strategic_advice(self, dispute_data: Dict[str, Any]) -> str:
+        """Returns a short AI advice based on success probability."""
+        score = self.predict_success(dispute_data)
+        
+        if score > 0.8:
+            return "🚀 Très haute probabilité de succès. Soumettez immédiatement."
+        elif score > 0.5:
+            return "⚖️ Probabilité moyenne. Assurez-vous d'avoir une attestation client."
+        else:
+            return "⚠️ Probabilité faible. Nécessite des preuves photos solides pour Bypass."

@@ -157,8 +157,12 @@ class PrestaShopConnector(BaseConnector):
         return None
     
     def _extract_tracking_number(self, order: Dict) -> Optional[str]:
-        # PrestaShop stores tracking in order_carrier table
-        # Not directly accessible via simple order endpoint
+        # 1. Check direct 'shipping_number' field (standard in 1.7+)
+        shipping_number = order.get('shipping_number')
+        if shipping_number and shipping_number != '':
+            return shipping_number
+            
+        # 2. Check associations (if expanded) - logic could be added here
         return None
     
     def _extract_delivery_status(self, order: Dict) -> str:

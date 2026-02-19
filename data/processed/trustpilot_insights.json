@@ -1,0 +1,82 @@
+{
+  "total_reviews": 1200,
+  "carrier_distribution": {
+    "colissimo": 200,
+    "chronopost": 200,
+    "dpd": 200,
+    "ups": 200,
+    "fedex": 200,
+    "dhl": 200
+  },
+  "rating_distribution": {
+    "distribution": {
+      "3": 1200
+    },
+    "average": 3,
+    "median": 3.0
+  },
+  "pattern_statistics": {
+    "delays": 278,
+    "losses": 139,
+    "damages": 79,
+    "proof_issues": 194,
+    "percentages": {
+      "delays": 23.166666666666664,
+      "losses": 11.583333333333332,
+      "damages": 6.583333333333333,
+      "proof_issues": 16.166666666666664
+    }
+  },
+  "delay_statistics": {
+    "count": 9,
+    "average_days": 7,
+    "median_days": 8,
+    "min_days": 2,
+    "max_days": 14
+  },
+  "severity_analysis": {
+    "average": 0.5658333333333333,
+    "median": 0.0,
+    "min": 0,
+    "max": 4.5,
+    "distribution": {
+      "0": 781,
+      "1": 203,
+      "2": 160,
+      "4": 9,
+      "3": 47
+    }
+  },
+  "top_keywords": {
+    "colis": 1449,
+    "spontané": 1200,
+    "livraison": 922,
+    "janvier": 691,
+    "2026avis": 620,
+    "2025avis": 569,
+    "service": 521,
+    "plus": 503,
+    "livreur": 408,
+    "livré": 348,
+    "c'est": 315,
+    "chez": 305,
+    "même": 301,
+    "relais": 300,
+    "j'ai": 289,
+    "point": 279,
+    "jamais": 275,
+    "jours": 270,
+    "fois": 269,
+    "client": 252,
+    "fait": 250,
+    "décembre": 250,
+    "alors": 249,
+    "poste": 238,
+    "tout": 227,
+    "rien": 227,
+    "faire": 226,
+    "leur": 220,
+    "bien": 218,
+    "jour": 207
+  }
+}

@@ -13,6 +13,16 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# ── Sentry Error Monitoring ───────────────────────────────────────────────────
+# Initialized early so ALL errors (including import errors) are captured.
+try:
+    from config.sentry_config import init_sentry
+    init_sentry()
+except Exception:
+    pass  # Non-fatal — app runs without monitoring if Sentry is unavailable
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 
 # Configuration de la page
 st.set_page_config(

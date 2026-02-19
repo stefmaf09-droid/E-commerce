@@ -404,6 +404,16 @@ def _process_registration(reg_email, reg_password, reg_password_confirm, store_n
     st.session_state.client_email = reg_email
     st.session_state.role = 'client'  # Default role for new users
 
+    # Fetch client_id for analytics and logging (mirrors login flow)
+    try:
+        from src.database.database_manager import DatabaseManager
+        db = DatabaseManager()
+        client = db.get_client(email=reg_email)
+        if client:
+            st.session_state.client_id = client['id']
+    except Exception:
+        pass  # Non-fatal — analytics will gracefully show "Session invalide" if missing
+
     # Set flags to open portal and redirect to dashboard inline
     st.session_state.show_portal = True
     st.session_state.redirect_to_dashboard = True

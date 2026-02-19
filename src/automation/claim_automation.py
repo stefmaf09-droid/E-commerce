@@ -13,6 +13,16 @@ from pathlib import Path
 import random
 import string
 
+from src.scrapers.colissimo_scraper import ColissimoScraper
+from src.scrapers.mondial_relay_scraper import MondialRelayScraper
+from src.scrapers.chronopost_scraper import ChronopostScraper
+from src.scrapers.fedex_scraper import FedExScraper
+from src.scrapers.dpd_scraper import DPDScraper
+from src.scrapers.gls_scraper import GLSScraper
+from src.scrapers.tnt_scraper import TNTScraper
+from src.connectors.dhl_connector import DHLConnector
+from src.connectors.ups_connector import UPSConnector
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,6 +70,27 @@ class ClaimAutomation:
             from_email=os.getenv('GMAIL_SENDER')
         )
         self.pdf_generator = ClaimPDFGenerator()
+        
+        # Initialize Scrapers/Connectors
+        self.colissimo_scraper = ColissimoScraper()
+        self.mondial_relay_scraper = MondialRelayScraper()
+        self.chronopost_scraper = ChronopostScraper()
+        self.fedex_scraper = FedExScraper()
+        self.dpd_scraper = DPDScraper()
+        self.gls_scraper = GLSScraper()
+        self.tnt_scraper = TNTScraper()
+
+        # DHL Config
+        self.dhl_connector = DHLConnector(
+            api_key=os.getenv('DHL_API_KEY', 'OCaoGF7up5Df9JBSGnds8QJWUCVKA9qJ'),
+            api_secret=os.getenv('DHL_API_SECRET', 'p86tZBzIIt95ZMHF')
+        )
+
+        # UPS Config (Placeholders - user needs to provide these)
+        self.ups_connector = UPSConnector(
+            client_id=os.getenv('UPS_CLIENT_ID'),
+            client_secret=os.getenv('UPS_CLIENT_SECRET')
+        )
     
     def analyze_photos(self, photo_paths: List[str]) -> Dict[str, Any]:
         """
@@ -134,10 +165,60 @@ class ClaimAutomation:
                 'error': str(e)
             }
     
+    def fetch_pod_evidence(self, dispute_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Attempt to fetch POD or tracking status from carrier.
+        
+        Args:
+            dispute_data: Dispute information containing tracking number and carrier
+            
+        Returns:
+            Dictionary with POD data or None
+        """
+        carrier = dispute_data.get('carrier', '').lower()
+        tracking_number = dispute_data.get('tracking_number')
+        
+        if not tracking_number:
+            logger.warning("No tracking number provided for POD fetch")
+            return None
+            
+        try:
+            if 'colissimo' in carrier:
+                logger.info(f"Fetching Colissimo POD for {tracking_number}")
+                return self.colissimo_scraper.get_pod(tracking_number)
+            
+            elif 'dhl' in carrier:
+                logger.info(f"Fetching DHL POD for {tracking_number}")
+                return self.dhl_connector.get_tracking(tracking_number)
+                
+            elif 'ups' in carrier:
+                logger.info(f"Fetching UPS POD for {tracking_number}")
+                return self.ups_connector.get_tracking(tracking_number)
+
+            elif 'mondial' in carrier or 'relay' in carrier:
+                zip_code = dispute_data.get('customer_zip_code') # Needs to be passed in dispute_data
+                if not zip_code:
+                     logger.warning(f"Mondial Relay requires zip code for {tracking_number}")
+                     return None
+                logger.info(f"Fetching Mondial Relay POD for {tracking_number} / {zip_code}")
+                return self.mondial_relay_scraper.get_tracking(tracking_number, zip_code)
+                
+            elif 'chronopost' in carrier:
+                logger.info(f"Fetching Chronopost POD for {tracking_number}")
+                return self.chronopost_scraper.get_tracking(tracking_number)
+            
+            # Add other carriers here as implemented
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch POD for {tracking_number}: {e}")
+            
+        return None
+
     def generate_claim_text(
         self, 
         dispute_data: Dict[str, Any], 
-        photo_analysis: Dict[str, Any]
+        photo_analysis: Dict[str, Any],
+        pod_data: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Generate optimized claim text based on dispute and photo analysis.
@@ -145,6 +226,7 @@ class ClaimAutomation:
         Args:
             dispute_data: Dispute information
             photo_analysis: Result from analyze_photos()
+            pod_data: Optional POD/Tracking data from scraper
             
         Returns:
             Formatted claim text
@@ -188,6 +270,16 @@ PREUVES JOINTES :
                 claim_text += "- Photos de dommages incluses\n"
             if photo_analysis.get('has_delivery_proof'):
                 claim_text += "- Preuve de livraison incluse\n"
+        
+        # Add POD/Tracking details if available
+        if pod_data:
+            claim_text += f"""
+INFORMATIONS DE SUIVI (Extraites automatiquement) :
+- Statut actuel : {pod_data.get('status', 'N/A')}
+- Date : {pod_data.get('delivery_date', 'N/A')}
+"""
+            if pod_data.get('is_delivered'):
+                 claim_text += "- Le suivi indique 'Livré' mais le client conteste la réception.\n"
         
         claim_text += f"""
 Date de réclamation : {datetime.now().strftime('%d/%m/%Y %H:%M')}
@@ -393,9 +485,15 @@ Nous demandons le remboursement complet du montant de {amount}€ conformément 
             result['photo_analysis'] = photo_analysis
             result['steps'][-1]['status'] = 'completed'
             
+            # Step 1.5: Fetch POD (New)
+            result['steps'].append({'step': 'fetch_pod', 'status': 'running'})
+            pod_data = self.fetch_pod_evidence(dispute_data)
+            result['pod_data'] = pod_data
+            result['steps'][-1]['status'] = 'completed'
+            
             # Step 2: Generate claim text
             result['steps'].append({'step': 'generate_claim', 'status': 'running'})
-            claim_text = self.generate_claim_text(dispute_data, photo_analysis)
+            claim_text = self.generate_claim_text(dispute_data, photo_analysis, pod_data)
             result['claim_text'] = claim_text
             result['steps'][-1]['status'] = 'completed'
             

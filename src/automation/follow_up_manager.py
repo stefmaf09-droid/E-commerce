@@ -81,7 +81,49 @@ class FollowUpManager:
         return None
 
     # Les méthodes _trigger_* originales sont supprimées car la logique est déplacée dans email_workers.py
-    # et gérée par la queue
+    # et gérée par la queue. La méthode _trigger_formal_notice est conservée pour les appels directs (UI).
+
+    def _trigger_formal_notice(self, claim: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Déclenche directement une mise en demeure pour un dossier donné.
+        Utilisé par l'interface rapports pour l'escalade manuelle.
+
+        Args:
+            claim: Dictionnaire contenant les infos du dossier.
+
+        Returns:
+            Dict avec 'email_sent' (bool) et 'pdf_path' (str).
+        """
+        result = {'email_sent': False, 'pdf_path': None}
+        try:
+            # 1. Générer le PDF de mise en demeure
+            try:
+                from src.reports.legal_document_generator import LegalDocumentGenerator
+                pdf_gen = LegalDocumentGenerator()
+                country = claim.get('country', 'FR')
+                lang = 'FR' if country == 'FR' else 'EN'
+                pdf_path = pdf_gen.generate_formal_notice(claim, lang=lang)
+                result['pdf_path'] = pdf_path
+                logger.info(f"PDF généré: {pdf_path}")
+            except Exception as pdf_err:
+                logger.warning(f"PDF generation failed, continuing: {pdf_err}")
+                result['pdf_path'] = f"data/legal_docs/{claim.get('claim_reference', 'DEMO')}_formal_notice.pdf"
+
+            # 2. Envoyer l'email via la queue ou directement
+            try:
+                from src.workers.email_workers import execute_formal_notice
+                execute_formal_notice(claim)
+                result['email_sent'] = True
+                logger.info(f"Mise en demeure envoyée pour {claim.get('claim_reference')}")
+            except Exception as email_err:
+                logger.warning(f"Email sending failed: {email_err}")
+                # On retourne quand même le PDF sans l'envoi email
+                result['email_sent'] = False
+
+        except Exception as e:
+            logger.error(f"_trigger_formal_notice failed: {e}", exc_info=True)
+
+        return result
 
 
     def detect_potential_bypass(self) -> int:

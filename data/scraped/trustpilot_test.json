@@ -1,0 +1,415 @@
+{
+  "scraped_at": "2026-01-20T14:22:40.041398",
+  "count": 20,
+  "data": [
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "EreintéeSVP redevenez une entreprise publiqueLes prix ont quadruplé les horaires d'ouverture sont de plus en plus étroitsDes messages d'erreurs techniques sans cesseComment être énervée allez sur la poste.fr ou pire en bureau de posteOù les chiens ne sont pas acceptés pourquoi ? Il y a de la nourriture ?Parce que, comme sur le site, cela ne fonctionne pas je vais devoir me déplacer pour déposer mon colis et laisser mon chien pleurer devant la porteMerci pour votre efficacité20 janvier 2026Avis spontané",
+      "date": "2026-01-20T11:24:08.000Z",
+      "author_initials": "FB",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": true,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 1.5
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "Des incapablesDes incapables, ils sont perdue mon recommandé, une lettre urgente ,je suis très énervé contre laposte20 janvier 2026Avis spontané",
+      "date": "2026-01-20T09:51:51.000Z",
+      "author_initials": "CB",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": true,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 2
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "Aller ce coup ci je le mets ,jamais 2…Aller ce coup ci je le mets ,jamais 2 sans 3 .Un avis de recommandé,a retirer demain au tabac ,j arrive au tabac pour la 3 ème fois  ,aller c est a la poste a sanary ,perds du temps gare  toi etc etc ,la poste ca te  fait pas gagner du temps ca en fait perdre.Par contre le calendrier ils savent sonner et repasser après le travail ,la ils disent pas 'c est pas écrit ds ma fiche  de poste.Voilà ca me gonfle19 janvier 2026Avis spontané",
+      "date": "2026-01-19T19:58:47.000Z",
+      "author_initials": "Ni",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "Aucune écoute manque de service pas…Aucune écoute manque de service pas sérieux19 janvier 2026Avis spontané",
+      "date": "2026-01-19T19:08:06.000Z",
+      "author_initials": "Fr",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "A EVITER LA POSTE !!A EVITER LA POSTE !!!  Que ce soit Colissimo ou lettre Suivie qui vous coutera un Bras, Vous aurez des retards de colis à chaque fois, des suivis non actualisés, des problèmes de livraison.... Sans compter leur super IA du Service Client, aucune aide apportée, complètement inutile....6 janvier 2026Avis spontané",
+      "date": "2026-01-19T18:33:56.000Z",
+      "author_initials": "Ma",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": true,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 1
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "Réception colisDepuis le 13/01, j'ai dû mal à réceptionné un colis en consigne pickup.Malgré toutes les démarches effectuées, je suis toujours dans l'attente.Je me fais balader par tous les interlocuteurs.C'est regrettable...Léa FLAJOLET13 janvier 2026Avis spontané",
+      "date": "2026-01-19T18:09:46.000Z",
+      "author_initials": "MF",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": true,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [],
+        "severity_score": 1
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "La poste ou la société de la honteLa poste ou la société de la honte. Je vais à la poste pour envoyer un recommandé R2 vers la Chine et on m'apprend qu'il n'y a plus de recommandé R2 vers ce pays. Je rentre chez moi et souhaite contacter une autre agence postale pour confirmation. Autrefois on pouvez joindre directement l'agence postale de notre commune avec le numéro interne. Ils ont supprimé cette possibilité, on tombait donc sur un centre d'appels, qui nous renseignait ou nous mettait en ligne avec l'agence local directement et bien maintenant, c'est une IA qui ne comprend pas ce que vous dites si vous n'avez pas bien formulé et lorsque vous réussissez, celle-ci vous envoie enfin vers un conseillé qui en fait est un centre d'appels, ou les gens ne semblent pas connaitre le métier d'agent de la poste et semblent basé à l'étranger ? Après lui avoir exposé mon problème, cet agent finira pas me dire qu'elle va se renseigner et me demande de patienter. Je vais attendre plusieurs minutes sans réponse puis finalement raccrocher sans avoir été renseigné. La poste de plus en plus chère pour de moins en moins de services.19 janvier 2026Avis spontané",
+      "date": "2026-01-19T17:42:32.000Z",
+      "author_initials": "MS",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "colis non livré et aucun geste commercialJ'accuse réception d'une réponse de LA POSTE concernant ma réclamation pour un colis non livré à sa destinataire en plein Lyon. Or cette réponse du service client a mis 3 semaines pour ne pas répondre à mes questions !Je ne sais toujours pas pourquoi La Poste n'a pas rempli son contrat en ne livrant pas le colis directement dans la boite à lettres de la destinataire, d'une part, et en ne délivrant à la destinataire aucun avis de passage, d'autre part, alors que le contrat COLISSIMO pour lequel j'ai payé l'y engage.Quel est le problème avec La Poste ? Ses agents ne savent-ils donc plus lire, puisqu'ils ne répondent pas aux questions  ? Ses facteurs ne font-ils plus leur travail, puisque ce colis rentrait facilement dans un format de boite à lettres ?J'ai donc informé le directeur  de LA POSTE afin qu'il sache que si les objectifs de cette entreprise, ne sont plus de rendre un service public, mais de décourager les clients, c'est réussi, car je me passerai désormais des services de La Poste.19 janvier 2026Avis spontané",
+      "date": "2026-01-19T17:19:24.000Z",
+      "author_initials": "BB",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "Bande d'incompétentsBande d'incompétents.Ils bâclent leur tournée en mentant, ils disent qu'il n'y a pas de sonnette pour rentrer à leur central au plus vite alors que si. Personnes hautaines et vol de colis sur leur service colissimo à deux balles.19 janvier 2026Avis spontané",
+      "date": "2026-01-19T16:21:10.000Z",
+      "author_initials": "MA",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "Très bien pour chaque service RAS16 janvier 2026Avis spontané",
+      "date": "2026-01-19T15:55:50.000Z",
+      "author_initials": "CL",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "La Poste ne me rembourse pas une…La Poste ne me rembourse pas une réexpédition de courrier que j'ai payée en double.Impossible de les joindre d'aucune manière. Tout est fait pour vous rendre la tâche compliquée. Il faut chercher partout sur leur site pour essayer d'obtenir un formulaire, mais ça ne fonctionne pas.Par téléphone, on tombe sur l'assistant virtuel insupportable et inutile, impossible d'avoir un humain en ligne.19 janvier 2026Avis spontané",
+      "date": "2026-01-19T15:54:14.000Z",
+      "author_initials": "Em",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "SAV deplorableun courrier sur 10 qui se perd, service client en Afrique qui n'en a rien a faire, raccroche au nez. Je suis passe sur mondial relay pour presque tous mes envois!!beaucoup plus fiable15 janvier 2026Avis spontané",
+      "date": "2026-01-19T14:53:26.000Z",
+      "author_initials": "Ma",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "mondial relay"
+        ],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "La poste nous prend pour des idiots.La poste nous prend pour des idiots.Mon bureau de poste n'est ouvert que de 14h à 16h, donc pour les gens qui travaillent il est impossible d'aller récupérer un colis.J'avais pris une journée exprès pour récupérer le colis, et je viens de voir que exceptionnellement ils n'ouvraient pas de toute la journée...J'appelle donc le service client pour trouver une solution.Je tombe sur une IA que je contourne assez rapidement en demandant à avoir un conseiller (avec insistance).On m'annonce 2minutes d'attente (ça raccroche au bout de 5minutes)Je rappelle, rebelote avec l'IA, puis 27 minutes d'attente avant d'avoir un conseiller, j'explique mon problème et au bout de 5 minutes ça me raccroche au nez...Je suis donc entrain de rappeler et cela fait 15 minutes que j'attend qu'un conseiller décroche...Je n'en peu plus, c'est le pire service client que j'ai pu avoir.Vivement la fin de la poste et son remplacement par une entreprise mieux organisé et plus sérieuse.Je ferais tout pour éviter de leur donner du travail.19 janvier 2026Avis spontané",
+      "date": "2026-01-19T13:22:54.000Z",
+      "author_initials": "SD",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": true,
+        "has_loss": false,
+        "has_damage": true,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 2.5
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "Très satisfaite de l’accueil de CarolineTrès satisfaite de l’accueil de Caroline19 janvier 2026Avis spontané",
+      "date": "2026-01-19T12:56:33.000Z",
+      "author_initials": "ro",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "DécevantService exécrable envoi un courrier suivi pour une valeur de 300€.madame nous ne savons pas ou est votre courrier suivi il s'arrête a tel destination.comme vous avez payé 12€ on vous rembourse. Puis ils n'ont rien à faire10 décembre 2025Avis spontané",
+      "date": "2026-01-19T12:00:50.000Z",
+      "author_initials": "Mi",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [
+          300.0,
+          12.0
+        ],
+        "carriers": [],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "Service lamentableService lamentable. Colis volés ou perdus. Service client catastrophique. A fuir19 janvier 2026Avis spontané",
+      "date": "2026-01-19T11:56:13.000Z",
+      "author_initials": "Ma",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": true,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [],
+        "severity_score": 2
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "A une époque les PTT ou La Poste…A une époque les PTT ou La Poste aujourd'hui était un service super performant, ce n'est malheureusement plus le cas, erreurs d'aiguillage de colis ou lettres plus que fréquent, délais de distributions prohibitif, sans parler des jours de non distributions en raison de quoi ? (ça doit être qu'il n'y a pas suffisamment de courrier à distribuer) De plus de tarifs toujours à la hausse et un service de plus en plus déplorable. Sous Roger Duchet c'était une administration beaucoup)p plus performante.  Si il y avait une notation réelle à donner ce serait 5 étoiles, MAIS EN MOINS.19 janvier 2026Avis spontané",
+      "date": "2026-01-19T10:12:46.000Z",
+      "author_initials": "EL",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": true,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 1
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "Bravo Mr Hubert ! (Poste de Rue - Somme)Je voudrais dire un grand merci à Mr Hubert du bureau de Poste de Rue (80120) Somme, pour m'avoir aidé à restaurer la connexion avec l'opérateur Poste Mobile. En effet dès que d'autres clients arrivaient, Mr Hubert s'occupait immédiatement d'eux tout en gardant un œil sur mon téléphone. Il n'y a donc pas eu de fil d'attente. Merci encore Mr Hubert.16 janvier 2026Avis spontané",
+      "date": "2026-01-18T16:04:42.000Z",
+      "author_initials": "JH",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": true,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [],
+        "severity_score": 1
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "Devant une telle indigeance , sa disparition s impose.La livraison par \"mobilité douce\" est pleine de surprises ! après le massacre de mes travaux photo enfoncés de force dans la boite aux lettre pourtant normalisée , c est aussi des livraisons fictives ! Livraison payée 8 € pour un colissimo jamais distribué mais dont le statut est affiché \"livré\" . Le vendeur ne proposant que l envoi en colissimo, je ne serai plus son client. Il est temps de mettre fin au service colis et courrier de la Poste agonisant depuis trop longtemps.  S il disparaissait , nous n aurions affaire qu à des transporteurs tous bien meilleurs que la Poste en service et en prix. Certains vestiges du passé ont leur charme , mais s agissant des PTT , la Poste n en est que les ruines . Une disparition qui est nécéssaire .17 janvier 2026Avis spontané",
+      "date": "2026-01-18T13:59:28.000Z",
+      "author_initials": "FN",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": false,
+        "has_damage": false,
+        "has_proof_issue": true,
+        "delay_mentions": [],
+        "amount_mentions": [
+          8.0
+        ],
+        "carriers": [
+          "colissimo"
+        ],
+        "severity_score": 0
+      }
+    },
+    {
+      "carrier": "colissimo",
+      "rating": 3,
+      "title": "",
+      "text": "service super nul comme d’hab j’me…service super nul comme d’hab j’me demande comment l’entreprise perdure avec autant d’avis de M****18 janvier 2026Avis spontané",
+      "date": "2026-01-18T02:57:08.000Z",
+      "author_initials": "GB",
+      "source": "trustpilot",
+      "patterns": {
+        "has_delay": false,
+        "has_loss": true,
+        "has_damage": false,
+        "has_proof_issue": false,
+        "delay_mentions": [],
+        "amount_mentions": [],
+        "carriers": [],
+        "severity_score": 2
+      }
+    }
+  ]
+}

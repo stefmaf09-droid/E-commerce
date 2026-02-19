@@ -1,0 +1,22 @@
+[
+  {
+    "timestamp": "2026-02-04T08:43:08.060514",
+    "original_text_snippet": "Refus pour signature non conforme.",
+    "corrected_reason_key": "bad_signature",
+    "user_feedback": "La signature est illisible"
+  },
+  {
+    "timestamp": "2026-02-18T20:11:10.616573",
+    "original_text_snippet": "This is a test document where weight matches perfectly.",
+    "corrected_reason_key": "weight_match",
+    "user_feedback": "",
+    "type": "positive"
+  },
+  {
+    "timestamp": "2026-02-18T20:11:10.620775",
+    "original_text_snippet": "Carrier says signature is bad but it is good.",
+    "corrected_reason_key": "bad_signature",
+    "user_feedback": "False positive",
+    "type": "negative_correction"
+  }
+]

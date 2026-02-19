@@ -74,29 +74,169 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- Quick access to Client Portal (login / register) from landing page ---
-col_left, col_right = st.columns([9, 1])
-with col_right:
-    if st.button("🔐 Portail Client", key="open_portal", width='stretch'):
-        st.session_state.show_portal = not st.session_state.get('show_portal', False)
+# ── URL param shortcuts (for demo & deep-linking) ───────────────────────────
+_qp = st.query_params
 
-if st.session_state.get('show_portal', False):
-    # Render auth UI inline
+# ?portal=true  → auto-open the auth portal
+if _qp.get("portal") == "true" and not st.session_state.get("show_portal"):
+    st.session_state.show_portal = True
+
+# ?demo_wizard=true&step=N → bypass auth, go straight to wizard step N
+if _qp.get("demo_wizard") == "true":
+    st.session_state.authenticated = True
+    st.session_state.client_email = "demo@refundly.ai"
+    st.session_state.onboarding_complete = False
+    st.session_state.onboarding_step = int(_qp.get("step", "1"))
+    from src.dashboard.onboarding_wizard import render_onboarding_wizard
+    render_onboarding_wizard()
+    st.stop()
+
+_show_portal = st.session_state.get('show_portal', False)
+
+if not _show_portal:
+    # ── Hero CTA injection CSS ────────────────────────────────────────────────
+    st.markdown("""
+    <style>
+    .landing-mode-card {
+        background: white; border-radius: 14px;
+        border: 1px solid rgba(102,126,234,.2);
+        padding: 20px 18px; text-align: center;
+        box-shadow: 0 4px 16px rgba(0,0,0,.06); height: 100%;
+    }
+    .landing-mode-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 4px 20px rgba(102,126,234,.18); transition: all .2s;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Logo centré
+    _, logo_col, _ = st.columns([2, 1, 2])
+    with logo_col:
+        st.image("static/logo_premium.png", use_container_width=True)
+
+    st.markdown("""
+    <div style="text-align:center;padding:0 0 10px;">
+      <p style="font-size:1.25rem;color:#444;margin:4px 0;">
+        Récupérez automatiquement l'argent que les transporteurs vous doivent
+      </p>
+      <p style="color:#888;font-size:.95rem;">
+        Modèle <strong>100 % succès</strong> · Commission 20 % · Coût fixe : <strong>0 €</strong>
+      </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Gros bouton CTA centré ────────────────────────────────────────────────
+    _, cta_col, _ = st.columns([2, 1.5, 2])
+    with cta_col:
+        if st.button("🚀 Commencer gratuitement", key="open_portal",
+                     type="primary", use_container_width=True):
+            st.session_state.show_portal = True
+            st.rerun()
+
+    st.markdown(
+        "<p style='text-align:center;color:#aaa;font-size:.82rem;margin-top:4px;'>"
+        "Déjà client ? Cliquez ci-dessus puis sur l'onglet Connexion</p>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("---")
+
+    # ── Comment ça marche ─────────────────────────────────────────────────────
+    st.markdown("### ⚡ Comment ça marche ?")
+    c1, c2, c3, c4 = st.columns(4)
+    for col, icon, step, title, desc in [
+        (c1, "🔌", "1", "Connectez votre boutique",
+         "API (Shopify, WooCommerce…), **export CSV/Excel** ou **photos de preuves** — 3 modes au choix, en 5 minutes."),
+        (c2, "🤖", "2", "Notre IA détecte vos litiges",
+         "Colis perdus, endommagés, retards — analysés sur vos **12 derniers mois** de commandes."),
+        (c3, "📨", "3", "On s'occupe de tout",
+         "Réclamations, relances, mise en demeure — envoi **100 % automatique** aux transporteurs."),
+        (c4, "💳", "4", "Vous recevez 80 %",
+         "Virement direct sur votre IBAN à chaque remboursement. **20 % de commission uniquement sur les succès.**"),
+    ]:
+        with col:
+            st.markdown(f"""
+<div class="landing-mode-card">
+  <div style="font-size:2rem;">{icon}</div>
+  <div style="font-size:.72rem;font-weight:700;color:#667eea;text-transform:uppercase;
+              letter-spacing:1px;margin:6px 0 2px;">Étape {step}</div>
+  <strong style="font-size:.95rem;">{title}</strong>
+  <p style="font-size:.82rem;color:#666;margin-top:8px;">{desc}</p>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── 3 modes de connexion ──────────────────────────────────────────────────
+    st.markdown("### 📥 3 façons de nous envoyer vos données")
+    m1, m2, m3 = st.columns(3)
+    for col, icon, title, desc, badge in [
+        (m1, "🔗", "Connexion API",
+         "Synchronisation automatique de vos commandes en temps réel via l'API de votre plateforme.",
+         "Shopify · WooCommerce · PrestaShop · Magento"),
+        (m2, "📊", "Import CSV / Excel",
+         "Exportez votre fichier de commandes depuis votre back-office et uploadez-le directement — aucune connexion API requise.",
+         "Tous formats acceptés · .csv · .xlsx · .xls"),
+        (m3, "📷", "Photos & documents",
+         "Uploadez vos preuves de livraison, photos de colis endommagés, confirmations transporteur.",
+         "JPG · PNG · PDF · Tous transporteurs"),
+    ]:
+        with col:
+            st.markdown(f"""
+<div class="landing-mode-card" style="border-top:3px solid #667eea;">
+  <div style="font-size:2.2rem;margin-bottom:8px;">{icon}</div>
+  <strong>{title}</strong>
+  <p style="font-size:.82rem;color:#555;margin:10px 0 6px;">{desc}</p>
+  <div style="font-size:.72rem;background:rgba(102,126,234,.1);color:#667eea;
+              padding:4px 10px;border-radius:20px;display:inline-block;">{badge}</div>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Landing complète → on s'arrête ici (pas de dashboard en dessous)
+    st.stop()
+
+# ── Portail client (auth + onboarding + dashboard) ───────────────────────────
+if _show_portal:
     from src.dashboard.auth_functions import authenticate
     auth_ok = authenticate()
-    if auth_ok:
-        # If the user successfully logged in, launch the client dashboard inline
-        try:
-            from client_dashboard_main_new import main as client_main
-            client_main()
-            st.stop()
-        except Exception as e:
-            st.error(f"Erreur lors du chargement du tableau de bord client : {e}")
-            st.info("Vous êtes connecté·e — ouvre le menu 'Customer Dashboard' pour accéder à votre espace.")
+
+    if not auth_ok:
+        # Don't render the landing page below the login form
+        st.stop()
+
+    client_email = st.session_state.get('client_email', '')
+
+    # ── NEW CLIENT : show onboarding wizard ──────────────────────
+    if not st.session_state.get('onboarding_complete', True):
+        from src.dashboard.onboarding_wizard import render_onboarding_wizard
+        render_onboarding_wizard()
+        st.stop()
+
+    # ── EXISTING CLIENT : normal dashboard + proactive bot ───────────
+    try:
+        from src.dashboard.floating_chatbot import (
+            render_floating_chatbot,
+            render_proactive_suggestions,
+        )
+        render_proactive_suggestions(client_email)
+
+        from client_dashboard_main_new import main as client_main
+        client_main()
+
+        render_floating_chatbot(
+            context="tableau de bord",
+            client_email=client_email,
+        )
+        st.stop()
+    except Exception as e:
+        st.error(f"Erreur lors du chargement du tableau de bord client : {e}")
+        st.info("Vous êtes connecté·e — ouvrez le menu 'Customer Dashboard' pour accéder à votre espace.")
+        st.stop()
+
 
 # If a registration set a redirect flag, open the client dashboard immediately
 if st.session_state.get('redirect_to_dashboard', False):
-    # Clear the flag to avoid loops
     st.session_state.redirect_to_dashboard = False
     try:
         from client_dashboard_main_new import main as client_main
@@ -104,6 +244,9 @@ if st.session_state.get('redirect_to_dashboard', False):
         st.stop()
     except Exception as e:
         st.error(f"Erreur lors de la redirection vers le tableau de bord client : {e}")
+
+# ── Landing page complete — stop here (don't render old dashboard below) ──────
+st.stop()
 
 
 @st.cache_data

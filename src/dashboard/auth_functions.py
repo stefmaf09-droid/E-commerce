@@ -20,30 +20,149 @@ from onboarding.onboarding_manager import OnboardingManager
 
 def authenticate():
     """
-    Authentication with login and registration tabs.
-    
+    Authentication with 2-column layout: value proposition left, form right.
+
     Returns:
         bool: True if user is authenticated, False otherwise.
     """
-    if 'authenticated' not in st.session_state:
+    if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
         st.session_state.client_email = None
-    
+
     if not st.session_state.authenticated:
-        st.markdown("<h1 class='main-header'>🔐 Portail Client</h1>", unsafe_allow_html=True)
-        
-        # Tabs pour Login / Inscription
-        tab1, tab2 = st.tabs(["🔑 Connexion", "✨ Nouveau Client"])
-        
-        with tab1:
-            _render_login_form()
-        
-        with tab2:
-            _render_registration_form()
-        
+        _inject_auth_css()
+
+        col_left, col_right = st.columns([1.1, 1], gap="large")
+
+        # ── LEFT: Marketing / value proposition ──────────────────────────
+        with col_left:
+            st.markdown(
+                """
+<div class="auth-brand">
+  <span style="font-size:2.4rem;font-weight:900;
+               background:linear-gradient(135deg,#667eea,#764ba2);
+               -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+    🔄 Refundly
+  </span>
+  <p style="color:#555;font-size:1.05rem;margin:6px 0 0;">
+    Récupérez l'argent que les transporteurs vous doivent — <strong>automatiquement</strong>.
+  </p>
+</div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                """
+<div class="auth-hero-badge">
+  💰 <strong>Modèle 100 % succès</strong> — Vous payez 20 % uniquement si on récupère de l'argent.<br>
+  Coût fixe : <strong>0 €</strong>
+</div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown("#### Comment ça fonctionne ?")
+            steps = [
+                ("🔌", "Connectez votre boutique", "Shopify, WooCommerce, PrestaShop… en 2 minutes."),
+                ("🤖", "Notre IA détecte vos litiges", "Colis perdus, endommagés, retards — sur les 12 derniers mois."),
+                ("📨", "On s'occupe de tout", "Réclamations, relances, mise en demeure — 100 % automatique."),
+                ("💳", "Vous recevez 80 %", "Virement direct sur votre IBAN dès que le transporteur rembourse."),
+            ]
+            for icon, title, desc in steps:
+                st.markdown(
+                    f"""
+<div class="auth-step">
+  <div class="auth-step-icon">{icon}</div>
+  <div>
+    <strong>{title}</strong><br>
+    <span style="font-size:.85rem;color:#666;">{desc}</span>
+  </div>
+</div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("---")
+            st.markdown(
+                """
+<div style="display:flex;gap:32px;flex-wrap:wrap;margin-top:6px;">
+  <div style="text-align:center;">
+    <div style="font-size:1.6rem;font-weight:800;color:#667eea;">+87 %</div>
+    <div style="font-size:.78rem;color:#888;">taux de succès moyen</div>
+  </div>
+  <div style="text-align:center;">
+    <div style="font-size:1.6rem;font-weight:800;color:#764ba2;">4–8 sem.</div>
+    <div style="font-size:.78rem;color:#888;">délai moyen de récupération</div>
+  </div>
+  <div style="text-align:center;">
+    <div style="font-size:1.6rem;font-weight:800;color:#667eea;">0 €</div>
+    <div style="font-size:.78rem;color:#888;">si aucun résultat</div>
+  </div>
+</div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        # ── RIGHT: Login / Register form ──────────────────────────────────
+        with col_right:
+            st.markdown(
+                """<div class="auth-form-card">""",
+                unsafe_allow_html=True,
+            )
+            tab1, tab2 = st.tabs(["🔑 Connexion", "✨ Créer un compte"])
+            with tab1:
+                _render_login_form()
+            with tab2:
+                _render_registration_form()
+            st.markdown("</div>", unsafe_allow_html=True)
+
         return False
-    
+
     return True
+
+
+def _inject_auth_css():
+    """Premium CSS for the 2-column auth page."""
+    st.markdown(
+        """
+<style>
+.auth-brand { margin-bottom: 18px; }
+.auth-hero-badge {
+    background: linear-gradient(135deg, rgba(102,126,234,.12), rgba(118,75,162,.12));
+    border: 1px solid rgba(102,126,234,.25);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 14px 0 22px;
+    font-size: .95rem;
+    line-height: 1.5;
+}
+.auth-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin: 12px 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    transition: background .2s;
+}
+.auth-step:hover { background: rgba(102,126,234,.06); }
+.auth-step-icon {
+    font-size: 1.6rem;
+    min-width: 36px;
+    text-align: center;
+}
+.auth-form-card {
+    background: white;
+    border-radius: 18px;
+    padding: 28px 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.09);
+    border: 1px solid rgba(102,126,234,.15);
+}
+</style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _render_login_form():
@@ -98,6 +217,15 @@ def _render_login_form():
                             details={'role': role},
                             ip_address='127.0.0.1' 
                         )
+                    
+                    # —— Check onboarding status ————————————————
+                    try:
+                        from src.onboarding.onboarding_manager import OnboardingManager
+                        mgr = OnboardingManager(email)
+                        st.session_state.onboarding_complete = mgr.is_onboarding_complete(email)
+                    except Exception:
+                        st.session_state.onboarding_complete = True  # fail-safe: don't block login
+                    # ————————————————————————————————————
                     
                     st.success(f"✅ Connexion réussie ! (Rôle: {role})")
                     st.rerun()
@@ -154,57 +282,61 @@ def _render_password_reset_form():
 
 
 def _render_registration_form():
-    """Render the registration form."""
-    st.markdown("### Connectez votre boutique e-commerce")
-    
-    st.info("🎯 **Nouveau client ?** Connectez votre boutique en 3 étapes simples !")
-    
+    """Render minimal registration form — email + password only.
+    Store connection, IBAN, and API keys are collected in the onboarding wizard.
+    """
+    st.markdown("### ✨ Créer votre compte")
+    st.caption("En 30 secondes — le reste se configure dans l'assistant après connexion.")
+
     with st.form("registration_form"):
-        st.markdown("**📧 Vos informations**")
-        reg_email = st.text_input("Email professionnel", placeholder="contact@maboutique.com")
-        reg_password = st.text_input("Créer un mot de passe", type="password", placeholder="Min. 6 caractères")
-        reg_password_confirm = st.text_input("Confirmer le mot de passe", type="password", placeholder="Retapez votre mot de passe")
-        
-        st.markdown("**💰 Vos Informations de Paiement**")
-        st.info("""
-            🎯 **Modèle Success Fee (80/20)** :
-            - Nous récupérons l'argent pour vous.
-            - Vous recevez **80% du montant**.
-            - Nous prélevons **20% de commission** uniquement sur les sommes récupérées.
-            - **Aucun frais fixe, aucun abonnement.**
-        """)
-        
-        reg_iban = st.text_input("IBAN (pour vos versements)", placeholder="FR76 0000 0000 ... (Optionnel)")
-        reg_account_holder = st.text_input("Titulaire du compte", placeholder="Nom de votre entreprise")
-        reg_bic = st.text_input("BIC/SWIFT (optionnel)", placeholder="ABCDEFGH")
-        
-        st.caption("💡 Vous pourrez renseigner votre IBAN plus tard depuis votre tableau de bord.")
-        
-        st.markdown("**🏪 Votre boutique**")
-        platform = st.selectbox(
-            "Plateforme e-commerce",
-            ["Shopify", "WooCommerce", "PrestaShop", "Magento", "BigCommerce", "Wix"],
-            help="Sélectionnez votre plateforme"
+        reg_email = st.text_input(
+            "📧 Email professionnel",
+            placeholder="contact@maboutique.com",
         )
-        
-        store_name = st.text_input("Nom de votre boutique", placeholder="Ma Boutique")
-        store_url = st.text_input("URL de votre boutique", placeholder="https://maboutique.com")
-        
-        st.markdown("**🔑 Identifiants API**")
-        st.caption(f"Consultez la documentation {platform} pour obtenir vos clés API")
-        
-        # Platform-specific fields
-        api_key, api_secret = _render_platform_fields(platform)
-        
-        accept_terms = st.checkbox("J'accepte les conditions d'utilisation et la politique de confidentialité")
-        
-        register_submitted = st.form_submit_button("🚀 Créer mon compte", width='stretch', type="primary")
-        
-        if register_submitted:
-            _process_registration(
-                reg_email, reg_password, reg_password_confirm, store_name, store_url,
-                platform, api_key, api_secret, reg_iban, reg_account_holder, reg_bic, accept_terms
-            )
+        reg_password = st.text_input(
+            "🔒 Mot de passe",
+            type="password",
+            placeholder="Min. 6 caractères",
+        )
+        reg_password_confirm = st.text_input(
+            "🔒 Confirmer le mot de passe",
+            type="password",
+            placeholder="Retapez votre mot de passe",
+        )
+
+        accept_terms = st.checkbox(
+            "J'accepte les [conditions d'utilisation](https://refundly.fr/cgu) et la politique de confidentialité"
+        )
+
+        register_submitted = st.form_submit_button(
+            "🚀 Créer mon compte gratuitement",
+            use_container_width=True,
+            type="primary",
+        )
+
+    if register_submitted:
+        # Basic validation
+        if not reg_email or not reg_password or not reg_password_confirm:
+            st.error("⚠️ Tous les champs sont obligatoires.")
+            return
+        if reg_password != reg_password_confirm:
+            st.error("⚠️ Les mots de passe ne correspondent pas.")
+            return
+        if len(reg_password) < 6:
+            st.error("⚠️ Le mot de passe doit comporter au moins 6 caractères.")
+            return
+        if not accept_terms:
+            st.warning("⚠️ Veuillez accepter les conditions d'utilisation.")
+            return
+
+        # Register with minimal info
+        _process_registration(
+            reg_email, reg_password, reg_password_confirm,
+            store_name="", store_url="",
+            platform="", api_key="", api_secret="",
+            reg_iban="", reg_account_holder="", reg_bic="",
+            accept_terms=accept_terms,
+        )
 
 
 def _render_platform_fields(platform):

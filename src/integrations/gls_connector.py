@@ -68,17 +68,28 @@ class GLSConnector:
     def get_tracking_details(self, tracking_number: str) -> Dict[str, Any]:
         """
         Get detailed tracking information.
-        
-        Args:
-            tracking_number: GLS tracking/parcel number
-            
-        Returns:
-            Tracking data dictionary
+        Uses API if key is available, otherwise falls back to GLSScraper.
         """
         if not self.api_key:
+            logger.info(f"GLS API key missing, falling back to scraper for {tracking_number}")
+            from src.scrapers.gls_scraper import GLSScraper
+            scraper = GLSScraper()
+            result = scraper.get_tracking(tracking_number)
+            
+            if result and result.get('status') != 'error':
+                return {
+                    'success': True,
+                    'status': 'DELIVERED' if result.get('is_delivered') else 'IN_TRANSIT',
+                    'status_description': result.get('status'),
+                    'tracking_number': tracking_number,
+                    'delivery_date': result.get('delivery_date'),
+                    'events': result.get('history', []),
+                    'raw_data': {'source': 'scraper'}
+                }
+            
             return {
                 'success': False,
-                'error': 'GLS API key not configured',
+                'error': 'GLS API key missing and scraper fallback failed',
                 'tracking_number': tracking_number
             }
         

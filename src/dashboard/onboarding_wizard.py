@@ -27,11 +27,19 @@ def render_onboarding_wizard():
     st.markdown(
         """
         <div style="text-align:center;padding:20px 0 5px;">
-          <span style="font-size:2.2rem;font-weight:900;
-                       background:linear-gradient(135deg,#667eea,#764ba2);
-                       -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-            🔄 Refundly
-          </span>
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px;">
+            <div style="
+              width:38px;height:38px;
+              background: #667eea;
+              border-radius:50%;
+              display:flex;align-items:center;justify-content:center;
+              color:white;font-weight:900;font-size:18px;
+              flex-shrink:0;
+            ">R</div>
+            <span style="font-size:2.2rem;font-weight:900;color:#667eea;">
+              Refundly<span style="color:#764ba2;opacity:.7;">.ai</span>
+            </span>
+          </div>
           <p style="color:#888;margin:4px 0 0;">Recouvrement logistique automatisé</p>
         </div>
         """,
@@ -198,6 +206,41 @@ _PLATFORM_GUIDES = {
         "f1_ph": "https://maboutique.com",
         "f2_label": "Clé API WebService",
         "f2_ph": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    },
+    "Magento": {
+        "steps": [
+            "Système → Extensions → **Intégrations** → **Ajouter une nouvelle intégration**",
+            "Nommez-la 'Refundly', onglet API : cochez **Ventes** et **Catalogue**",
+            "Enregistrez, cliquez sur **Activer**, copiez le **Jeton d'accès**",
+        ],
+        "link": None,
+        "f1_label": "URL de la boutique",
+        "f1_ph": "https://maboutique-magento.com",
+        "f2_label": "Jeton d'accès (Access Token)",
+        "f2_ph": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    },
+    "BigCommerce": {
+        "steps": [
+            "Settings → API → **API Accounts** → **Create API Account**",
+            "Nom : 'Refundly', Permissions : **Orders** (read-only)",
+            "Récupérez le **Store Hash** (dans l'URL) et le **Access Token**",
+        ],
+        "link": None,
+        "f1_label": "Store Hash",
+        "f1_ph": "x7abc123",
+        "f2_label": "Access Token",
+        "f2_ph": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    },
+    "Wix": {
+        "steps": [
+            "Tableau de bord Wix → **Paramètres** → Récupérez le **Site ID**",
+            "Générez un **Access Token** via l'espace développeur Wix",
+        ],
+        "link": "https://developers.wix.com/",
+        "f1_label": "Site ID",
+        "f1_ph": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+        "f2_label": "Access Token",
+        "f2_ph": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     },
 }
 
@@ -397,9 +440,23 @@ def _save_profile(email, name, company, phone):
 def _save_store(email, platform, store_name, key1, key2):
     try:
         from auth.credentials_manager import CredentialsManager
-        creds = {"store_name": store_name, "shop_url": key1, "access_token": key2}
-        if platform == "WooCommerce":
-            creds = {"store_name": store_name, "consumer_key": key1, "consumer_secret": key2}
+        creds = {"store_name": store_name}
+        
+        if platform == "Shopify":
+            creds.update({"shop_url": key1, "access_token": key2})
+        elif platform == "WooCommerce":
+            creds.update({"consumer_key": key1, "consumer_secret": key2})
+        elif platform == "PrestaShop":
+            creds.update({"shop_url": key1, "access_token": key2})
+        elif platform == "Magento":
+            creds.update({"store_url": key1, "access_token": key2})
+        elif platform == "BigCommerce":
+            creds.update({"store_hash": key1, "access_token": key2})
+        elif platform == "Wix":
+            creds.update({"site_id": key1, "access_token": key2})
+        else:
+            creds.update({"shop_url": key1, "access_token": key2})
+
         mgr = CredentialsManager()
         fn = mgr.add_store if hasattr(mgr, "add_store") else mgr.store_credentials
         fn(client_id=email, platform=platform.lower(), credentials=creds)

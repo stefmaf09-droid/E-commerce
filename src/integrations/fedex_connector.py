@@ -123,19 +123,30 @@ class FedExConnector:
     def get_tracking_details(self, tracking_number: str) -> Dict[str, Any]:
         """
         Get detailed tracking information.
-        
-        Args:
-            tracking_number: FedEx tracking number (12 or 15 digits)
-            
-        Returns:
-            Tracking data dictionary
+        Uses API if credentials are available, otherwise falls back to FedExScraper.
         """
         token = self._get_access_token()
         
         if not token:
+            logger.info(f"FedEx credentials missing or invalid, falling back to scraper for {tracking_number}")
+            from src.scrapers.fedex_scraper import FedExScraper
+            scraper = FedExScraper()
+            result = scraper.get_tracking(tracking_number)
+            
+            if result and result.get('status') != 'error':
+                return {
+                    'success': True,
+                    'status': 'DELIVERED' if result.get('is_delivered') else 'IN_TRANSIT',
+                    'status_description': result.get('status'),
+                    'tracking_number': tracking_number,
+                    'delivery_date': result.get('delivery_date'),
+                    'events': result.get('history', []),
+                    'raw_data': {'source': 'scraper'}
+                }
+
             return {
                 'success': False,
-                'error': 'Failed to authenticate with FedEx API',
+                'error': 'Failed to authenticate with FedEx API and scraper fallback failed',
                 'tracking_number': tracking_number
             }
         

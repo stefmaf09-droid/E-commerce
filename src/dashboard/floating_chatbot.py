@@ -119,8 +119,7 @@ def _render_wizard_inline_chat(context: str):
         st.markdown(
             f"""<div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:10px;
                            padding:12px 16px;color:white;font-weight:600;margin-bottom:12px;">
-                 🤖 Assistant Refundly · <span style="font-size:.8rem;font-weight:400;">
-                 {_welcome_for_context(context)}</span></div>""",
+                 🤖 Assistant Refundly</div>""",
             unsafe_allow_html=True,
         )
 
@@ -243,7 +242,11 @@ def _ensure_state(context: str):
 
 def _handle_message(question: str, context: str):
     st.session_state.bot_messages.append({"role": "user", "content": question})
-    response = _get_response(question, context)
+    
+    with st.sidebar:
+        with st.spinner("L'assistant réfléchit..."):
+            response = _get_response(question, context)
+            
     st.session_state.bot_messages.append({"role": "assistant", "content": response})
 
 
@@ -285,11 +288,28 @@ def _get_response(question: str, context: str = "") -> str:
         if "chatbot_manager" not in st.session_state:
             from src.ai.chatbot_manager import ChatbotManager
             st.session_state.chatbot_manager = ChatbotManager()
-        stream = st.session_state.chatbot_manager.generate_response_stream(
-            question, st.session_state.bot_messages[:-1]
-        )
-        return "".join(stream) or "Je n'ai pas pu générer de réponse, réessayez."
-    except Exception:
+        
+        # Try once
+        try:
+            stream = st.session_state.chatbot_manager.generate_response_stream(
+                question, st.session_state.bot_messages[:-1]
+            )
+            return "".join(stream) or "Je n'ai pas pu générer de réponse, réessayez."
+        except Exception as e:
+            # If it's the 404 error, it might be a stale session (cached manager with old model name)
+            if "404" in str(e) and "gemini" in str(e).lower():
+                logger.warning("Gemini 404 detected, likely stale session. Re-initializing...")
+                from src.ai.chatbot_manager import ChatbotManager
+                st.session_state.chatbot_manager = ChatbotManager()
+                # Retry once
+                stream = st.session_state.chatbot_manager.generate_response_stream(
+                    question, st.session_state.bot_messages[:-1]
+                )
+                return "".join(stream) or "Désolé, le service est momentanément indisponible."
+            raise e
+            
+    except Exception as e:
+        logger.error(f"Chatbot error: {e}")
         fallbacks = {
             "shopify": "Dans votre admin Shopify → **Paramètres → Applications → Développer des applications**. Créez une app 'Refundly' avec les permissions `read_orders`. Votre jeton commence par `shpat_`.",
             "iban": "Votre IBAN se trouve sur votre **relevé de compte** ou dans l'espace 'Mon compte' de votre banque en ligne. Il commence par `FR76` pour une banque française.",

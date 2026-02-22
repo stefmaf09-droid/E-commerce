@@ -73,8 +73,8 @@ class OCRProcessor:
         if self.gemini_key and GEMINI_AVAILABLE:
             try:
                 genai.configure(api_key=self.gemini_key)
-                self.model = genai.GenerativeModel('gemini-1.5-flash')
-                logger.info("Gemini AI initialized successfully for OCRProcessor.")
+                self.model = genai.GenerativeModel('gemini-2.0-flash')
+                logger.info("Gemini AI initialized successfully (gemini-2.0-flash) for OCRProcessor.")
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini: {e}")
                 self.model = None

@@ -73,6 +73,9 @@ class BaseScraper(ABC):
             with self.rate_limiter:
                 logger.info(f"Fetching: {url}")
                 response = self.session.get(url, timeout=timeout)
+                logger.debug(f"Response status: {response.status_code} for {url}")
+                if response.status_code != 200:
+                    logger.warning(f"Failed to fetch {url}: HTTP {response.status_code}")
                 response.raise_for_status()
                 
                 return BeautifulSoup(response.content, 'lxml')

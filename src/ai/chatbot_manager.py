@@ -22,7 +22,6 @@ class ChatbotManager:
         """Initialise le modèle Gemini et charge la base de connaissances."""
         self._setup_gemini()
         self.context = self._load_knowledge_base()
-        self.tools = ChatbotTools()  # Outils exécutables par le chatbot
 
     def _setup_gemini(self):
         """Configure l'API Gemini avec config centralisée et function calling."""
@@ -34,24 +33,37 @@ class ChatbotManager:
 
         genai.configure(api_key=api_key)
         
-        # Initialiser les tools avant de créer le modèle
-        if not hasattr(self, 'tools'):
-            self.tools = ChatbotTools()
+        # Initialiser les tools
+        self.tools = ChatbotTools()
         
-        # Créer le modèle AVEC function calling pour permettre les actions exécutables
+        # Créer le modèle AVEC function calling
         try:
-            # Utiliser gemini-2.5-flash avec les outils pour function calling
+            # En version 0.8.6, il est plus stable d'utiliser genai.types.Tool
+            from google.generativeai.types import Tool, FunctionDeclarationsTool, FunctionDeclaration
+            
+            declarations = []
+            for tool_dict in self.tools.get_available_tools():
+                declarations.append(FunctionDeclaration(
+                    name=tool_dict['name'],
+                    description=tool_dict['description'],
+                    parameters=tool_dict['parameters']
+                ))
+            
+            # Utiliser la structure attendue par genai
+            gemini_tools = [Tool(function_declarations=declarations)]
+            
+            # Utiliser gemini-2.0-flash (disponible dans cet environnement)
             self.model = genai.GenerativeModel(
-                'gemini-2.5-flash',
-                tools=self.tools.get_available_tools()
+                'gemini-2.0-flash',
+                tools=gemini_tools
             )
-            logger.info("Gemini model initialized successfully with function calling (gemini-2.5-flash)")
+            logger.info("Gemini model initialized successfully with gemini-2.0-flash")
         except Exception as e:
             logger.error(f"Failed to initialize Gemini model with tools: {e}")
-            # Fallback sans tools si erreur
+            # Fallback stable
             try:
-                self.model = genai.GenerativeModel('gemini-2.5-flash')
-                logger.warning("Gemini model initialized WITHOUT function calling (fallback)")
+                self.model = genai.GenerativeModel('gemini-2.0-flash')
+                logger.warning("Gemini model initialized WITHOUT function calling (fallback to 2.0-flash)")
             except Exception as e2:
                 logger.error(f"Failed to initialize Gemini model: {e2}")
                 self.model = None
@@ -177,6 +189,7 @@ class ChatbotManager:
         
         IMPORTANT - UTILISATION DES OUTILS DISPONIBLES :
         Tu as accès à des outils pour EXÉCUTER DES ACTIONS RÉELLES. Utilise-les systématiquement pour :
+        - "suivre un colis" / "où est mon colis" / "état du colis [numéro]" → APPELLE get_tracking_status(tracking_number="...")
         - "exporter" / "télécharger" / "récupérer en CSV" / "exporter litiges" → APPELLE export_claims_csv()
         - "créer une réclamation" / "faire une réclamation" → APPELLE create_claim()
         - "relancer" / "envoyer un rappel" → APPELLE send_carrier_reminder()
@@ -188,10 +201,10 @@ class ChatbotManager:
         - Exporter = Télécharger = Récupérer les données
         
         RÈGLES CRUCIALES:
-        1. Quand l'utilisateur demande une ACTION concrète (exporter, créer, relancer, etc.),
+        1. Quand l'utilisateur demande une ACTION concrète (suivre un colis, exporter, créer, relancer, etc.),
            tu DOIS appeler la fonction correspondante au lieu de juste expliquer comment faire.
         2. Utilise TOUJOURS le contexte fourni pour répondre de manière précise
-        3. Si le client a des données personnelles (réclamations, statistiques), cite-les explicitement
+        3. Si le client a des données personnels (réclamations, statistiques), cite-les explicitement
         4. Cite les références de réclamations (CLM-XXXXXX-XXX) quand pertinent
         5. Pour les questions juridiques, cite les articles de loi appropriés
         6. Sois concis, professionnel et serviable
@@ -209,9 +222,40 @@ class ChatbotManager:
             system_prompt += f"\n\n{client_context}\n"
         
         # FALLBACK MANUEL: Détecter les intentions d'action directement
-        # Car Gemini 2.5-flash ne déclenche pas toujours les function calls de manière fiable
+        # Car Gemini ne déclenche pas toujours les function calls de manière fiable
         user_input_lower = user_input.lower()
         
+        # Détection: Suivi de colis (regex simple pour numéros de suivi communs)
+        import re
+        tracking_match = re.search(r'([A-Z0-9]{10,20})', user_input)
+        if tracking_match and any(kw in user_input_lower for kw in ['colis', 'suivi', 'tracking', 'où est', 'info']):
+            tracking_number = tracking_match.group(1)
+            # Éviter de matcher des dates ou des ref de claims
+            if not tracking_number.startswith('CLM-') and not re.match(r'^\d{4}-\d{2}-\d{2}$', tracking_number):
+                logger.info(f"MANUAL TRIGGER: get_tracking_status detected for {tracking_number}")
+                yield f"🔍 Analyse du colis {tracking_number} en cours...\n\n"
+                
+                result = self.tools.execute_tool('get_tracking_status', {
+                    'tracking_number': tracking_number
+                })
+                
+                if result['success']:
+                    data = result['data']
+                    yield f"✅ **Statut : {data.get('status', 'Inconnu')}** ({data.get('carrier', 'Inconnu')})\n\n"
+                    
+                    if data.get('delivery_date'):
+                        yield f"📅 Livré le : {data['delivery_date']}\n"
+                    
+                    if data.get('events'):
+                        yield "\n**Derniers événements :**\n"
+                        for event in data['events'][:3]:
+                            yield f"- {event.get('label')} ({event.get('date', '')[:10]})\n"
+                    
+                    yield "\n💡 *Vous pouvez maintenant me demander de créer une réclamation si ce statut ne correspond pas à la réalité.*"
+                else:
+                    yield f"❌ {result['message']}\n"
+                return
+
         # Détection: Export CSV
         if any(keyword in user_input_lower for keyword in ['exporter', 'export', 'télécharger', 'download', 'csv']):
             if any(keyword in user_input_lower for keyword in ['litige', 'réclamation', 'claim', 'dossier']):

@@ -39,11 +39,19 @@ def authenticate():
             st.markdown(
                 """
 <div class="auth-brand">
-  <span style="font-size:2.4rem;font-weight:900;
-               background:linear-gradient(135deg,#667eea,#764ba2);
-               -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-    🔄 Refundly
-  </span>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+    <div style="
+      width:38px;height:38px;
+      background: #667eea;
+      border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      color:white;font-weight:900;font-size:18px;
+      flex-shrink:0;
+    ">R</div>
+    <span style="font-size:2rem;font-weight:900;color:#667eea;">
+      Refundly<span style="color:#764ba2;opacity:.7;">.ai</span>
+    </span>
+  </div>
   <p style="color:#555;font-size:1.05rem;margin:6px 0 0;">
     Récupérez l'argent que les transporteurs vous doivent — <strong>automatiquement</strong>.
   </p>
@@ -433,12 +441,6 @@ def register_client(reg_email, reg_password, reg_password_confirm, store_name, s
     if len(reg_password) < 6:
         errors.append("⚠️ Le mot de passe doit contenir au moins 6 caractères")
 
-    if not store_name or not store_url:
-        errors.append("⚠️ Veuillez renseigner le nom et l'URL de votre boutique")
-
-    if not api_key or not api_secret:
-        errors.append("⚠️ Veuillez renseigner vos identifiants API")
-
     if not accept_terms:
         errors.append("⚠️ Vous devez accepter les conditions d'utilisation")
 
@@ -505,7 +507,6 @@ def register_client(reg_email, reg_password, reg_password_confirm, store_name, s
     onboard_mgr = onboarding_manager or OnboardingManager()
     try:
         onboard_mgr.initialize_onboarding(reg_email)
-        onboard_mgr.mark_step_complete(reg_email, 'store_setup')
     except Exception:
         # best effort
         pass
@@ -535,6 +536,7 @@ def _process_registration(reg_email, reg_password, reg_password_confirm, store_n
     st.session_state.authenticated = True
     st.session_state.client_email = reg_email
     st.session_state.role = 'client'  # Default role for new users
+    st.session_state.onboarding_complete = False  # Ensure new users go to wizard
 
     # Fetch client_id for analytics and logging (mirrors login flow)
     try:

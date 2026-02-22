@@ -83,19 +83,30 @@ def render_assistant_page():
                 )
                 
                 # Stream response and detect CSV export
-                for chunk in response_stream:
-                    full_response += chunk
-                    message_placeholder.markdown(full_response + "▌")
-                    time.sleep(0.01) # Petit délai pour effet visuel fluide
-                    
-                    # Detect CSV content in response
-                    if "```csv" in chunk and "```" in full_response:
-                        # Extract CSV content from markdown code block
-                        import re
-                        csv_match = re.search(r'```csv\n(.*?)\n```', full_response, re.DOTALL)
-                        if csv_match:
-                            csv_data = csv_match.group(1)
-                            st.session_state['csv_export_data'] = csv_data
+                try:
+                    for chunk in response_stream:
+                        full_response += chunk
+                        message_placeholder.markdown(full_response + "▌")
+                        time.sleep(0.01) # Petit délai pour effet visuel fluide
+                        
+                        # Detect CSV content in response
+                        if "```csv" in chunk and "```" in full_response:
+                            # Extract CSV content from markdown code block
+                            import re
+                            csv_match = re.search(r'```csv\n(.*?)\n```', full_response, re.DOTALL)
+                            if csv_match:
+                                csv_data = csv_match.group(1)
+                                st.session_state['csv_export_data'] = csv_data
+                except Exception as e:
+                    # If it's the 404 error, it might be a stale session (cached manager with old model name)
+                    if "404" in str(e) and "gemini" in str(e).lower():
+                        st.warning("⚠️ Session expirée. Ré-initialisation de l'assistant...")
+                        st.session_state.chatbot_manager = ChatbotManager()
+                        # On ne réessaie pas automatiquement ici pour éviter les boucles infinies en stream, 
+                        # mais l'utilisateur peut renvoyer son message
+                        st.info("🔄 L'assistant a été mis à jour. Veuillez renvoyer votre question.")
+                        return
+                    raise e
                 
                 message_placeholder.markdown(full_response)
             except Exception as e:

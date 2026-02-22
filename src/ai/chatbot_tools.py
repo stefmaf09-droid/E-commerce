@@ -142,6 +142,24 @@ class ChatbotTools:
                     },
                     "required": ["client_email"]
                 }
+            },
+            {
+                "name": "get_tracking_status",
+                "description": "Récupère les informations de suivi en temps réel d'un colis (Colissimo, UPS, DHL, etc.)",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "tracking_number": {
+                            "type": "string",
+                            "description": "Numéro de suivi du colis (ex: XS419416933FR)"
+                        },
+                        "carrier": {
+                            "type": "string",
+                            "description": "Nom optionnel du transporteur"
+                        }
+                    },
+                    "required": ["tracking_number"]
+                }
             }
         ]
     
@@ -179,6 +197,12 @@ class ChatbotTools:
                 return self._export_claims_csv(
                     parameters["client_email"],
                     parameters.get("status_filter")
+                )
+            
+            elif tool_name == "get_tracking_status":
+                return self._get_tracking_status(
+                    parameters["tracking_number"],
+                    parameters.get("carrier")
                 )
             
             else:
@@ -361,3 +385,60 @@ class ChatbotTools:
             "message": f"{len(claims)} réclamation(s) exportée(s)",
             "data": {"csv_content": csv_content, "count": len(claims)}
         }
+    
+    def _get_tracking_status(self, tracking_number: str, carrier_name: Optional[str] = None) -> Dict[str, Any]:
+        """Récupère l'état d'un colis via les connecteurs transporteurs."""
+        from src.integrations.carrier_factory import CarrierFactory
+        from src.config import Config
+        
+        tracking_number = tracking_number.strip().upper()
+        
+        # 1. Détecter le transporteur si non fourni
+        if not carrier_name:
+            # Logique de détection basée sur le format
+            if tracking_number.startswith("XS") or tracking_number.startswith("8") or len(tracking_number) == 13:
+                carrier_name = "Colissimo"
+            elif tracking_number.startswith("1Z"):
+                carrier_name = "UPS"
+            elif len(tracking_number) == 12 or len(tracking_number) == 15:
+                carrier_name = "FedEx"
+            elif len(tracking_number) == 11 and tracking_number.isdigit():
+                carrier_name = "GLS"
+            elif (len(tracking_number) == 8 or len(tracking_number) == 10 or len(tracking_number) == 12) and tracking_number.isdigit():
+                carrier_name = "Mondial Relay"
+            else:
+                carrier_name = "Colissimo" # Fallback par défaut
+        
+        try:
+            # 2. Obtenir le connecteur avec toutes les clés dispo
+            config = {
+                'COLISSIMO_API_KEY': Config.get('COLISSIMO_API_KEY'),
+                'UPS_CLIENT_ID': Config.get('UPS_CLIENT_ID'),
+                'UPS_CLIENT_SECRET': Config.get('UPS_CLIENT_SECRET'),
+                'FEDEX_CLIENT_ID': Config.get('FEDEX_CLIENT_ID'),
+                'FEDEX_CLIENT_SECRET': Config.get('FEDEX_CLIENT_SECRET'),
+                'FEDEX_USE_SANDBOX': Config.get('FEDEX_USE_SANDBOX', 'false'),
+                'GLS_API_KEY': Config.get('GLS_API_KEY'),
+                'DHL_API_KEY': Config.get('DHL_API_KEY'),
+                'DHL_MERCHANT_ID': Config.get('DHL_MERCHANT_ID'),
+                'MONDIAL_RELAY_ENSEIGNE': Config.get('MONDIAL_RELAY_ENSEIGNE'),
+                'MONDIAL_RELAY_PASSWORD': Config.get('MONDIAL_RELAY_PASSWORD')
+            }
+            
+            connector = CarrierFactory.get_connector(carrier_name, config)
+            
+            # 3. Récupérer les détails
+            details = connector.get_tracking_details(tracking_number)
+            
+            return {
+                "success": True,
+                "message": f"Informations de suivi récupérées pour {tracking_number}",
+                "data": details
+            }
+            
+        except Exception as e:
+            logger.error(f"Error fetching tracking for {tracking_number}: {e}")
+            return {
+                "success": False,
+                "message": f"Impossible de récupérer le suivi pour {tracking_number}: {str(e)}"
+            }

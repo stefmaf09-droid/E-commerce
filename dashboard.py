@@ -110,8 +110,8 @@ if not _show_portal:
     </style>
     """, unsafe_allow_html=True)
 
-    # Logo centré
-    _, logo_col, _ = st.columns([2, 1, 2])
+    # Logo centré — réduit pour garder tout visible sans scroll
+    _, logo_col, _ = st.columns([2.5, 1, 2.5])
     with logo_col:
         st.image("static/logo_premium.png", use_container_width=True)
 
@@ -208,7 +208,7 @@ if _show_portal:
     client_email = st.session_state.get('client_email', '')
 
     # ── NEW CLIENT : show onboarding wizard ──────────────────────
-    if not st.session_state.get('onboarding_complete', True):
+    if not st.session_state.get('onboarding_complete', False):
         from src.dashboard.onboarding_wizard import render_onboarding_wizard
         render_onboarding_wizard()
         st.stop()

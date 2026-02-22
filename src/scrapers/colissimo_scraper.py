@@ -44,16 +44,12 @@ class ColissimoScraper(BaseScraper):
         return results
     
     def get_pod(self, tracking_number: str) -> Optional[Dict]:
-        """
-        Fetch POD/Tracking info for a specific tracking number.
-        
-        Args:
-            tracking_number: Tracking number to check
-            
-        Returns:
-            Dictionary with status, date, and potential POD url/text
-        """
-        url = f"{self.BASE_URL}?code={tracking_number}"
+        """Fetch POD/Tracking info."""
+        if tracking_number.upper().startswith('X'):
+            # Chronopost specific tracking page
+            url = f"https://www.chronopost.fr/tracking-no-cms/suivi-page?langue=fr&listeNumerosLT={tracking_number}"
+        else:
+            url = f"{self.BASE_URL}?code={tracking_number}"
         
         soup = self._fetch_page(url)
         if not soup:
@@ -70,14 +66,27 @@ class ColissimoScraper(BaseScraper):
                 # Fallback to general finding
                 status_elem = soup.find('div', class_='timeline-status')
             
-            status_text = status_elem.get_text(strip=True) if status_elem else "Unknown"
+            status_text = "Unknown"
+            if status_elem:
+                status_text = status_elem.get_text(strip=True)
+            else:
+                # Robust Fallback: Search in entire page text for keywords
+                page_text = soup.get_text().lower()
+                if "livré" in page_text:
+                    status_text = "Livré"
+                elif "mis à disposition" in page_text or "point de retrait" in page_text or "prêt" in page_text:
+                    status_text = "Mis à disposition en point de retrait"
+                elif "en cours de livraison" in page_text:
+                    status_text = "En cours de livraison"
+                elif "pris en charge" in page_text:
+                    status_text = "Pris en charge"
             
             # 2. Extract Date
             date_elem = soup.find('p', class_=lambda x: x and 'date' in x.lower())
             date_text = date_elem.get_text(strip=True) if date_elem else ""
             
-            # 3. Check for "Livré"
-            is_delivered = "livré" in status_text.lower()
+            # 3. Check for Delivery / Pickup
+            is_delivered = any(kw in status_text.lower() for kw in ["livré", "mis à disposition", "retrait", "prêt"])
             
             # 4. Check for Signature/POD image
             # This is usually hidden behind an API or requires login on La Poste
@@ -93,12 +102,12 @@ class ColissimoScraper(BaseScraper):
             history = []
             timeline_items = soup.find_all('div', class_='timeline-item')
             for item in timeline_items:
-                time_text = item.find('span', class_='time')
-                event_text = item.find('span', class_='label')
-                if time_text and event_text:
+                time_text_elem = item.find('span', class_='time')
+                event_text_elem = item.find('span', class_='label')
+                if time_text_elem and event_text_elem:
                     history.append({
-                        'time': time_text.get_text(strip=True),
-                        'event': event_text.get_text(strip=True)
+                        'time': time_text_elem.get_text(strip=True),
+                        'event': event_text_elem.get_text(strip=True)
                     })
             
             return {

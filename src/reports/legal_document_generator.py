@@ -4,15 +4,14 @@ LegalDocumentGenerator - Générateur de documents juridiques (Mise en demeure, 
 
 import os
 from datetime import datetime
-from typing import Dict, Any
-import logging
+from typing import Dict, Any, Optional
 import logging
 import sys
 
 # Support relative imports when running as a script
 if __name__ == "__main__":
-    os.environ['PYTHONPATH'] = os.getcwd()
-    sys.path.append(os.getcwd())
+    os.path.abspath_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(os.path.abspath_path)
 
 from src.utils.i18n import get_i18n_text, format_currency
 from reportlab.lib.pagesizes import A4
@@ -25,7 +24,7 @@ from reportlab.lib.enums import TA_JUSTIFY, TA_RIGHT
 logger = logging.getLogger(__name__)
 
 class LegalDocumentGenerator:
-    """Génère des documents juridiques PDF conformes au Code des Transports."""
+    """Génère des documents juridiques PDF conformes au Code des Transports ou lois locales."""
     
     def __init__(self):
         self.styles = getSampleStyleSheet()
@@ -67,14 +66,6 @@ class LegalDocumentGenerator:
     def generate_formal_notice(self, claim: Dict[str, Any], lang: str = 'FR', output_dir: str = "data/legal_docs") -> str:
         """
         Génère une Mise en Demeure formelle.
-        
-        Args:
-            claim: Données de la réclamation
-            lang: Langue du document ('FR' ou 'EN')
-            output_dir: Dossier de sortie
-            
-        Returns:
-            Chemin vers le PDF généré
         """
         os.makedirs(output_dir, exist_ok=True)
         filename = f"MED_{claim['claim_reference']}_{lang.upper()}_{datetime.now().strftime('%Y%m%d')}.pdf"
@@ -94,19 +85,16 @@ class LegalDocumentGenerator:
         story = []
         
         # 0. Logo
-        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'static', 'refundly_logo.png')
+        root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        logo_path = os.path.join(root_dir, 'static', 'refundly_logo.png')
         if os.path.exists(logo_path):
-            # Ajout du logo (largeur 8cm, hauteur 2.5cm - plus grand)
             im = Image(logo_path, width=8*cm, height=2.5*cm)
             im.hAlign = 'LEFT'
             story.append(im)
-            story.append(Spacer(1, 0.5*cm)) # Reduce spacer slightly as image is taller
-        else:
-            logger.warning(f"Logo PDF introuvable : {logo_path}")
+            story.append(Spacer(1, 0.5*cm))
         
-        # 1. En-tête (Expéditeur & Destinataire)
+        # 1. En-tête
         story.append(Paragraph(f"<b>{get_i18n_text('legal_header_from', lang)}</b>", self.styles['LegalBold']))
-        # Use Refundly.ai identity with client company
         company = claim.get('company_name', 'Client E-commerce')
         story.append(Paragraph(f"Refundly.ai", self.styles['LegalBody']))
         story.append(Paragraph(f"Agissant pour le compte de : {company}", self.styles['LegalBody']))
@@ -129,67 +117,18 @@ class LegalDocumentGenerator:
         # 4. Corps de la lettre
         story.append(Paragraph(f"Madame, Monsieur,", self.styles['LegalBody']))
         
-        # Sélection de la loi spécifique basée sur l'adresse (indépendamment de la langue)
         address = claim.get('delivery_address', '').upper()
         law_key = self._determine_applicable_law(address)
         law_text = get_i18n_text(law_key, lang)
-
-    def _determine_applicable_law(self, address: str) -> str:
-        """Détermine la clé de traduction de la loi applicable selon l'adresse."""
-        import re
         
-        # Helper for whole word matching
-        def has_word(text, word):
-            return re.search(r'\b' + re.escape(word) + r'\b', text, re.IGNORECASE)
-        
-        # 1. USA (Priorité aux états spécifiques)
-        if has_word(address, 'NY') or has_word(address, 'NEW YORK'):
-            return 'legal_law_ny'
-        elif has_word(address, 'CA') or has_word(address, 'CALIFORNIA'):
-            return 'legal_law_ca'
-        elif has_word(address, 'TX') or has_word(address, 'TEXAS'):
-            return 'legal_law_tx'
-        elif has_word(address, 'FL') or has_word(address, 'FLORIDA'):
-            return 'legal_law_fl'
-        elif has_word(address, 'IL') or has_word(address, 'ILLINOIS'):
-            return 'legal_law_il'
-        elif any(has_word(address, usa_key) for usa_key in ['USA', 'UNITED STATES']):
-            return 'legal_law_us_federal'
-        # Fallback US States (si USA n'est pas explicite mais qu'on a un code état connu)
-        elif any(has_word(address, state) for state in ['PA', 'OH', 'GA', 'NC', 'MI']):
-             return 'legal_law_us_federal'
-            
-        # 2. UK / Commonwealth
-        elif any(has_word(address, uk_key) for uk_key in ['UK', 'UNITED KINGDOM', 'LONDON', 'MANCHESTER', 'BIRMINGHAM']):
-            return 'legal_law_uk'
-        elif any(has_word(address, hk_key) for hk_key in ['HK', 'HONG KONG', 'KOWLOON']):
-            return 'legal_law_hk'
-        elif any(has_word(address, sg_key) for sg_key in ['SG', 'SINGAPORE']):
-            return 'legal_law_sg'
-
-        # 3. Union Européenne
-        EU_COUNTRIES = [
-            'AUSTRIA', 'BELGIUM', 'BULGARIA', 'CROATIA', 'CYPRUS', 'CZECH REPUBLIC', 
-            'DENMARK', 'ESTONIA', 'FINLAND', 'FRANCE', 'GERMANY', 'GREECE', 'HUNGARY', 
-            'IRELAND', 'ITALY', 'LATVIA', 'LITHUANIA', 'LUXEMBOURG', 'MALTA', 'NETHERLANDS', 
-            'POLAND', 'PORTUGAL', 'ROMANIA', 'SLOVAKIA', 'SLOVENIA', 'SPAIN', 'SWEDEN',
-            'AUTRICHE', 'BELGIQUE', 'BULGARIE', 'CHYPRE', 'DANEMARK', 'ESPAGNE', 'ESTONIE', 
-            'FINLANDE', 'GRÈCE', 'HONGRIE', 'IRLANDE', 'ITALIE', 'LETTONIE', 'LITUANIE', 
-            'PAYS-BAS', 'POLOGNE', 'ROUMANIE', 'SLOVAQUIE', 'SLOVÉNIE', 'SUÈDE'
-        ]
-        if any(has_word(address, country) for country in EU_COUNTRIES):
-             return 'legal_law_eu_cmr'
-
-        # 4. Fallback (Loi par défaut définie dans la langue de destination)
-        return 'legal_body_law'
         body_text = f"""
         {get_i18n_text('legal_body_intro', lang)}
-        (Type : {claim['dispute_type']}) - {get_i18n_text('legal_ref_claim', lang)} {claim['claim_reference']} 
-        pour un montant de {format_currency(claim['amount_requested'], currency)}.
+        (Type : {claim.get('dispute_type', 'Réclamation')}) - {get_i18n_text('legal_ref_claim', lang)} {claim['claim_reference']} 
+        pour un montant de {format_currency(claim.get('amount_requested', 0.0), currency)}.
         <br/><br/>
         {law_text}
         <br/><br/>
-        <b>{get_i18n_text('legal_body_demand', lang)} ({format_currency(claim['amount_requested'], currency)})</b>
+        <b>{get_i18n_text('legal_body_demand', lang)} ({format_currency(claim.get('amount_requested', 0.0), currency)})</b>
         <br/><br/>
         {get_i18n_text('legal_body_closing', lang)}
         """
@@ -206,15 +145,51 @@ class LegalDocumentGenerator:
         logger.info(f"Mise en demeure générée : {output_path}")
         return output_path
 
+    def _determine_applicable_law(self, address: str) -> str:
+        """Détermine la clé de traduction de la loi applicable selon l'adresse."""
+        import re
+        
+        def has_word(text, word):
+            return re.search(r'\b' + re.escape(word) + r'\b', text, re.IGNORECASE)
+        
+        if has_word(address, 'NY') or has_word(address, 'NEW YORK'):
+            return 'legal_law_ny'
+        elif has_word(address, 'CA') or has_word(address, 'CALIFORNIA'):
+            return 'legal_law_ca'
+        elif has_word(address, 'TX') or has_word(address, 'TEXAS'):
+            return 'legal_law_tx'
+        elif has_word(address, 'FL') or has_word(address, 'FLORIDA'):
+            return 'legal_law_fl'
+        elif has_word(address, 'IL') or has_word(address, 'ILLINOIS'):
+            return 'legal_law_il'
+        elif any(has_word(address, usa_key) for usa_key in ['US', 'USA', 'UNITED STATES']):
+            return 'legal_law_us_federal'
+
+            
+        EU_COUNTRIES = [
+            'AUSTRIA', 'BELGIUM', 'BULGARIA', 'CROATIA', 'CYPRUS', 'CZECH REPUBLIC', 
+            'DENMARK', 'ESTONIA', 'FINLAND', 'FRANCE', 'GERMANY', 'GREECE', 'HUNGARY', 
+            'IRELAND', 'ITALY', 'LATVIA', 'LITHUANIA', 'LUXEMBOURG', 'MALTA', 'NETHERLANDS', 
+            'POLAND', 'PORTUGAL', 'ROMANIA', 'SLOVAKIA', 'SLOVENIA', 'SPAIN', 'SWEDEN',
+            'AUTRICHE', 'BELGIQUE', 'ESPAGNE', 'ITALIE', 'PAYS-BAS'
+        ]
+        if any(has_word(address, country) for country in EU_COUNTRIES):
+             return 'legal_law_eu_cmr'
+
+        return 'legal_body_law'
+
 if __name__ == "__main__":
-    # Test
+    logging.basicConfig(level=logging.INFO)
     sample_claim = {
-        'claim_reference': 'CLM-2026-TEST',
-        'carrier': 'Colissimo',
-        'tracking_number': '6A1234567890',
-        'amount_requested': 124.50,
-        'dispute_type': 'Colis Perdu',
-        'customer_name': 'Boutique Alpha'
+        'claim_reference': 'CLM-2026-TEST-US',
+        'carrier': 'FedEx',
+        'tracking_number': '123456789012',
+        'amount_requested': 250.00,
+        'currency': 'USD',
+        'dispute_type': 'Lost Package',
+        'company_name': 'US Store Inc.',
+        'delivery_address': '123 Broadway, New York, NY 10001, USA'
     }
     gen = LegalDocumentGenerator()
-    gen.generate_formal_notice(sample_claim)
+    path = gen.generate_formal_notice(sample_claim, lang='EN')
+    print(f"Generated test PDF: {path}")

@@ -25,7 +25,7 @@ class EmailSender:
         self.smtp_port = 465  # SSL
         self.sender_email = os.getenv('GMAIL_SENDER', 'votre-email@gmail.com')
         self.sender_password = os.getenv('GMAIL_APP_PASSWORD', '')
-        self.sender_name = "Agent IA Recouvrement"
+        self.sender_name = "Refundly.ai"
         
         if not self.sender_password:
             logger.warning("⚠️ GMAIL_APP_PASSWORD non configuré. Les emails ne seront pas envoyés.")
@@ -92,7 +92,7 @@ class EmailSender:
         Returns:
             True if successful
         """
-        subject = "🎉 Bienvenue sur Agent IA Recouvrement"
+        subject = "🎉 Bienvenue sur Refundly.ai"
         
         html_content = f"""
         <!DOCTYPE html>
@@ -137,10 +137,10 @@ class EmailSender:
                     <p>Si vous avez des questions, n'hésitez pas à nous contacter.</p>
                     
                     <p>À très bientôt,<br>
-                    <strong>L'équipe Agent IA</strong></p>
+                    <strong>L'équipe Refundly.ai</strong></p>
                 </div>
                 <div class="footer">
-                    <p>© 2026 Agent IA Recouvrement - Tous droits réservés</p>
+                    <p>© 2026 Refundly.ai - Tous droits réservés</p>
                     <p>Cet email a été envoyé à {to_email}</p>
                 </div>
             </div>
@@ -151,11 +151,11 @@ class EmailSender:
         plain_text = f"""
         Bienvenue {client_name} !
         
-        Votre compte Agent IA a été créé avec succès.
+        Votre compte Refundly.ai a été créé avec succès.
         
         Accédez à votre tableau de bord : http://localhost:8501
         
-        L'équipe Agent IA
+        L'équipe Refundly.ai
         """
         
         return self.send_email(to_email, subject, html_content, plain_text)
@@ -220,10 +220,10 @@ class EmailSender:
                     </ul>
                     
                     <p>Cordialement,<br>
-                    <strong>L'équipe Agent IA</strong></p>
+                    <strong>L'équipe Refundly.ai</strong></p>
                 </div>
                 <div class="footer">
-                    <p>© 2026 Agent IA Recouvrement</p>
+                    <p>© 2026 Refundly.ai</p>
                     <p>Email envoyé le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</p>
                 </div>
             </div>
@@ -238,7 +238,7 @@ class EmailSender:
         
         Si vous n'êtes pas à l'origine de cette demande, contactez-nous immédiatement.
         
-        L'équipe Agent IA
+        L'équipe Refundly.ai
         """
         
         return self.send_email(to_email, subject, html_content, plain_text)
@@ -322,10 +322,10 @@ class EmailSender:
                     <p><strong>💡 Astuce :</strong> Vous pouvez suivre l'avancement de votre réclamation dans votre tableau de bord.</p>
                     
                     <p>Cordialement,<br>
-                    <strong>L'équipe Agent IA</strong></p>
+                    <strong>L'équipe Refundly.ai</strong></p>
                 </div>
                 <div class="footer">
-                    <p>© 2026 Agent IA Recouvrement</p>
+                    <p>© 2026 Refundly.ai</p>
                     <p>Référence: {claim_reference}</p>
                 </div>
             </div>
@@ -344,7 +344,7 @@ class EmailSender:
         
         Vous serez notifié de la décision du transporteur.
         
-        L'équipe Agent IA
+        L'équipe Refundly.ai
         """
         
         return self.send_email(to_email, subject, html_content, plain_text)

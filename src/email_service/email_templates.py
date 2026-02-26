@@ -187,7 +187,7 @@ def template_disputes_detected(client_name: str, disputes_count: int,
         </div>
     </div>
     <div class="footer">
-        <p>Agent IA - Recouvrement Automatique E-commerce</p>
+        <p>Refundly.ai - Recouvrement Automatique E-commerce</p>
         <p>Vous recevez cet email car de nouveaux litiges ont été détectés sur votre compte.</p>
     </div>
     """
@@ -197,7 +197,8 @@ def template_disputes_detected(client_name: str, disputes_count: int,
 
 def template_claim_submitted(client_name: str, claim_reference: str,
                              carrier: str, amount_requested: float,
-                             order_id: str, submission_method: str) -> str:
+                             order_id: str, submission_method: str,
+                             dispute_type: str = "N/A") -> str:
     """
     Template: Réclamation soumise.
     
@@ -238,6 +239,10 @@ def template_claim_submitted(client_name: str, claim_reference: str,
                 <div class="stat-label">💰 Montant demandé:</div>
                 <div class="stat-value"><strong>{amount_requested:.2f}€</strong></div>
             </div>
+            <div class="stat-item">
+                <div class="stat-label">📝 Type de litige:</div>
+                <div class="stat-value">{dispute_type}</div>
+            </div>
         </div>
         
         <div class="highlight-box">
@@ -259,7 +264,7 @@ def template_claim_submitted(client_name: str, claim_reference: str,
         </p>
     </div>
     <div class="footer">
-        <p>Agent IA - Recouvrement Automatique E-commerce</p>
+        <p>Refundly.ai - Recouvrement Automatique E-commerce</p>
         <p>Vous recevez cet email suite à la soumission d'une réclamation pour le compte #{order_id}.</p>
     </div>
     """
@@ -335,7 +340,7 @@ def template_claim_accepted(client_name: str, claim_reference: str,
         </p>
     </div>
     <div class="footer">
-        <p>Agent IA - Recouvrement Automatique E-commerce</p>
+        <p>Refundly.ai - Recouvrement Automatique E-commerce</p>
         <p>Félicitations pour cette réclamation réussie ! 🎊</p>
     </div>
     """
@@ -389,7 +394,7 @@ def template_claim_rejected(client_name: str, claim_reference: str,
         </p>
     </div>
     <div class="footer">
-        <p>Agent IA - Recouvrement Automatique E-commerce</p>
+        <p>Refundly.ai - Recouvrement Automatique E-commerce</p>
         <p>Ne vous découragez pas, nous sommes là pour vous aider !</p>
     </div>
     """

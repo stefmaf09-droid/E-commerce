@@ -13,15 +13,9 @@ from pathlib import Path
 import random
 import string
 
-from src.scrapers.colissimo_scraper import ColissimoScraper
-from src.scrapers.mondial_relay_scraper import MondialRelayScraper
-from src.scrapers.chronopost_scraper import ChronopostScraper
-from src.scrapers.fedex_scraper import FedExScraper
-from src.scrapers.dpd_scraper import DPDScraper
-from src.scrapers.gls_scraper import GLSScraper
-from src.scrapers.tnt_scraper import TNTScraper
-from src.connectors.dhl_connector import DHLConnector
-from src.connectors.ups_connector import UPSConnector
+from src.integrations.carrier_factory import CarrierFactory
+from src.reports.legal_document_generator import LegalDocumentGenerator
+from src.ai.predictor import AIPredictor
 
 logger = logging.getLogger(__name__)
 
@@ -71,26 +65,8 @@ class ClaimAutomation:
         )
         self.pdf_generator = ClaimPDFGenerator()
         
-        # Initialize Scrapers/Connectors
-        self.colissimo_scraper = ColissimoScraper()
-        self.mondial_relay_scraper = MondialRelayScraper()
-        self.chronopost_scraper = ChronopostScraper()
-        self.fedex_scraper = FedExScraper()
-        self.dpd_scraper = DPDScraper()
-        self.gls_scraper = GLSScraper()
-        self.tnt_scraper = TNTScraper()
-
-        # DHL Config
-        self.dhl_connector = DHLConnector(
-            api_key=os.getenv('DHL_API_KEY', 'OCaoGF7up5Df9JBSGnds8QJWUCVKA9qJ'),
-            api_secret=os.getenv('DHL_API_SECRET', 'p86tZBzIIt95ZMHF')
-        )
-
-        # UPS Config (Placeholders - user needs to provide these)
-        self.ups_connector = UPSConnector(
-            client_id=os.getenv('UPS_CLIENT_ID'),
-            client_secret=os.getenv('UPS_CLIENT_SECRET')
-        )
+        self.legal_generator = LegalDocumentGenerator()
+        self.predictor = AIPredictor()
     
     def analyze_photos(self, photo_paths: List[str]) -> Dict[str, Any]:
         """
@@ -164,18 +140,29 @@ class ClaimAutomation:
                 'quality_score': 0.0,
                 'error': str(e)
             }
+
+    # Reliability scores for Proof of Delivery (POD) based on carrier and method
+    # These scores reflect the likelihood of obtaining a valid POD and its legal strength.
+    POD_RELIABILITY_SCORES = {
+        'Colissimo': 0.75,      # Medium (Scraped tracking, sometimes signature)
+        'Chronopost': 0.85,     # High (Official API, often signature)
+        'UPS': 0.95,            # Very High (Official API, robust signature capture)
+        'DHL': 0.90,            # High (Official API, good signature capture)
+        'DPD': 0.92,            # High (Official API + Signature)
+        'Mondial Relay': 0.70,  # Medium (Scraped tracking, often point relais signature)
+        'GLS': 0.65,            # Medium (Scraped tracking, less reliable signature)
+        'FedEx': 0.94,          # High (Official SPOD API)
+        'TNT': 0.90,            # High (API Tracking)
+        'YunExpress': 0.60,     # Low (Limited tracking, no signature)
+        'SingPost': 0.82,       # Medium-High (Good international tracking)
+        'HK Post': 0.80         # Medium-High (Good international tracking)
+    }
     
-    def fetch_pod_evidence(self, dispute_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def fetch_pod_evidence(self, dispute_data: Dict[str, Any], config: Dict[str, str] = {}) -> Optional[bytes]:
         """
-        Attempt to fetch POD or tracking status from carrier.
-        
-        Args:
-            dispute_data: Dispute information containing tracking number and carrier
-            
-        Returns:
-            Dictionary with POD data or None
+        Attempt to fetch POD binary from carrier using API Connector.
         """
-        carrier = dispute_data.get('carrier', '').lower()
+        carrier = dispute_data.get('carrier', '')
         tracking_number = dispute_data.get('tracking_number')
         
         if not tracking_number:
@@ -183,32 +170,12 @@ class ClaimAutomation:
             return None
             
         try:
-            if 'colissimo' in carrier:
-                logger.info(f"Fetching Colissimo POD for {tracking_number}")
-                return self.colissimo_scraper.get_pod(tracking_number)
-            
-            elif 'dhl' in carrier:
-                logger.info(f"Fetching DHL POD for {tracking_number}")
-                return self.dhl_connector.get_tracking(tracking_number)
-                
-            elif 'ups' in carrier:
-                logger.info(f"Fetching UPS POD for {tracking_number}")
-                return self.ups_connector.get_tracking(tracking_number)
-
-            elif 'mondial' in carrier or 'relay' in carrier:
-                zip_code = dispute_data.get('customer_zip_code') # Needs to be passed in dispute_data
-                if not zip_code:
-                     logger.warning(f"Mondial Relay requires zip code for {tracking_number}")
-                     return None
-                logger.info(f"Fetching Mondial Relay POD for {tracking_number} / {zip_code}")
-                return self.mondial_relay_scraper.get_tracking(tracking_number, zip_code)
-                
-            elif 'chronopost' in carrier:
-                logger.info(f"Fetching Chronopost POD for {tracking_number}")
-                return self.chronopost_scraper.get_tracking(tracking_number)
-            
-            # Add other carriers here as implemented
-            
+            connector = CarrierFactory.get_connector(carrier, config)
+            if hasattr(connector, 'get_proof_of_delivery'):
+                logger.info(f"Fetching official API POD for {carrier} / {tracking_number}")
+                return connector.get_proof_of_delivery(tracking_number)
+            else:
+                logger.warning(f"Connector for {carrier} does not support get_proof_of_delivery")
         except Exception as e:
             logger.error(f"Failed to fetch POD for {tracking_number}: {e}")
             
@@ -330,26 +297,27 @@ Nous demandons le remboursement complet du montant de {amount}€ conformément 
                 claim_reference=claim_reference
             )
             
-            # 2. Prepare attachments (Images + PDF Claim)
+            # 2. Prepare attachments (Images + Legal PDF Notice)
             attachments = list(claim_data.get('photos', []))
             
-            # Generate PDF
+            # Generate Legal PDF Notice (Mise en demeure)
             try:
-                pdf_data = {
+                # Enrich claim data for Legal Generator
+                legal_data = {
                     'claim_reference': claim_reference,
-                    'order_id': order_id,
-                    'tracking_number': tracking_number,
                     'carrier': carrier,
-                    'amount': claim_data.get('amount', 0.0),
-                    'dispute_type': 'damage', # Should pass this from claim_data if available
-                    'photos': claim_data.get('photos', [])
+                    'tracking_number': tracking_number,
+                    'amount_requested': claim_data.get('amount', 0.0),
+                    'currency': claim_data.get('currency', 'EUR'),
+                    'dispute_type': claim_data.get('dispute_type', 'lost'),
+                    'company_name': claim_data.get('company_name', 'Client E-commerce'),
+                    'delivery_address': claim_data.get('delivery_address', '')
                 }
-                pdf_path = self.pdf_generator.generate_claim_pdf(pdf_data)
+                pdf_path = self.legal_generator.generate_formal_notice(legal_data, lang=claim_data.get('lang', 'FR'))
                 attachments.append(pdf_path)
-                logger.info(f"Generated PDF claim for {claim_reference}: {pdf_path}")
+                logger.info(f"Generated Legal Notice for {claim_reference}: {pdf_path}")
             except Exception as e:
-                logger.error(f"Failed to generate PDF for {claim_reference}: {e}")
-                # Continue without PDF if it fails (or fail hard? let's continue for resilience)
+                logger.error(f"Failed to generate Legal PDF for {claim_reference}: {e}")
             
             # 3. Send Email
             email_success = self.email_sender.send_claim_to_carrier(
@@ -495,6 +463,16 @@ Nous demandons le remboursement complet du montant de {amount}€ conformément 
             result['steps'].append({'step': 'generate_claim', 'status': 'running'})
             claim_text = self.generate_claim_text(dispute_data, photo_analysis, pod_data)
             result['claim_text'] = claim_text
+            result['steps'][-1]['status'] = 'completed'
+            
+            # Step 2.5: Predict Success (Elite Feature)
+            result['steps'].append({'step': 'predict_success', 'status': 'running'})
+            prediction = self.predictor.predict_success({
+                'carrier': dispute_data.get('carrier'),
+                'dispute_type': dispute_data.get('dispute_type'),
+                'amount_recoverable': dispute_data.get('total_recoverable', 0.0)
+            })
+            result['prediction'] = prediction
             result['steps'][-1]['status'] = 'completed'
             
             # Step 3: Submit to carrier

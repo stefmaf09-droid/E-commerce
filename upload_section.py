@@ -121,6 +121,26 @@ def render_file_upload():
                         
                         st.success("Dossier #4882 mis à jour. La réclamation est envoyée immédiatement au transporteur. 🚀")
                         
+                        # --- ENVOI EMAIL DE CONFIRMATION CLIENT ---
+                        try:
+                            from src.email_service.email_sender import send_claim_submitted_email
+                            client_email = st.session_state.get('client_email', 'test@example.com')
+                            
+                            # Calcul basique du montant pour la démo
+                            amount = 85.00 if 'endommag' in detected_status.lower() or 'perte' in detected_status.lower() else 12.50
+                            
+                            send_claim_submitted_email(
+                                client_email=client_email,
+                                claim_reference="CLM-4882",
+                                carrier=detected_carrier,
+                                amount_requested=amount,
+                                order_id="ORD-4882",
+                                submission_method="portal",
+                                dispute_type=detected_status
+                            )
+                        except Exception as e:
+                            st.warning(f"Avertissement : Impossible d'envoyer l'email de confirmation ({e})")
+                                                
                         if st.button("📂 Voir le dossier #4882", type="secondary"):
                             st.session_state.active_page = 'Disputes'
                             st.rerun()
@@ -371,6 +391,20 @@ def render_file_upload():
                                             pdf_path = legal_gen.generate_formal_notice(claim_data_for_pdf, lang='FR', output_dir=output_pdf_dir)
                                             
                                             # On pourrait lier ce chemin en base via db_manager.update_dispute_file(...)
+                                            
+                                            # --- ENVOI EMAIL DE CONFIRMATION CLIENT ---
+                                            from src.email_service.email_sender import send_claim_submitted_email
+                                            client_email = st.session_state.get('client_email', 'test@example.com')
+                                            
+                                            send_claim_submitted_email(
+                                                client_email=client_email,
+                                                claim_reference=f"CLM-{tracking[-4:]}",
+                                                carrier=carrier,
+                                                amount_requested=amount,
+                                                order_id=f"ORD-{tracking[-4:]}",
+                                                submission_method="api",
+                                                dispute_type=dispute_type
+                                            )
                                             
                                         except Exception as e:
                                             st.error(f"Erreur dossier {idx}: {e}")

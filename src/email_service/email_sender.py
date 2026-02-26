@@ -24,7 +24,7 @@ class EmailSender:
         smtp_user: Optional[str] = None,
         smtp_password: Optional[str] = None,
         from_email: Optional[str] = None,
-        from_name: str = "Agent IA Recouvrement"
+        from_name: str = "Refundly.ai"
     ):
         """
         Initialize email sender.
@@ -249,7 +249,7 @@ class EmailSender:
                 
                 <p>
                     Cordialement,<br>
-                    <strong>L'équipe Agent IA Recouvrement</strong>
+                    <strong>L'équipe Refundly.ai</strong>
                 </p>
             </div>
         </body>
@@ -269,7 +269,7 @@ class EmailSender:
         ⏰ Ce lien expire dans {expires_in_hours} heures.
         
         Cordialement,
-        L'équipe Agent IA Recouvrement
+        L'équipe Refundly.ai
         """
         
         return self.send_email(to_email, subject, html_body, text_body)
@@ -317,7 +317,7 @@ class EmailSender:
                 
                 <p style="margin-top: 30px;">
                     Cordialement,<br>
-                    <strong>L'équipe Agent IA Recouvrement</strong>
+                    <strong>L'équipe Refundly.ai</strong>
                 </p>
             </div>
         </body>
@@ -368,7 +368,8 @@ class EmailSender:
         carrier: str,
         amount_requested: float,
         order_id: str,
-        submission_method: str
+        submission_method: str,
+        dispute_type: str = "N/A"
     ) -> bool:
         """
         Send email notification about claim submitted.
@@ -381,6 +382,7 @@ class EmailSender:
             amount_requested: Amount requested
             order_id: Order ID
             submission_method: Submission method (api/portal)
+            dispute_type: Type of dispute (motif)
             
         Returns:
             True if successful
@@ -395,7 +397,8 @@ class EmailSender:
             carrier=carrier,
             amount_requested=amount_requested,
             order_id=order_id,
-            submission_method=submission_method
+            submission_method=submission_method,
+            dispute_type=dispute_type
         )
         
         return self.send_email(to_email, subject, html_body)
@@ -521,9 +524,11 @@ def send_disputes_detected_email(client_email: str, disputes_count: int,
     """Helper function to send disputes detected email."""
     import os
     sender = EmailSender(
-        smtp_user=os.getenv('GMAIL_SENDER'),
-        smtp_password=os.getenv('GMAIL_APP_PASSWORD'),
-        from_email=os.getenv('GMAIL_SENDER')
+        smtp_host=os.getenv('SMTP_HOST', 'smtp.gmail.com'),
+        smtp_port=int(os.getenv('SMTP_PORT', 587)),
+        smtp_user=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER'),
+        smtp_password=os.getenv('SMTP_PASSWORD') or os.getenv('GMAIL_APP_PASSWORD'),
+        from_email=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER')
     )
     return sender.send_disputes_detected_email(
         to_email=client_email,
@@ -536,13 +541,16 @@ def send_disputes_detected_email(client_email: str, disputes_count: int,
 
 def send_claim_submitted_email(client_email: str, claim_reference: str,
                                carrier: str, amount_requested: float,
-                               order_id: str, submission_method: str) -> bool:
+                               order_id: str, submission_method: str,
+                               dispute_type: str = "N/A") -> bool:
     """Helper function to send claim submitted email."""
     import os
     sender = EmailSender(
-        smtp_user=os.getenv('GMAIL_SENDER'),
-        smtp_password=os.getenv('GMAIL_APP_PASSWORD'),
-        from_email=os.getenv('GMAIL_SENDER')
+        smtp_host=os.getenv('SMTP_HOST', 'smtp.gmail.com'),
+        smtp_port=int(os.getenv('SMTP_PORT', 587)),
+        smtp_user=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER'),
+        smtp_password=os.getenv('SMTP_PASSWORD') or os.getenv('GMAIL_APP_PASSWORD'),
+        from_email=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER')
     )
     return sender.send_claim_submitted_email(
         to_email=client_email,
@@ -551,7 +559,8 @@ def send_claim_submitted_email(client_email: str, claim_reference: str,
         carrier=carrier,
         amount_requested=amount_requested,
         order_id=order_id,
-        submission_method=submission_method
+        submission_method=submission_method,
+        dispute_type=dispute_type
     )
 
 
@@ -561,9 +570,11 @@ def send_claim_accepted_email(client_email: str, claim_reference: str,
     """Helper function to send claim accepted email."""
     import os
     sender = EmailSender(
-        smtp_user=os.getenv('GMAIL_SENDER'),
-        smtp_password=os.getenv('GMAIL_APP_PASSWORD'),
-        from_email=os.getenv('GMAIL_SENDER')
+        smtp_host=os.getenv('SMTP_HOST', 'smtp.gmail.com'),
+        smtp_port=int(os.getenv('SMTP_PORT', 587)),
+        smtp_user=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER'),
+        smtp_password=os.getenv('SMTP_PASSWORD') or os.getenv('GMAIL_APP_PASSWORD'),
+        from_email=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER')
     )
     return sender.send_claim_accepted_email(
         to_email=client_email,
@@ -581,9 +592,11 @@ def send_claim_rejected_email(client_email: str, claim_reference: str,
     """Helper function to send claim rejected email."""
     import os
     sender = EmailSender(
-        smtp_user=os.getenv('GMAIL_SENDER'),
-        smtp_password=os.getenv('GMAIL_APP_PASSWORD'),
-        from_email=os.getenv('GMAIL_SENDER')
+        smtp_host=os.getenv('SMTP_HOST', 'smtp.gmail.com'),
+        smtp_port=int(os.getenv('SMTP_PORT', 587)),
+        smtp_user=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER'),
+        smtp_password=os.getenv('SMTP_PASSWORD') or os.getenv('GMAIL_APP_PASSWORD'),
+        from_email=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER')
     )
     return sender.send_claim_rejected_email(
         to_email=client_email,

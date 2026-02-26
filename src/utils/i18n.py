@@ -369,7 +369,10 @@ def get_i18n_text(key: str, lang: str = None) -> str:
             # Lois Internationales (Fallback sur le texte Anglais ou traduit si pertinent)
             'legal_law_ny': 'En vertu de la loi générale des affaires de l\'État de New York (§ 396-u) et de l\'Amendement Carmack fédéral (49 U.S.C. § 14706), le transporteur est responsable en tant qu\'assureur de la perte ou des dommages.',
             'legal_law_ca': 'En vertu du Code de commerce de Californie § 7309, un transporteur qui émet un connaissement est tenu d\'exercer le degré de soin qu\'une personne raisonnablement prudente exercerait.',
+            'legal_law_tx': 'En vertu de la loi texane sur les pratiques commerciales trompeuses (DTPA) et de la responsabilité de common law des transporteurs, vous êtes responsable de la livraison sécurisée des marchandises.',
             'legal_law_us_federal': 'En vertu de l\'Amendement Carmack fédéral (49 U.S.C. § 14706), un transporteur public est responsable de la "perte ou du préjudice réel à la propriété" survenant pendant le transport.',
+            'legal_law_fl': 'En vertu de la loi de Floride sur les pratiques commerciales déloyales (FDUTPA) et des statuts de Floride § 677.309, le transporteur est responsable des dommages.',
+            'legal_law_il': 'En vertu de la loi de l\'Illinois sur la fraude à la consommation et des statuts compilés (810 ILCS 5/7-309), le transporteur doit exercer un degré de soin raisonnable.',
             'legal_law_uk': 'En vertu de la Loi sur les droits des consommateurs de 2015 (UK) et de la Loi sur le transport de marchandises par route de 1965, le transporteur est strictement responsable de la perte ou des dommages.',
             'legal_law_eu_cmr': 'Conformément à la Convention CMR (Article 17) et aux réglementations de transport de l\'UE, le transporteur est responsable de la perte totale ou partielle des marchandises.'
         },

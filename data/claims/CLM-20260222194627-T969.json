@@ -1,0 +1,13 @@
+{
+  "claim_reference": "CLM-20260222194627-T969",
+  "order_id": "ORD-ELITE-NY-01",
+  "carrier": "FedEx",
+  "claim_text": "RÉCLAMATION - Commande ORD-ELITE-NY-01\n\nTransporteur : FedEx\nMontant demandé : 450.0€\n\nDESCRIPTION DU PROBLÈME :\nLe colis n'a jamais été livré et est considéré comme perdu.\n\nDate de réclamation : 22/02/2026 19:46\n\nNous demandons le remboursement complet du montant de 450.0€ conformément aux conditions générales de transport.\n",
+  "claim_amount": 450.0,
+  "photos": [],
+  "submitted_at": "2026-02-22T19:46:28.200091",
+  "status": "failed_to_send",
+  "submission_method": "email_automation",
+  "target_email": "fr.claims@fedex.com",
+  "pdf_path": "data/legal_docs\\MED_CLM-20260222194627-T969_FR_20260222.pdf"
+}

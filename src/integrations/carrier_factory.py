@@ -7,6 +7,10 @@ from src.integrations.ups_connector import UPSConnector
 from src.integrations.fedex_connector import FedExConnector
 from src.integrations.gls_connector import GLSConnector
 from src.integrations.mondial_relay_connector import MondialRelayConnector
+from src.integrations.dpd_connector import DPDConnector
+from src.integrations.tnt_connector import TNTConnector
+
+
 
 class CarrierFactory:
     """Factory to get the appropriate carrier connector."""
@@ -54,8 +58,17 @@ class CarrierFactory:
                 username=config.get('MONDIAL_RELAY_ENSEIGNE'),
                 password=config.get('MONDIAL_RELAY_PASSWORD')
             )
+        elif 'tnt' in name:
+            return TNTConnector()
+
+        elif 'dpd' in name:
+            return DPDConnector(
+                delis_id=config.get('DPD_DELIS_ID'),
+                password=config.get('DPD_PASSWORD')
+            )
         else:
             # Fallback to Colissimo if unknown (logic based on tracking number might be needed)
             return ColissimoConnector(
                 api_key=config.get('COLISSIMO_API_KEY', 'mock-key')
             )
+

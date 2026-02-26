@@ -13,14 +13,12 @@ from pathlib import Path
 from datetime import datetime
 
 try:
-    import openai
+    import google.generativeai as genai
 except ImportError:
-    openai = None
+    genai = None
 
-try:
-    from PIL import Image
-except ImportError:
-    Image = None
+from src.config import Config
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -30,17 +28,19 @@ class PODAnalyzer:
     
     def __init__(self, api_key: Optional[str] = None):
         """
-        Initialize POD Analyzer.
-        
-        Args:
-            api_key: OpenAI API key (optional, will use env var if not provided)
+        Initialize POD Analyzer with Gemini.
         """
-        if not openai:
-            raise ImportError("openai package required. Install with: pip install openai")
+        if not genai:
+            raise ImportError("google-generativeai package required. Install with: pip install google-generativeai")
         
-        self.client = openai.OpenAI(api_key=api_key) if api_key else openai.OpenAI()
+        self.api_key = api_key or Config.get_gemini_api_key()
+        if not self.api_key:
+            logger.warning("No Gemini API key found. Analysis will fail.")
+        else:
+            genai.configure(api_key=self.api_key)
+            self.model = genai.GenerativeModel('gemini-2.0-flash')
         
-        logger.info("PODAnalyzer initialized with Vision AI")
+        logger.info("PODAnalyzer initialized with Gemini 2.0 Flash")
     
     def analyze_pod_image(
         self, 
@@ -76,44 +76,25 @@ class PODAnalyzer:
             return self._create_error_response("Image file not found")
         
         try:
-            # Encode image to base64
-            image_data = self._encode_image(image_path)
+            # Load and optimize image for Gemini
+            img = Image.open(image_path)
             
             # Create analysis prompt
             prompt = self._create_analysis_prompt(tracking_number, expected_delivery_date)
             
-            # Call GPT-4 Vision
-            response = self.client.chat.completions.create(
-                model="gpt-4-vision-preview",
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_data}",
-                                "detail": "high"
-                            }
-                        }
-                    ]
-                }],
-                max_tokens=1000,
-                temperature=0.1  # Low temperature for consistent analysis
-            )
+            # Call Gemini 2.0 Flash (Multimodal)
+            logger.info(f"Calling Gemini Vision for {image_path}")
+            response = self.model.generate_content([prompt, img])
             
             # Parse response
-            raw_analysis = response.choices[0].message.content
-            logger.info(f"Vision API response received ({len(raw_analysis)} chars)")
+            raw_analysis = response.text
+            logger.info(f"Gemini response received ({len(raw_analysis)} chars)")
             
             # Extract structured data
             analysis = self._parse_vision_response(raw_analysis)
             analysis['raw_analysis'] = raw_analysis
             
-            logger.info(f"POD analysis complete. Confidence invalid: {analysis['confidence_invalid']:.2f}")
+            logger.info(f"POD analysis complete. Confidence invalid: {analysis.get('confidence_invalid', 0.0):.2f}")
             
             return analysis
             
@@ -299,18 +280,17 @@ Sois critique et strict. Si quelque chose semble suspect, marque-le comme anomal
 if __name__ == "__main__":
     import os
     
-    # Demo mode (requires OPENAI_API_KEY env var)
-    api_key = os.getenv('OPENAI_API_KEY')
+    # Demo mode (requires GEMINI_API_KEY env var)
+    api_key = Config.get_gemini_api_key()
     
     if not api_key:
-        print("⚠️  OPENAI_API_KEY not set. Set it to test POD analysis.")
-        print("Example: export OPENAI_API_KEY=sk-...")
+        print("⚠️  GEMINI_API_KEY not set.")
     else:
         analyzer = PODAnalyzer(api_key=api_key)
         
         # Test with a sample image (you'd need a real POD image)
         print("\n" + "="*60)
-        print("POD ANALYZER - Demo Mode")
+        print("POD ANALYZER - Gemini Free Tier Mode")
         print("="*60)
         print("\nTo test, provide a POD image path:")
         print("  result = analyzer.analyze_pod_image('path/to/pod.jpg')")

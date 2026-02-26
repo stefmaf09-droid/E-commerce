@@ -286,8 +286,16 @@ def _step_store(email: str):
                 f2 = st.text_input("🔑 Clé API", type="password")
 
             st.caption("🔒 Vos identifiants sont chiffrés et jamais revendus.")
+            
+            with st.expander("🛠️ Paramètres avancés (Transporteurs)", expanded=False):
+                st.markdown("Si vous avez vos propres clés API transporteur, renseignez-les ici pour éviter les blocages.")
+                fedex_key = st.text_input("🔑 FedEx Client ID", placeholder="FEDEX_...")
+                fedex_secret = st.text_input("🔑 FedEx Client Secret", type="password")
+                dpd_user = st.text_input("👤 DPD DelisID", placeholder="delis123")
+                dpd_pass = st.text_input("🔑 DPD Password", type="password")
 
             c1, c2 = st.columns(2)
+
             with c1:
                 skip = st.form_submit_button("⏭️ Plus tard", use_container_width=True)
             with c2:
@@ -301,8 +309,13 @@ def _step_store(email: str):
             if not store_name or not f1 or not f2:
                 st.error("⚠️ Tous les champs sont obligatoires.")
             else:
-                _save_store(email, platform, store_name, f1, f2)
+                carrier_creds = {
+                    "fedex": {"client_id": fedex_key, "client_secret": fedex_secret} if fedex_key else None,
+                    "dpd": {"delis_id": dpd_user, "password": dpd_pass} if dpd_user else None
+                }
+                _save_store(email, platform, store_name, f1, f2, carrier_creds)
                 with st.spinner("🔗 Test de connexion…"):
+
                     time.sleep(1.5)
                 st.success(f"✅ **{store_name}** connectée !")
                 st.session_state["_wiz_store"] = store_name
@@ -437,11 +450,12 @@ def _save_profile(email, name, company, phone):
         pass
 
 
-def _save_store(email, platform, store_name, key1, key2):
+def _save_store(email, platform, store_name, key1, key2, carrier_creds=None):
     try:
         from auth.credentials_manager import CredentialsManager
         creds = {"store_name": store_name}
         
+        # ... (keep existing platform logic)
         if platform == "Shopify":
             creds.update({"shop_url": key1, "access_token": key2})
         elif platform == "WooCommerce":
@@ -457,7 +471,11 @@ def _save_store(email, platform, store_name, key1, key2):
         else:
             creds.update({"shop_url": key1, "access_token": key2})
 
+        if carrier_creds:
+            creds["carrier_apis"] = carrier_creds
+
         mgr = CredentialsManager()
+
         fn = mgr.add_store if hasattr(mgr, "add_store") else mgr.store_credentials
         fn(client_id=email, platform=platform.lower(), credentials=creds)
     except Exception:

@@ -156,9 +156,14 @@ class ChatbotTools:
                         "carrier": {
                             "type": "string",
                             "description": "Nom optionnel du transporteur"
+                        },
+                        "client_email": {
+                            "type": "string",
+                            "description": "Email du client pour utiliser ses propres clés API"
                         }
                     },
                     "required": ["tracking_number"]
+
                 }
             }
         ]
@@ -199,11 +204,12 @@ class ChatbotTools:
                     parameters.get("status_filter")
                 )
             
-            elif tool_name == "get_tracking_status":
                 return self._get_tracking_status(
                     parameters["tracking_number"],
-                    parameters.get("carrier")
+                    parameters.get("carrier"),
+                    parameters.get("client_email")
                 )
+
             
             else:
                 return {
@@ -386,10 +392,12 @@ class ChatbotTools:
             "data": {"csv_content": csv_content, "count": len(claims)}
         }
     
-    def _get_tracking_status(self, tracking_number: str, carrier_name: Optional[str] = None) -> Dict[str, Any]:
+    def _get_tracking_status(self, tracking_number: str, carrier_name: Optional[str] = None, client_email: Optional[str] = None) -> Dict[str, Any]:
         """Récupère l'état d'un colis via les connecteurs transporteurs."""
         from src.integrations.carrier_factory import CarrierFactory
         from src.config import Config
+        from src.auth.credentials_manager import CredentialsManager
+
         
         tracking_number = tracking_number.strip().upper()
         
@@ -411,6 +419,7 @@ class ChatbotTools:
         
         try:
             # 2. Obtenir le connecteur avec toutes les clés dispo
+            # Clés globales
             config = {
                 'COLISSIMO_API_KEY': Config.get('COLISSIMO_API_KEY'),
                 'UPS_CLIENT_ID': Config.get('UPS_CLIENT_ID'),
@@ -422,10 +431,31 @@ class ChatbotTools:
                 'DHL_API_KEY': Config.get('DHL_API_KEY'),
                 'DHL_MERCHANT_ID': Config.get('DHL_MERCHANT_ID'),
                 'MONDIAL_RELAY_ENSEIGNE': Config.get('MONDIAL_RELAY_ENSEIGNE'),
-                'MONDIAL_RELAY_PASSWORD': Config.get('MONDIAL_RELAY_PASSWORD')
+                'MONDIAL_RELAY_PASSWORD': Config.get('MONDIAL_RELAY_PASSWORD'),
+                'DPD_DELIS_ID': Config.get('DPD_DELIS_ID'),
+                'DPD_PASSWORD': Config.get('DPD_PASSWORD')
             }
             
+            # Surcharge avec les clés du client si présentes
+            if client_email:
+                mgr = CredentialsManager()
+                stores = mgr.get_all_stores(client_email)
+                for store in stores:
+                    carrier_apis = store.get('credentials', {}).get('carrier_apis', {})
+                    if carrier_apis:
+                        fedex = carrier_apis.get('fedex')
+                        if fedex and fedex.get('client_id'):
+                            config['FEDEX_CLIENT_ID'] = fedex['client_id']
+                            config['FEDEX_CLIENT_SECRET'] = fedex['client_secret']
+                        
+                        dpd = carrier_apis.get('dpd')
+                        if dpd and dpd.get('delis_id'):
+                            config['DPD_DELIS_ID'] = dpd['delis_id']
+                            config['DPD_PASSWORD'] = dpd['password']
+                        break # On prend le premier store qui a des clés
+            
             connector = CarrierFactory.get_connector(carrier_name, config)
+
             
             # 3. Récupérer les détails
             details = connector.get_tracking_details(tracking_number)

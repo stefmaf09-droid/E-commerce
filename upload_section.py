@@ -349,7 +349,7 @@ def render_file_upload():
                                     progress_bar = st.progress(0)
                                     df_final = st.session_state.selected_anomalies
                                     
-                                    for idx, row in df_final.iterrows():
+                                    for step_num, (idx, row) in enumerate(df_final.iterrows(), 1):
                                         try:
                                             tracking = row.get('tracking', f"UNKNOWN-{idx}")
                                             carrier = row.get('transporteur', 'Unknown')
@@ -410,7 +410,7 @@ def render_file_upload():
                                             st.error(f"Erreur dossier {idx}: {e}")
                                         
                                         time.sleep(0.05)
-                                        progress_bar.progress((idx + 1) / len(df_final))
+                                        progress_bar.progress(step_num / len(df_final))
                                     
                                     st.success(f"✅ {len(df_final)} dossiers créés avec Mises en Demeure générées !")
                                     st.balloons()

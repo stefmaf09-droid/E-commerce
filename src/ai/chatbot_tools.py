@@ -204,12 +204,12 @@ class ChatbotTools:
                     parameters.get("status_filter")
                 )
             
+            elif tool_name == "get_tracking_status":
                 return self._get_tracking_status(
                     parameters["tracking_number"],
                     parameters.get("carrier"),
                     parameters.get("client_email")
                 )
-
             
             else:
                 return {

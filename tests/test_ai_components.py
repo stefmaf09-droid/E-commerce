@@ -10,9 +10,13 @@ class TestAIComponents:
         with patch('openai.OpenAI') as mock:
             yield mock
             
-    def test_pod_analyzer_initialization(self, mock_openai):
-        analyzer = PODAnalyzer(api_key="test-key")
-        assert analyzer.client is not None
+    def test_pod_analyzer_initialization(self):
+        """PODAnalyzer migré vers Gemini 2.0 Flash — vérifie self.model au lieu de self.client (OpenAI)."""
+        with patch('google.generativeai.configure'), \
+             patch('google.generativeai.GenerativeModel') as mock_model:
+            mock_model.return_value = MagicMock()
+            analyzer = PODAnalyzer(api_key="test-gemini-key")
+            assert analyzer.model is not None
         
     def test_pod_analyzer_fallback_parsing(self):
         analyzer = PODAnalyzer(api_key="test-key")

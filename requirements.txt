@@ -47,8 +47,8 @@ cloudpickle>=2.0.0
 supabase>=2.3.0
 # psycopg2-binary already listed above
 
-# AI Analysis (Gemini)
-google-generativeai>=0.3.0
+# AI Analysis (Gemini - nouveau SDK officiel)
+google-genai>=1.0.0
 
 
 

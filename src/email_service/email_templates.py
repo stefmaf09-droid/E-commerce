@@ -8,7 +8,11 @@ Templates disponibles:
 - claim_rejected: Réclamation refusée
 """
 
+import os
 from typing import Dict, List
+
+# URL du dashboard dans les emails — surchargeable via variable d'environnement
+DASHBOARD_URL = os.getenv('DASHBOARD_URL', 'http://localhost:8503')
 
 
 def get_base_template() -> str:
@@ -176,7 +180,7 @@ def template_disputes_detected(client_name: str, disputes_count: int,
         {more_text}
         
         <p style="text-align: center;">
-            <a href="http://localhost:8503" class="button">
+            <a href="{DASHBOARD_URL}" class="button">
                 📊 Voir Mon Dashboard
             </a>
         </p>
@@ -258,7 +262,7 @@ def template_claim_submitted(client_name: str, claim_reference: str,
         </ul>
         
         <p style="text-align: center;">
-            <a href="http://localhost:8503" class="button">
+            <a href="{DASHBOARD_URL}" class="button">
                 📊 Suivre Ma Réclamation
             </a>
         </p>
@@ -329,7 +333,7 @@ def template_claim_accepted(client_name: str, claim_reference: str,
         </div>
         
         <p style="text-align: center;">
-            <a href="http://localhost:8503" class="button">
+            <a href="{DASHBOARD_URL}" class="button">
                 📊 Voir Détails du Paiement
             </a>
         </p>
@@ -388,7 +392,7 @@ def template_claim_rejected(client_name: str, claim_reference: str,
         </div>
         
         <p style="text-align: center;">
-            <a href="http://localhost:8503" class="button">
+            <a href="{DASHBOARD_URL}" class="button">
                 📊 Voir Détails
             </a>
         </p>

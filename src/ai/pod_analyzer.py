@@ -2,7 +2,7 @@
 POD (Proof of Delivery) Analyzer using Vision AI.
 
 Analyzes delivery proof images to detect anomalies and validate legitimacy.
-Uses OpenAI GPT-4 Vision API for intelligent image analysis.
+Uses Gemini 2.0 Flash (new google.genai SDK) for intelligent image analysis.
 """
 
 import base64
@@ -13,9 +13,11 @@ from pathlib import Path
 from datetime import datetime
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types as genai_types
 except ImportError:
     genai = None
+    genai_types = None
 
 from src.config import Config
 from PIL import Image
@@ -28,19 +30,21 @@ class PODAnalyzer:
     
     def __init__(self, api_key: Optional[str] = None):
         """
-        Initialize POD Analyzer with Gemini.
+        Initialize POD Analyzer with Gemini (nouveau SDK google.genai).
         """
         if not genai:
-            raise ImportError("google-generativeai package required. Install with: pip install google-generativeai")
+            raise ImportError("google-genai package required. Install with: pip install google-genai")
         
         self.api_key = api_key or Config.get_gemini_api_key()
         if not self.api_key:
             logger.warning("No Gemini API key found. Analysis will fail.")
+            self.client = None
+            self.model = None
         else:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
+            self.client = genai.Client(api_key=self.api_key)
+            self.model = 'gemini-2.0-flash'
         
-        logger.info("PODAnalyzer initialized with Gemini 2.0 Flash")
+        logger.info("PODAnalyzer initialized with Gemini 2.0 Flash (google.genai SDK)")
     
     def analyze_pod_image(
         self, 
@@ -75,16 +79,33 @@ class PODAnalyzer:
             logger.error(f"Image file not found: {image_path}")
             return self._create_error_response("Image file not found")
         
+        if not self.client:
+            return self._create_error_response("Gemini client not initialized (missing API key)")
+        
         try:
-            # Load and optimize image for Gemini
+            # Load image and encode to bytes for the new SDK
             img = Image.open(image_path)
+            
+            # Convert PIL image to bytes
+            import io
+            img_bytes = io.BytesIO()
+            img_format = img.format or 'JPEG'
+            img.save(img_bytes, format=img_format)
+            img_bytes = img_bytes.getvalue()
+            mime_type = f"image/{img_format.lower()}"
             
             # Create analysis prompt
             prompt = self._create_analysis_prompt(tracking_number, expected_delivery_date)
             
-            # Call Gemini 2.0 Flash (Multimodal)
+            # Call Gemini 2.0 Flash via new SDK
             logger.info(f"Calling Gemini Vision for {image_path}")
-            response = self.model.generate_content([prompt, img])
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=[
+                    genai_types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
+                    prompt
+                ]
+            )
             
             # Parse response
             raw_analysis = response.text

@@ -1,10 +1,13 @@
 import streamlit as st
 import os
 import sys
+import logging
 import pandas as pd
 from datetime import datetime, timedelta
 from streamlit_option_menu import option_menu
 from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 # Path definitions
 root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,7 +21,7 @@ from onboarding_functions import render_onboarding
 from ui.theme import apply_premium_theme, render_premium_metric
 from ui.logos import LOGOS, ICONS
 from src.dashboard.auto_refresh import AutoRefresh, setup_auto_refresh
-
+from src.workers.reminder_worker import ReminderWorker
 
 # Import UI and authentication functions from dashboard module
 from src.dashboard import (
@@ -143,7 +146,18 @@ def main():
     # Initialize and check authentication
     if not authenticate():
         return
-    
+
+    # ── Démarrage automatique du ReminderWorker (une seule fois par session) ──
+    if not st.session_state.get("reminder_worker_started"):
+        try:
+            worker = ReminderWorker.get_instance()
+            started = worker.start_background()
+            st.session_state.reminder_worker_started = True
+            if started:
+                logger.info("ReminderWorker démarré depuis Streamlit.")
+        except Exception as e:
+            logger.warning(f"ReminderWorker non démarré: {e}")
+
     # Render Sidebar (now that we are authenticated)
     render_application_sidebar()
     

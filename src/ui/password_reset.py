@@ -32,11 +32,13 @@ def render_password_reset():
                 
                 if creds:
                     # Generate reset token
+                    import os
                     email_service = EmailService()
                     token = email_service.generate_reset_token(email)
                     
-                    # Create reset URL
-                    reset_url = f"http://localhost:8503?reset_token={token}"
+                    # Create reset URL — utilise DASHBOARD_URL si défini (production)
+                    base_url = os.getenv('DASHBOARD_URL', 'http://localhost:8503')
+                    reset_url = f"{base_url.rstrip('/')}?reset_token={token}"
                     
                     # Send email
                     success = email_service.send_password_reset_email(email, reset_url)

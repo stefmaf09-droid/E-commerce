@@ -1,129 +1,336 @@
 
 import streamlit as st
 import time
+import re
 from src.ai.chatbot_manager import ChatbotManager
+from src.workers.reminder_worker import ReminderWorker
+
+
+# ── Raccourcis actions ────────────────────────────────────────────────────────
+QUICK_ACTIONS = [
+    ("📋 Mes réclamations", "Montre-moi mes réclamations en attente"),
+    ("📤 Exporter CSV",     "Exporter mes réclamations en CSV"),
+    ("🔍 Suivre un colis",  "__tracking_prompt__"),   # traité spécialement
+    ("🆕 Nouvelle récl.",   "Créer une réclamation"),
+    ("⚖️ Contester",         "__contest_prompt__"),   # traité spécialement
+]
+
 
 def render_assistant_page():
     st.markdown("## 💬 Refundly Assistant")
-    st.markdown("Posez vos questions sur le fonctionnement de la plateforme, les procédures juridiques ou vos dossiers.")
+    st.markdown(
+        "Posez vos questions ou demandez au bot d'agir directement : "
+        "relancer un transporteur, exporter vos données, créer un dossier…"
+    )
 
-    # Initialize ChatManager
+    # ── Bannière d'état du ReminderWorker ───────────────────────────────
+    try:
+        worker = ReminderWorker.get_instance()
+        stats = worker.stats
+        last_run = stats.get("last_run")
+        last_count = stats.get("last_run_count", 0)
+        total = stats.get("total_reminders_sent", 0)
+
+        if last_run:
+            from datetime import datetime
+            last_dt = datetime.fromisoformat(last_run)
+            age_min = int((datetime.now() - last_dt).total_seconds() / 60)
+            age_label = f"il y a {age_min} min" if age_min < 60 else f"il y a {age_min // 60}h"
+
+            if last_count > 0:
+                st.success(
+                    f"🤖 **Relances automatiques** : {last_count} relance(s) envoyée(s) {age_label} — "
+                    f"{total} au total depuis le démarrage."
+                )
+            else:
+                st.info(
+                    f"🤖 **Relances auto actives** — dernier scan {age_label}, aucun dossier éligible."
+                )
+        else:
+            st.info("🤖 **Relances automatiques actives** — premier scan en cours…")
+    except Exception:
+        pass  # Ne pas bloquer l'interface si le worker n'est pas disponible
+
+    # ── Init ──────────────────────────────────────────────────────────────────
     if "chatbot_manager" not in st.session_state:
         st.session_state.chatbot_manager = ChatbotManager()
 
-    # Initialize chat history
     if "messages" not in st.session_state:
         st.session_state.messages = []
-        # Welcome message
         st.session_state.messages.append({
-            "role": "assistant", 
-            "content": "Bonjour ! Je suis l'assistant Refundly. Comment puis-je vous aider aujourd'hui ? (Ex: 'Comment fonctionne le recouvrement ?')"
+            "role": "assistant",
+            "content": (
+                "Bonjour ! Je suis l'Assistant Refundly 🤖\n\n"
+                "Je peux **agir à votre place** :\n"
+                "- 📋 Lister / relancer vos réclamations\n"
+                "- 🔍 Suivre un colis en temps réel\n"
+                "- 📤 Exporter vos données en CSV\n"
+                "- 💰 Enregistrer un paiement reçu\n"
+                "- 🆕 Créer un nouveau dossier\n\n"
+                "Que puis-je faire pour vous ?"
+            )
         })
 
-    # Display chat messages from history on app rerun
+    # ── Boutons raccourcis ────────────────────────────────────────────────────
+    cols = st.columns(len(QUICK_ACTIONS))
+    for col, (label, action_text) in zip(cols, QUICK_ACTIONS):
+        if col.button(label, use_container_width=True, key=f"qa_{label}"):
+            if action_text == "__tracking_prompt__":
+                st.session_state["_tracking_input_mode"] = True
+            elif action_text == "__contest_prompt__":
+                st.session_state["_contest_input_mode"] = True
+            else:
+                st.session_state["_quick_action"] = action_text
+
+    # Mode saisie numéro de suivi (déclenché par le bouton 🔍)
+    if st.session_state.get("_tracking_input_mode"):
+        with st.form(key="tracking_form", clear_on_submit=True):
+            tracking_num = st.text_input(
+                "📦 Numéro de suivi",
+                placeholder="Ex: XS419416933FR, 1Z999AA10123456784…",
+            )
+            submitted = st.form_submit_button("🔍 Rechercher")
+            if submitted and tracking_num.strip():
+                st.session_state["_quick_action"] = f"Suivi colis {tracking_num.strip()}"
+                st.session_state.pop("_tracking_input_mode", None)
+                st.rerun()
+
+    # Mode saisie référence contestation (déclenché par le bouton ⚖️)
+    if st.session_state.get("_contest_input_mode"):
+        with st.form(key="contest_form", clear_on_submit=True):
+            contest_ref = st.text_input(
+                "⚖️ Référence du dossier à contester",
+                placeholder="Ex: CLM-41625",
+            )
+            submitted_c = st.form_submit_button("⚖️ Générer la lettre")
+            if submitted_c and contest_ref.strip():
+                st.session_state["_quick_action"] = f"Contester le dossier {contest_ref.strip().upper()}"
+                st.session_state.pop("_contest_input_mode", None)
+                st.rerun()
+
+    st.divider()
+
+    # ── Zone d'upload de preuves ──────────────────────────────────────────────
+    with st.expander("📎 Déposer une preuve de livraison (POD)", expanded=False):
+        uploaded_file = st.file_uploader(
+            "Glissez un fichier ici (PDF, PNG, JPG, JPEG)",
+            type=["pdf", "png", "jpg", "jpeg"],
+            key="pod_uploader",
+        )
+        claim_ref_upload = st.text_input(
+            "Référence dossier (optionnel)",
+            placeholder="CLM-xxxxx",
+            key="pod_claim_ref",
+        )
+        if uploaded_file is not None:
+            col_a, col_b = st.columns([3, 1])
+            col_a.info(f"Fichier sélectionné : **{uploaded_file.name}** ({uploaded_file.size // 1024} Ko)")
+            if col_b.button("✅ Envoyer", key="pod_send_btn"):
+                import pathlib, mimetypes
+                from datetime import datetime as _dt
+
+                file_bytes = uploaded_file.read()
+
+                # ── 1. Sauvegarde disque ──────────────────────────────
+                save_dir = pathlib.Path("data/uploads/pod")
+                save_dir.mkdir(parents=True, exist_ok=True)
+                ts = _dt.now().strftime("%Y%m%d_%H%M%S")
+                safe_name = f"{ts}_{uploaded_file.name.replace(' ', '_')}"
+                save_path = save_dir / safe_name
+                save_path.write_bytes(file_bytes)
+
+                # ── 2. Enregistrement en base (email_attachments) ─────
+                attachment_id = None
+                client_email = st.session_state.get("client_email", "")
+                claim_ref = claim_ref_upload.strip().upper() or None
+                mime_type = mimetypes.guess_type(uploaded_file.name)[0] or "application/octet-stream"
+                try:
+                    from src.database.database_manager import get_db_manager
+                    db = get_db_manager()
+                    attachment_id = db.create_email_attachment(
+                        client_email=client_email,
+                        claim_reference=claim_ref,
+                        attachment_filename=uploaded_file.name,
+                        attachment_path=str(save_path),
+                        file_size=len(file_bytes),
+                        mime_type=mime_type,
+                        email_subject="POD manuel via assistant",
+                        email_from=client_email,
+                        email_received_at=_dt.now().isoformat(),
+                    )
+                    if claim_ref and attachment_id:
+                        db.link_attachment_to_claim(attachment_id, claim_ref)
+                except Exception as db_err:
+                    st.warning(f"⚠️ Enregistrement DB partiel : {db_err}")
+
+                # ── 3. OCR + analyse IA ───────────────────────────────
+                ocr_status = ""
+                try:
+                    from src.scrapers.ocr_processor import OCRProcessor
+                    ocr = OCRProcessor()
+                    extracted = ocr.extract_all_from_file(file_bytes, uploaded_file.name)
+                    raw_text = extracted.get("text", "") if isinstance(extracted, dict) else str(extracted)
+                    if raw_text and len(raw_text) > 20:
+                        analysis = ocr.analyze_rejection_text(raw_text)
+                        reason_key = analysis.get("reason_key", "")
+                        advice = analysis.get("advice", "")
+                        confidence = analysis.get("confidence", 0)
+                        if claim_ref and reason_key:
+                            try:
+                                db.update_claim_ai_analysis(claim_ref, reason_key, advice)
+                            except Exception:
+                                pass
+                        if reason_key:
+                            ocr_status = (
+                                f"\n\n🔍 **Analyse OCR** : motif détecté **{reason_key}** "
+                                f"(confiance {int(confidence * 100)}%)\n> {advice}"
+                            )
+                        else:
+                            ocr_status = "\n\n🔍 **OCR** : texte extrait, motif non identifié."
+                    else:
+                        ocr_status = "\n\n🔍 **OCR** : aucun texte exploitable extrait."
+                except Exception as ocr_err:
+                    ocr_status = f"\n\n🔍 **OCR** : analyse non disponible ({ocr_err})."
+
+                # ── 4. Message de confirmation ────────────────────────
+                ref_label = f" pour **{claim_ref}**" if claim_ref else ""
+                db_label = f" (ID #{attachment_id})" if attachment_id else ""
+                notice = (
+                    f"📎 Preuve déposée{ref_label} : `{uploaded_file.name}`{db_label}.  \n"
+                    f"✅ Enregistré en base et lié au dossier."
+                    f"{ocr_status}"
+                )
+                st.session_state.messages.append({"role": "assistant", "content": notice})
+                st.success("✅ Preuve enregistrée et analysée !")
+                st.rerun()
+
+
+    # ── Historique ────────────────────────────────────────────────────────────
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Accept user input
-    if prompt := st.chat_input("Votre question..."):
-        # Input validation and sanitization
-        MAX_PROMPT_LENGTH = 500
-        prompt = prompt.strip()
-        
-        if len(prompt) > MAX_PROMPT_LENGTH:
-            st.error(f"⚠️ Question trop longue (maximum {MAX_PROMPT_LENGTH} caractères)")
-            return
-        
-        if len(prompt) < 3:
-            st.warning("⚠️ Veuillez poser une question plus détaillée")
-            return
-        
-        # Basic prompt injection detection
-        dangerous_patterns = ["ignore previous", "system:", "admin_override", "\n\n\n"]
-        if any(pattern in prompt.lower() for pattern in dangerous_patterns):
-            st.warning("⚠️ Cette question contient des éléments suspects.")
-            return
-        
-        # Rate limiting: enforce cooldown between requests
-        COOLDOWN_SECONDS = 2.0
-        if 'last_request_time' in st.session_state:
-            time_since_last = time.time() - st.session_state.last_request_time
-            if time_since_last < COOLDOWN_SECONDS:
-                remaining = COOLDOWN_SECONDS - time_since_last
-                st.warning(f"⏳ Veuillez patienter {remaining:.1f} secondes avant la prochaine question.")
-                return
-        
-        # Update last request time
-        st.session_state.last_request_time = time.time()
-        
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        
-        # Display user message in chat message container
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    # ── Input : saisie manuelle ou raccourci ──────────────────────────────────
+    prompt = st.chat_input("Votre question ou action…")
 
-        # Display assistant response in chat message container
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            full_response = ""
-            csv_data = None
-            
-            # Call Gemini avec contexte client
-            try:
-                # Récupérer l'email du client connecté
-                client_email = st.session_state.get('client_email', None)
-                
-                # Get response stream avec contexte client
-                response_stream = st.session_state.chatbot_manager.generate_response_stream(
-                    prompt, 
-                    st.session_state.messages[:-1],  # Pass history excluding current prompt
-                    client_email=client_email  # Contexte personnalisé
-                )
-                
-                # Stream response and detect CSV export
-                try:
-                    for chunk in response_stream:
-                        full_response += chunk
-                        message_placeholder.markdown(full_response + "▌")
-                        time.sleep(0.01) # Petit délai pour effet visuel fluide
-                        
-                        # Detect CSV content in response
-                        if "```csv" in chunk and "```" in full_response:
-                            # Extract CSV content from markdown code block
-                            import re
-                            csv_match = re.search(r'```csv\n(.*?)\n```', full_response, re.DOTALL)
-                            if csv_match:
-                                csv_data = csv_match.group(1)
-                                st.session_state['csv_export_data'] = csv_data
-                except Exception as e:
-                    # If it's the 404 error, it might be a stale session (cached manager with old model name)
-                    if "404" in str(e) and "gemini" in str(e).lower():
-                        st.warning("⚠️ Session expirée. Ré-initialisation de l'assistant...")
-                        st.session_state.chatbot_manager = ChatbotManager()
-                        # On ne réessaie pas automatiquement ici pour éviter les boucles infinies en stream, 
-                        # mais l'utilisateur peut renvoyer son message
-                        st.info("🔄 L'assistant a été mis à jour. Veuillez renvoyer votre question.")
-                        return
-                    raise e
-                
-                message_placeholder.markdown(full_response)
-            except Exception as e:
-                error_msg = f"Erreur : {str(e)}"
-                message_placeholder.error(error_msg)
-                full_response = error_msg
+    # Injecter le raccourci cliqué comme prompt
+    if not prompt and "_quick_action" in st.session_state:
+        prompt = st.session_state.pop("_quick_action")
 
-        # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
-        
-        # Display CSV download button if CSV was exported
-        if 'csv_export_data' in st.session_state and st.session_state.csv_export_data:
-            from datetime import datetime
-            st.download_button(
-                label="📥 Télécharger le CSV",
-                data=st.session_state.csv_export_data,
-                file_name=f"reclamations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv",
-                key=f"csv_download_{len(st.session_state.messages)}"  # Unique key per export
+    if not prompt:
+        return
+
+    # ── Validation ────────────────────────────────────────────────────────────
+    prompt = prompt.strip()
+    MAX_PROMPT_LENGTH = 600
+    if len(prompt) > MAX_PROMPT_LENGTH:
+        st.error(f"⚠️ Question trop longue (maximum {MAX_PROMPT_LENGTH} caractères)")
+        return
+    if len(prompt) < 3:
+        st.warning("⚠️ Veuillez poser une question plus détaillée")
+        return
+
+    dangerous_patterns = ["ignore previous", "system:", "admin_override", "\n\n\n"]
+    if any(p in prompt.lower() for p in dangerous_patterns):
+        st.warning("⚠️ Cette question contient des éléments suspects.")
+        return
+
+    # ── Rate limiting ─────────────────────────────────────────────────────────
+    COOLDOWN_SECONDS = 2.0
+    if 'last_request_time' in st.session_state:
+        elapsed = time.time() - st.session_state.last_request_time
+        if elapsed < COOLDOWN_SECONDS:
+            st.warning(f"⏳ Veuillez patienter {COOLDOWN_SECONDS - elapsed:.1f}s.")
+            return
+    st.session_state.last_request_time = time.time()
+
+    # ── Confirmation pour actions sensibles ──────────────────────────────────
+    is_sensitive = any(kw in prompt.lower() for kw in ['relancer', 'relance', 'payé', 'paiement', 'mark', 'marquer'])
+    has_clm_ref  = bool(re.search(r'CLM-[\w-]+', prompt.upper()))
+
+    if is_sensitive and has_clm_ref:
+        confirm_key = f"confirm_{len(st.session_state.messages)}"
+        if not st.session_state.get(confirm_key):
+            clm_ref = re.search(r'CLM-[\w-]+', prompt.upper()).group(0)
+            action_label = "envoyer une relance" if "relance" in prompt.lower() else "enregistrer ce paiement"
+            st.warning(f"⚠️ Vous êtes sur le point de **{action_label}** pour **{clm_ref}**.")
+            col1, col2 = st.columns(2)
+            if col1.button("✅ Confirmer", key=f"ok_{confirm_key}"):
+                st.session_state[confirm_key] = True
+                st.rerun()
+            col2.button("❌ Annuler", key=f"cancel_{confirm_key}")
+            return
+
+    # ── Envoyer le message ────────────────────────────────────────────────────
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    client_email = st.session_state.get('client_email', None)
+
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
+        csv_data = None
+
+        try:
+            response_stream = st.session_state.chatbot_manager.generate_response_stream(
+                prompt,
+                st.session_state.messages[:-1],
+                client_email=client_email
             )
+
+            try:
+                for chunk in response_stream:
+                    full_response += chunk
+                    message_placeholder.markdown(full_response + "▌")
+                    time.sleep(0.008)
+
+                    # Détecter CSV dans la réponse
+                    csv_match = re.search(r'```csv\n(.*?)\n```', full_response, re.DOTALL)
+                    if csv_match:
+                        csv_data = csv_match.group(1)
+                        st.session_state['csv_export_data'] = csv_data
+
+            except Exception as stream_err:
+                if "404" in str(stream_err) and "gemini" in str(stream_err).lower():
+                    st.warning("⚠️ Session expirée. Ré-initialisation de l'assistant…")
+                    st.session_state.chatbot_manager = ChatbotManager()
+                    st.info("🔄 Assistant mis à jour. Renvoyez votre question.")
+                    return
+                raise stream_err
+
+            message_placeholder.markdown(full_response)
+
+        except Exception as e:
+            error_msg = f"❌ Erreur : {str(e)}"
+            message_placeholder.error(error_msg)
+            full_response = error_msg
+
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+    # ── Bouton téléchargement CSV ─────────────────────────────────────────────
+    if st.session_state.get('csv_export_data'):
+        from datetime import datetime
+        st.download_button(
+            label="📥 Télécharger le CSV",
+            data=st.session_state.csv_export_data,
+            file_name=f"reclamations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            key=f"csv_dl_{len(st.session_state.messages)}"
+        )
+        st.session_state.pop('csv_export_data', None)
+
+    # ── Bouton téléchargement PDF (lettre contestation / mise en demeure) ─────
+    if st.session_state.get('_appeal_pdf'):
+        appeal = st.session_state['_appeal_pdf']
+        st.download_button(
+            label=f"📄 Télécharger : {appeal['doc_type']} — {appeal['claim_ref']}",
+            data=appeal['bytes'],
+            file_name=appeal['filename'],
+            mime="application/pdf",
+            key=f"appeal_dl_{len(st.session_state.messages)}",
+            type="primary",
+        )
+        st.session_state.pop('_appeal_pdf', None)
+

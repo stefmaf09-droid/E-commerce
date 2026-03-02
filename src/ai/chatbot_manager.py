@@ -2,7 +2,8 @@
 import os
 import logging
 import json
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from typing import List, Dict, Generator, Optional, Any
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
@@ -31,42 +32,40 @@ class ChatbotManager:
             logger.error("GEMINI_API_KEY non trouvée. Le chatbot ne fonctionnera pas.")
             return
 
-        genai.configure(api_key=api_key)
-        
+        # Nouveau SDK : client avec api_key
+        self.client = genai.Client(api_key=api_key)
+
         # Initialiser les tools
         self.tools = ChatbotTools()
-        
-        # Créer le modèle AVEC function calling
+
+        # Construire les function declarations pour le function calling
         try:
-            # En version 0.8.6, il est plus stable d'utiliser genai.types.Tool
-            from google.generativeai.types import Tool, FunctionDeclarationsTool, FunctionDeclaration
-            
             declarations = []
             for tool_dict in self.tools.get_available_tools():
-                declarations.append(FunctionDeclaration(
+                declarations.append(types.FunctionDeclaration(
                     name=tool_dict['name'],
                     description=tool_dict['description'],
-                    parameters=tool_dict['parameters']
+                    parameters=types.Schema(
+                        type=types.Type.OBJECT,
+                        properties={
+                            k: types.Schema(
+                                type=types.Type.STRING if v.get('type') == 'string' else types.Type.NUMBER,
+                                description=v.get('description', '')
+                            )
+                            for k, v in tool_dict['parameters'].get('properties', {}).items()
+                        },
+                        required=tool_dict['parameters'].get('required', [])
+                    )
                 ))
-            
-            # Utiliser la structure attendue par genai
-            gemini_tools = [Tool(function_declarations=declarations)]
-            
-            # Utiliser gemini-2.0-flash (disponible dans cet environnement)
-            self.model = genai.GenerativeModel(
-                'gemini-2.0-flash',
-                tools=gemini_tools
-            )
-            logger.info("Gemini model initialized successfully with gemini-2.0-flash")
+
+            self.gemini_tools = [types.Tool(function_declarations=declarations)]
+            self.model_name = 'gemini-2.0-flash'
+            logger.info("Gemini client initialized (google.genai SDK) with gemini-2.0-flash + function calling")
         except Exception as e:
-            logger.error(f"Failed to initialize Gemini model with tools: {e}")
-            # Fallback stable
-            try:
-                self.model = genai.GenerativeModel('gemini-2.0-flash')
-                logger.warning("Gemini model initialized WITHOUT function calling (fallback to 2.0-flash)")
-            except Exception as e2:
-                logger.error(f"Failed to initialize Gemini model: {e2}")
-                self.model = None
+            logger.error(f"Failed to build function declarations: {e}")
+            self.gemini_tools = None
+            self.model_name = 'gemini-2.0-flash'
+            logger.warning("Gemini initialized WITHOUT function calling (fallback)")
 
     def _load_knowledge_base(self) -> str:
         """Charge le contenu de la base de connaissances enrichie."""
@@ -178,7 +177,7 @@ class ChatbotManager:
             history: Historique de la conversation
             client_email: Email du client connecté (pour contexte personnalisé)
         """
-        if not hasattr(self, 'model'):
+        if not hasattr(self, 'client'):
             yield "Désolé, je ne suis pas correctement configuré (Clé API manquante)."
             return
 
@@ -224,71 +223,233 @@ class ChatbotManager:
         # FALLBACK MANUEL: Détecter les intentions d'action directement
         # Car Gemini ne déclenche pas toujours les function calls de manière fiable
         user_input_lower = user_input.lower()
-        
-        # Détection: Suivi de colis (regex simple pour numéros de suivi communs)
         import re
-        tracking_match = re.search(r'([A-Z0-9]{10,20})', user_input)
-        if tracking_match and any(kw in user_input_lower for kw in ['colis', 'suivi', 'tracking', 'où est', 'info']):
+
+        # ── 1. SUIVI DE COLIS ────────────────────────────────────────────────
+        tracking_match = re.search(r'([A-Z]{2}[A-Z0-9]{8,18}[A-Z]{2}|[A-Z0-9]{10,25})', user_input)
+        if tracking_match and any(kw in user_input_lower for kw in ['colis', 'suivi', 'tracking', 'où est', 'info', 'livraison']):
             tracking_number = tracking_match.group(1)
-            # Éviter de matcher des dates ou des ref de claims
             if not tracking_number.startswith('CLM-') and not re.match(r'^\d{4}-\d{2}-\d{2}$', tracking_number):
-                logger.info(f"MANUAL TRIGGER: get_tracking_status detected for {tracking_number}")
-                yield f"🔍 Analyse du colis {tracking_number} en cours...\n\n"
-                
-                result = self.tools.execute_tool('get_tracking_status', {
-                    'tracking_number': tracking_number
-                })
-                
+                logger.info(f"MANUAL TRIGGER: get_tracking_status for {tracking_number}")
+                yield f"🔍 Analyse du colis **{tracking_number}** en cours...\n\n"
+                result = self.tools.execute_tool('get_tracking_status', {'tracking_number': tracking_number})
                 if result['success']:
-                    data = result['data']
+                    data = result.get('data', {})
                     yield f"✅ **Statut : {data.get('status', 'Inconnu')}** ({data.get('carrier', 'Inconnu')})\n\n"
-                    
                     if data.get('delivery_date'):
                         yield f"📅 Livré le : {data['delivery_date']}\n"
-                    
                     if data.get('events'):
                         yield "\n**Derniers événements :**\n"
                         for event in data['events'][:3]:
-                            yield f"- {event.get('label')} ({event.get('date', '')[:10]})\n"
-                    
-                    yield "\n💡 *Vous pouvez maintenant me demander de créer une réclamation si ce statut ne correspond pas à la réalité.*"
+                            yield f"- {event.get('label', '')} ({event.get('date', '')[:10]})\n"
+                    yield "\n💡 *Demandez-moi de créer une réclamation si ce statut est incorrect.*"
                 else:
                     yield f"❌ {result['message']}\n"
                 return
 
-        # Détection: Export CSV
-        if any(keyword in user_input_lower for keyword in ['exporter', 'export', 'télécharger', 'download', 'csv']):
-            if any(keyword in user_input_lower for keyword in ['litige', 'réclamation', 'claim', 'dossier']):
-                logger.info(f"MANUAL TRIGGER: export_claims_csv detected from user input")
-                yield "🔧 Détection automatique : Export CSV demandé...\n\n"
-                
-                result = self.tools.execute_tool('export_claims_csv', {
-                    'client_email': client_email or 'demo@refundly.ai'
-                })
-                
+        # ── 2. LISTER LES RÉCLAMATIONS ──────────────────────────────────────
+        if any(kw in user_input_lower for kw in ['mes réclamations', 'mes dossiers', 'mes litiges', 'liste', 'lister', 'voir mes', 'afficher mes', 'quelles réclamations', 'quels dossiers']):
+            if any(kw in user_input_lower for kw in ['réclamation', 'dossier', 'litige', 'claim', 'en attente', 'pending']):
+                logger.info("MANUAL TRIGGER: list_pending_claims")
+                yield "📋 Chargement de vos réclamations...\n\n"
+                result = self.tools.execute_tool('list_pending_claims', {'client_email': client_email or 'demo@refundly.ai'})
+                if result['success']:
+                    claims = result.get('data', {}).get('claims', [])
+                    if claims:
+                        yield f"**{len(claims)} réclamation(s) trouvée(s) :**\n\n"
+                        yield "| Référence | Transporteur | Type | Montant | Statut | Relance |\n"
+                        yield "|---|---|---|---|---|---|\n"
+                        for c in claims[:10]:
+                            level = c.get('follow_up_level') or 0
+                            last_fu = c.get('last_follow_up_at') or ''
+                            status = c.get('status', '')
+                            if level == 0:
+                                # Rejected sans aucune relance = signal d'alarme
+                                if status == 'rejected':
+                                    relance_cell = "⚠️ Rejeté sans suivi"
+                                elif status == 'accepted':
+                                    relance_cell = "✅ Résolu"
+                                else:
+                                    relance_cell = "🟢 Aucune"
+                            else:
+                                # Calculer l'ancienneté de la dernière relance
+                                try:
+                                    from datetime import datetime as _dt
+                                    last_d = _dt.fromisoformat(last_fu[:19])
+                                    days = (_dt.now() - last_d).days
+                                    age = f"il y a {days}j" if days > 0 else "aujourd'hui"
+                                except Exception:
+                                    age = last_fu[:10] if last_fu else "?"
+                                # Cas spécial : rejected malgré des relances
+                                if status == 'rejected':
+                                    relance_cell = f"🔴 {level}× — Rejeté malgré relances"
+                                else:
+                                    badge = "🟡" if level == 1 else ("🟠" if level == 2 else "🔴")
+                                    relance_cell = f"{badge} {level}× ({age})"
+                            yield f"| {c.get('claim_reference','N/A')} | {c.get('carrier','N/A')} | {c.get('dispute_type','N/A')} | {c.get('amount_requested',0):.2f}€ | {status or 'N/A'} | {relance_cell} |\n"
+                        if len(claims) > 10:
+                            yield f"\n*... et {len(claims)-10} autres.*\n"
+                        yield "\n💡 Dites-moi si vous souhaitez relancer une réclamation ou exporter le tout en CSV."
+
+                    else:
+                        yield "ℹ️ Aucune réclamation en attente pour votre compte."
+                else:
+                    yield f"❌ {result['message']}"
+                return
+
+        # ── 3. RELANCE TRANSPORTEUR ───────────────────────────────────────────
+        clm_match = re.search(r'(CLM-[\w-]+)', user_input.upper())
+        if clm_match and any(kw in user_input_lower for kw in ['relancer', 'relance', 'rappel', 'remind', 'relance', 'suivre up', 'follow']):
+            claim_ref = clm_match.group(1)
+            logger.info(f"MANUAL TRIGGER: send_carrier_reminder for {claim_ref}")
+            yield f"📨 Envoi d'une relance au transporteur pour **{claim_ref}**...\n\n"
+            result = self.tools.execute_tool('send_carrier_reminder', {'claim_reference': claim_ref})
+            if result['success']:
+                yield f"✅ {result['message']}\n\n"
+                yield "📅 La relance a été enregistrée. Le transporteur dispose de 30 jours pour répondre."
+            else:
+                yield f"❌ {result['message']}"
+            return
+
+        # ── 4. MARQUER COMME PAYÉ ────────────────────────────────────────────
+        if clm_match and any(kw in user_input_lower for kw in ['payé', 'paiement', 'reçu', 'rembours', 'viré', 'encaiss']):
+            claim_ref = clm_match.group(1)
+            amount_match = re.search(r'(\d+[.,]?\d*)\s*€?', user_input)
+            amount = float(amount_match.group(1).replace(',', '.')) if amount_match else 0.0
+            logger.info(f"MANUAL TRIGGER: mark_claim_paid for {claim_ref} amount={amount}")
+            yield f"💰 Enregistrement du paiement pour **{claim_ref}** ({amount:.2f}€)...\n\n"
+            result = self.tools.execute_tool('mark_claim_paid', {'claim_reference': claim_ref, 'amount_received': amount})
+            if result['success']:
+                yield f"✅ {result['message']}\n"
+            else:
+                yield f"❌ {result['message']}"
+            return
+
+        # ── 5. EXPORT CSV ──────────────────────────────────────────────────────
+        if any(kw in user_input_lower for kw in ['exporter', 'export', 'télécharger', 'download', 'csv']):
+            if any(kw in user_input_lower for kw in ['litige', 'réclamation', 'claim', 'dossier']):
+                logger.info("MANUAL TRIGGER: export_claims_csv")
+                yield "🔧 Génération du fichier CSV...\n\n"
+                result = self.tools.execute_tool('export_claims_csv', {'client_email': client_email or 'demo@refundly.ai'})
                 if result['success']:
                     yield f"✅ {result['message']}\n\n"
-                    
-                    if 'data' in result and result['data']:
-                        csv_content = result['data'].get('csv_content', '')
-                        count = result['data'].get('count', 0)
-                        
-                        if csv_content:
-                            yield f"📄 **Fichier CSV généré** ({count} réclamation(s)) :\n\n"
-                            yield f"```csv\n{csv_content}\n```\n\n"
-                            yield "💡 **Copier-coller** ce contenu dans Excel/Sheets ou enregistrer en .csv\n"
-                        else:
-                            yield "ℹ️ Aucune donnée à exporter.\n"
+                    data = result.get('data', {})
+                    csv_content = data.get('csv_content', '')
+                    count = data.get('count', 0)
+                    if csv_content:
+                        yield f"📄 **Fichier CSV** ({count} réclamation(s)) :\n\n```csv\n{csv_content}\n```\n\n"
+                        yield "💡 Cliquez sur **Télécharger le CSV** ci-dessous pour sauvegarder le fichier."
+                    else:
+                        yield "ℹ️ Aucune donnée à exporter."
                 else:
-                    yield f"❌ {result['message']}\n"
-                
-                return  # STOP: ne pas appeler Gemini après
-        
-        # Si pas de détection manuelle, continuer avec Gemini normalement
-        # Préparation de l'historique pour Gemini
-        chat = self.model.start_chat(history=[])
-        
-        # Construire le prompt complet
+                    yield f"❌ {result['message']}"
+                return
+
+        # ── 6. CRÉATION RÉCLAMATION ──────────────────────────────────────────
+        if any(kw in user_input_lower for kw in ['créer une réclamation', 'créer réclamation', 'nouvelle réclamation', 'ouvrir un dossier', 'faire une réclamation', 'déposer une réclamation']):
+            # Vérifier si on a les infos nécessaires
+            has_tracking = bool(re.search(r'[A-Z0-9]{10,25}', user_input))
+            if has_tracking:
+                logger.info("MANUAL TRIGGER: create_claim (forwarded to Gemini for params)")
+            else:
+                yield "📥 Pour créer une réclamation, j'ai besoin des informations suivantes :\n\n"
+                yield "1. 📦 **Numéro de suivi** du colis\n"
+                yield "2. 🚚 **Transporteur** (Colissimo, Chronopost, UPS, DHL...)\n"
+                yield "3. ⚖️ **Type de litige** : perte, avarie, retard, fausse livraison\n"
+                yield "4. 💶 **Montant** de la réclamation (en euros)\n\n"
+                yield "💡 *Répondez avec ces informations et je créerai le dossier automatiquement.*"
+                return
+
+        # ── 7. CONTESTATION / LETTRE D'APPEL ───────────────────────────────────
+        if clm_match and any(kw in user_input_lower for kw in [
+            'contester', 'contestation', 'lettre', 'appel', 'recours',
+            'mise en demeure', 'génère', 'genere', 'rédige', 'redige'
+        ]):
+            claim_ref = clm_match.group(1)
+            logger.info(f"MANUAL TRIGGER: generate_appeal for {claim_ref}")
+            yield f"⚖️ Génération de la lettre de contestation pour **{claim_ref}**\u2026\n\n"
+            try:
+                from src.database.database_manager import get_db_manager
+                from src.ai.appeal_generator import AppealGenerator
+                db = get_db_manager()
+                claim = db.get_claim(claim_reference=claim_ref)
+                if not claim:
+                    yield f"❌ Dossier **{claim_ref}** introuvable en base."
+                    return
+
+                reason_key = claim.get('ai_reason_key') or 'default'
+                dispute_data = {
+                    'claim_reference': claim_ref,
+                    'tracking_number': claim.get('tracking_number', 'N/A'),
+                    'carrier': claim.get('carrier', 'le transporteur'),
+                    'amount_requested': claim.get('amount_requested', 0),
+                    'order_date': str(claim.get('order_date', 'N/A')),
+                    'client_name': client_email or 'Client',
+                    'client_email': client_email or '',
+                    'recipient_name': claim.get('customer_name', 'le destinataire'),
+                    'status': claim.get('status', ''),
+                }
+
+                # Détecter si mise en demeure (21j+) ou simple appel
+                from datetime import datetime as _dt, timedelta
+                last_fu = claim.get('last_follow_up_at') or claim.get('created_at') or ''
+                is_formal_notice = False
+                if last_fu:
+                    try:
+                        age_days = (_dt.now() - _dt.fromisoformat(str(last_fu)[:19])).days
+                        is_formal_notice = age_days >= 21
+                    except Exception:
+                        pass
+
+                if is_formal_notice:
+                    from src.reports.legal_document_generator import LegalDocumentGenerator
+                    yield f"📜 Dossier âgé de plus de 21 jours — génération d'une **mise en demeure**.\n\n"
+                    gen = LegalDocumentGenerator()
+                    import tempfile, pathlib
+                    out_dir = "data/legal_docs"
+                    pdf_path = gen.generate_formal_notice(claim, output_dir=out_dir)
+                    pdf_bytes = pathlib.Path(pdf_path).read_bytes() if pdf_path else b""
+                    doc_type = "Mise en Demeure"
+                else:
+                    gen = AppealGenerator()
+                    letter_text = gen.generate(dispute_data, reason_key)
+                    pdf_bytes = AppealGenerator.generate_pdf(letter_text, f"contestation_{claim_ref}.pdf")
+                    doc_type = "Lettre de Contestation"
+
+                if pdf_bytes:
+                    import pathlib
+                    save_dir = pathlib.Path("data/appeals")
+                    save_dir.mkdir(parents=True, exist_ok=True)
+                    ts = _dt.now().strftime("%Y%m%d_%H%M%S")
+                    pdf_file = save_dir / f"{ts}_{claim_ref}_{doc_type.replace(' ', '_')}.pdf"
+                    pdf_file.write_bytes(pdf_bytes)
+
+                    # Mettre à jour le statut en 'appealing'
+                    try:
+                        db.update_claim(claim['id'], status='appealing')
+                    except Exception:
+                        pass
+
+                    # Stocker le PDF pour téléchargement Streamlit
+                    import streamlit as st
+                    st.session_state['_appeal_pdf'] = {
+                        'bytes': pdf_bytes,
+                        'filename': pdf_file.name,
+                        'doc_type': doc_type,
+                        'claim_ref': claim_ref,
+                    }
+                    yield f"✅ **{doc_type}** générée pour {claim_ref}\n"
+                    yield f"- Motif utilisé : `{reason_key}`\n"
+                    yield f"- Statut dossier mis à jour : `appealing`\n\n"
+                    yield "📥 **Cliquez sur le bouton de téléchargement ci-dessous** pour récupérer le PDF."
+                else:
+                    yield "⚠️ Génération PDF impossible (ReportLab manquant ?). Lettre texté disponible."
+            except Exception as e:
+                logger.error(f"Appeal generation failed: {e}")
+                yield f"❌ Erreur lors de la génération : {e}"
+            return
+
+        # Si pas de détection manuelle, envoyer à Gemini
         full_prompt = f"{system_prompt}\n\nHistorique de conversation:\n"
         for msg in history[-5:]:  # Garde les 5 derniers échanges
             role = "Utilisateur" if msg["role"] == "user" else "Assistant"
@@ -302,53 +463,44 @@ class ChatbotManager:
             logger.info(f"Sending prompt to Gemini (user: {client_email or 'anonymous'})")
             response = self._call_gemini_with_retry(full_prompt)
             
-            # Stream la réponse sans essayer de détecter les function calls (pas supportés pour l'instant)
+            # Stream la réponse et gérer les function calls
             for chunk in response:
                 try:
-                    # Extraire le texte du chunk
-                    if hasattr(chunk, 'text'):
+                    if hasattr(chunk, 'candidates') and chunk.candidates:
+                        for candidate in chunk.candidates:
+                            if not hasattr(candidate, 'content') or not candidate.content:
+                                continue
+                            for part in candidate.content.parts:
+                                # Traiter d'abord les function calls
+                                if hasattr(part, 'function_call') and part.function_call.name:
+                                    fc = part.function_call
+                                    yield f"🔧 Exécution de l'action : {fc.name}...\n\n"
+                                    params = dict(fc.args)
+                                    if 'client_email' in params and params['client_email'] == 'CURRENT_USER':
+                                        params['client_email'] = client_email
+                                    result = self.tools.execute_tool(fc.name, params)
+                                    if result['success']:
+                                        yield f"✅ {result['message']}\n\n"
+                                        if 'data' in result and result['data']:
+                                            yield f"📋 Détails :\n"
+                                            if isinstance(result['data'], dict):
+                                                for key, value in result['data'].items():
+                                                    yield f"- {key}: {value}\n"
+                                            else:
+                                                yield f"{result['data']}\n"
+                                    else:
+                                        yield f"❌ Erreur : {result['message']}\n"
+                                    logger.info(f"Function call executed: {fc.name} - Success: {result['success']}")
+                                    return  # Stop après un function call
+                                # Sinon texte
+                                elif hasattr(part, 'text') and part.text:
+                                    yield part.text
+                    elif hasattr(chunk, 'text') and chunk.text:
                         yield chunk.text
-                    elif hasattr(chunk, 'parts'):
-                        for part in chunk.parts:
-                            if hasattr(part, 'text'):
-                                yield part.text
-                            # Détecter si c'est un function call
-                            if hasattr(part, 'function_call'):
-                                function_call_detected = True
-                                fc = part.function_call
-                                
-                                # Exécuter la fonction
-                                yield f"🔧 Exécution de l'action : {fc.name}...\n\n"
-                                
-                                # Convertir les args en dict
-                                params = {k: v for k, v in fc.args.items()}
-                                
-                                # Ajouter client_email si nécessaire
-                                if 'client_email' in params and params['client_email'] == 'CURRENT_USER':
-                                    params['client_email'] = client_email
-                                
-                                # Exécuter
-                                result = self.tools.execute_tool(fc.name, params)
-                                
-                                if result['success']:
-                                    yield f"✅ {result['message']}\n\n"
-                                    if 'data' in result and result['data']:
-                                        # Formater les données de retour
-                                        yield f"📋 Détails :\n"
-                                        if isinstance(result['data'], dict):
-                                            for key, value in result['data'].items():
-                                                yield f"- {key}: {value}\n"
-                                        else:
-                                            yield f"{result['data']}\n"
-                                else:
-                                    yield f"❌ Erreur : {result['message']}\n"
-                                
-                                logger.info(f"Function call executed: {fc.name} - Success: {result['success']}")
-                                # IMPORTANT: Stopper la génération pour éviter que Gemini invente du texte
-                                return
                 except Exception as chunk_error:
                     logger.warning(f"Error processing chunk: {chunk_error}")
                     continue
+
                     
         except Exception as e:
             error_msg = f"Erreur lors de l'appel à Gemini: {str(e)}"
@@ -362,6 +514,13 @@ class ChatbotManager:
         reraise=True
     )
     def _call_gemini_with_retry(self, prompt: str):
-        """Call Gemini API with automatic retry on transient failures."""
-        logger.debug("Calling Gemini API (with retry logic)")
-        return self.model.generate_content(prompt, stream=True)
+        """Call Gemini API (nouveau SDK) with automatic retry on transient failures."""
+        logger.debug("Calling Gemini API via google.genai (with retry logic)")
+        config = types.GenerateContentConfig(
+            tools=self.gemini_tools if self.gemini_tools else None
+        )
+        return self.client.models.generate_content_stream(
+            model=self.model_name,
+            contents=prompt,
+            config=config
+        )

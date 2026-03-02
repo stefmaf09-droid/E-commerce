@@ -347,7 +347,12 @@ def render_file_upload():
                                     
                                     # Boucle d'exécution
                                     progress_bar = st.progress(0)
-                                    df_final = st.session_state.selected_anomalies
+                                    # reset_index garantit un index 0-based pour que progress() reste dans [0.0, 1.0]
+                                    df_final = st.session_state.selected_anomalies.reset_index(drop=True)
+                                    
+                                    if df_final.empty:
+                                        st.warning("Aucune réclamation sélectionnée.")
+                                        st.stop()
                                     
                                     for step_num, (idx, row) in enumerate(df_final.iterrows(), 1):
                                         try:

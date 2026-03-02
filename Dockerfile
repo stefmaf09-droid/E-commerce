@@ -2,6 +2,9 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# Logs non-bufferisés en temps réel (important pour Docker)
+ENV PYTHONUNBUFFERED=1
+
 # Install system dependencies
 # tesseract-ocr: for OCRProcessor
 # libpq-dev: for psycopg2 (if needed later)
@@ -30,4 +33,7 @@ EXPOSE 8501
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
 
 # Run the application
-CMD ["streamlit", "run", "client_dashboard_main_new.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "client_dashboard_main_new.py", \
+    "--server.port=8501", \
+    "--server.address=0.0.0.0", \
+    "--server.headless=true"]

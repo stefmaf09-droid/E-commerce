@@ -1,4 +1,6 @@
 
+import hmac
+import hashlib
 import logging
 from typing import Dict, Any
 from datetime import datetime
@@ -9,10 +11,64 @@ logger = logging.getLogger(__name__)
 class WebhookHandler:
     """
     Traite les payloads entrants des services de tracking (Webhooks).
+    Supporte: AfterShip, Shopify (format générique)
     """
-    
+
     def __init__(self, db_manager: DatabaseManager = None):
         self.db = db_manager or DatabaseManager()
+        self._ensure_table_exists()
+
+    def _ensure_table_exists(self):
+        """Crée la table webhook_events si elle n'existe pas encore."""
+        try:
+            conn = self.db.get_connection()
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS webhook_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tracking_number TEXT NOT NULL,
+                    event_tag TEXT NOT NULL,
+                    payload_json TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Could not ensure webhook_events table: {e}")
+
+    def verify_signature(self, raw_body: bytes, secret: str, received_hmac: str) -> bool:
+        """
+        Valide la signature HMAC-SHA256 d'un webhook entrant.
+        Compatible Shopify (X-Shopify-Hmac-Sha256) et AfterShip.
+
+        Args:
+            raw_body:      Corps brut de la requête HTTP (bytes)
+            secret:        Secret partagé configuré dans le service
+            received_hmac: Valeur reçue dans le header (base64 ou hex)
+
+        Returns:
+            True si la signature est valide
+        """
+        import base64
+        expected_bytes = hmac.new(
+            secret.encode('utf-8'),
+            raw_body,
+            hashlib.sha256
+        ).digest()
+        # Détecter hex en premier (SHA-256 hex = 64 chars hexadécimaux)
+        # base64.b64decode peut accepter faussement un hexdigest, donc on teste hex avant
+        received_bytes = None
+        if len(received_hmac) == 64 and all(c in '0123456789abcdefABCDEF' for c in received_hmac):
+            try:
+                received_bytes = bytes.fromhex(received_hmac)
+            except Exception:
+                pass
+        if received_bytes is None:
+            try:
+                received_bytes = base64.b64decode(received_hmac)
+            except Exception:
+                return False
+        return hmac.compare_digest(expected_bytes, received_bytes)
 
     def handle_tracking_update(self, payload: Dict[str, Any]) -> bool:
         """

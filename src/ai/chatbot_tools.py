@@ -242,23 +242,22 @@ class ChatbotTools:
             "data": claim
         }
     
-    def _list_pending_claims(self, client_email: str) -> Dict[str, Any]:
-        """Liste les réclamations en attente d'un client."""
+    def _list_pending_claims(self, client_email: str):
+        """Liste les reclamations d'un client (wrappees dans dict)."""
         client = self.db.get_client(email=client_email)
         if not client:
-            return {
-                "success": False,
-                "message": "Client introuvable"
-            }
-        
-        claims = self.db.get_client_claims(client['id'], status='pending')
-        
+            return {"success": False, "message": "Client introuvable"}
+        try:
+            raw = self.db.get_client_claims(client['id'])
+        except Exception:
+            raw = []
+        claims = list(raw) if raw else []
         return {
             "success": True,
-            "message": f"{len(claims)} réclamation(s) en attente trouvée(s)",
-            "data": claims
+            "message": f"{len(claims)} reclamation(s) trouvee(s)",
+            "data": {"claims": claims}
         }
-    
+
     def _create_claim(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Crée une nouvelle réclamation."""
         # Récupérer le client

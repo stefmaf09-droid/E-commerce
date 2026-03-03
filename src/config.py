@@ -115,13 +115,32 @@ class Config:
     
     @classmethod
     def get_gemini_api_key(cls) -> Optional[str]:
-        """Get Gemini API key with multiple name variants."""
-        # Try both common variants
-        return (
+        """Get Gemini API key with multiple name variants and support for Key Pooling.
+        If multiple keys are separated by commas, returns one randomly to avoid rate limits."""
+        import random
+        import re
+        
+        raw_key = (
             cls.get('GEMINI_API_KEY') or 
             cls.get('GOOGLE_API_KEY') or
             cls.get('GOOGLE_GEMINI_API_KEY')
         )
+        
+        if not raw_key:
+            return None
+            
+        # Support pour la rotation de clés (comma or pipe separated)
+        keys = [k.strip() for k in re.split(r'[,|;]', raw_key) if k.strip()]
+        
+        if not keys:
+            return None
+            
+        if len(keys) > 1:
+            selected_key = random.choice(keys)
+            logger.debug(f"Key Pooling: Selected 1 key among {len(keys)} available")
+            return selected_key
+            
+        return keys[0]
     
     @classmethod
     def is_production(cls) -> bool:

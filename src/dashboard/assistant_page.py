@@ -184,6 +184,7 @@ def render_assistant_page():
 
                 # ── 3. OCR + analyse IA ───────────────────────────────
                 ocr_status = ""
+                detected_reason = None
                 try:
                     from src.scrapers.ocr_processor import OCRProcessor
                     ocr = OCRProcessor()
@@ -200,6 +201,7 @@ def render_assistant_page():
                             except Exception:
                                 pass
                         if reason_key:
+                            detected_reason = reason_key
                             ocr_status = (
                                 f"\n\n🔍 **Analyse OCR** : motif détecté **{reason_key}** "
                                 f"(confiance {int(confidence * 100)}%)\n> {advice}"
@@ -221,9 +223,12 @@ def render_assistant_page():
                 )
                 st.session_state.messages.append({"role": "assistant", "content": notice})
                 
-                # Enchaînement automatique : si on a une ref et un motif, on lance le prompt générant le PDF
-                if claim_ref and locals().get("reason_key"):
-                    st.session_state["_quick_action"] = f"Génère la lettre de contestation PDF pour le litige {claim_ref} en utilisant le motif '{reason_key}' détecté sur la preuve."
+                # Enchaînement automatique
+                if detected_reason:
+                    if claim_ref:
+                        st.session_state["_quick_action"] = f"Génère la lettre de contestation PDF pour le litige {claim_ref} en utilisant le motif '{detected_reason}' détecté sur la preuve."
+                    else:
+                        st.session_state["_quick_action"] = f"J'ai identifié le motif '{detected_reason}' sur la preuve qui vient d'être uploadée, mais le numéro de litige n'a pas été renseigné. Demande poliment à l'utilisateur pour quelle réclamation (numéro CLM-...) il souhaite générer une lettre de contestation PDF."
                 
                 st.success("✅ Preuve enregistrée et analysée !")
                 st.rerun()

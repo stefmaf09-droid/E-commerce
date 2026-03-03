@@ -4,7 +4,7 @@ Colissimo Scraper - Retrieves tracking information and POD.
 
 import logging
 import re
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 
 from .base_scraper import BaseScraper

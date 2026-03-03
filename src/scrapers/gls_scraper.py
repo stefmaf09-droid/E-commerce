@@ -48,15 +48,27 @@ class GLSScraper(BaseScraper):
             'milis': str(int(datetime.now().timestamp() * 1000)),
         }
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json, text/javascript, */*',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Accept-Language': 'fr-FR,fr;q=0.9',
             'Referer': self.TRACK_PAGE_URL,
             'Origin': 'https://gls-group.eu',
+            'X-Requested-With': 'XMLHttpRequest',
         }
 
         resp = requests.get(self.API_URL, params=params, headers=headers, timeout=15)
         resp.raise_for_status()
-        data = resp.json()
+
+        # Protection si la réponse n'est pas du JSON
+        try:
+            data = resp.json()
+        except Exception:
+            text = resp.text.strip()
+            logger.warning(f"GLS API returned non-JSON for {tracking_number}: {text[:100]}")
+            # Numéro inconnu: GLS retourne souvent du HTML ou un message d'erreur
+            if 'no shipment found' in text.lower() or not text or text.startswith('<'):
+                return self._fallback_response(tracking_number, "Numéro de tracking non trouvé")
+            return self._fallback_response(tracking_number, f"Réponse invalide: {text[:80]}")
 
         return self._parse_api(data, tracking_number)
 

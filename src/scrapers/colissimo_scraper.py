@@ -53,8 +53,8 @@ class ColissimoScraper(BaseScraper):
         
         soup = self._fetch_page(url)
         if not soup:
-            logger.error(f"Failed to fetch tracking page for {tracking_number}")
-            return None
+            logger.warning(f"Failed to fetch tracking page for {tracking_number}")
+            return self._fallback_response(tracking_number, "Numéro inconnu ou accès refusé")
             
         try:
             # 1. Extract Status
@@ -123,7 +123,20 @@ class ColissimoScraper(BaseScraper):
             
         except Exception as e:
             logger.error(f"Error parsing tracking page for {tracking_number}: {e}")
-            return None
+            return self._fallback_response(tracking_number, f"Erreur de parsing: {e}")
+
+    def _fallback_response(self, tracking_number: str, error: str) -> Dict[str, Any]:
+        return {
+            'carrier': 'Colissimo',
+            'tracking_number': tracking_number,
+            'status': 'error',
+            'is_delivered': False,
+            'delivery_date': None,
+            'history': [],
+            'pod_url': None,
+            'error': error,
+            'scraped_at': datetime.now().isoformat()
+        }
 
 if __name__ == "__main__":
     # verification

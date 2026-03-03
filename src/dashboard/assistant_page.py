@@ -108,6 +108,25 @@ def render_assistant_page():
                 st.session_state.pop("_contest_input_mode", None)
                 st.rerun()
 
+    # ── Documents générés (persistants entre les reruns) ─────────────────────
+    if st.session_state.get('_appeal_pdfs'):
+        for idx, appeal in enumerate(st.session_state['_appeal_pdfs']):
+            col_pdf, col_x = st.columns([5, 1])
+            with col_pdf:
+                st.download_button(
+                    label=f"📄 Télécharger : {appeal['doc_type']} — {appeal['claim_ref']}",
+                    data=appeal['bytes'],
+                    file_name=appeal['filename'],
+                    mime="application/pdf",
+                    key=f"appeal_dl_persistent_{idx}",
+                    type="primary",
+                    use_container_width=True,
+                )
+            with col_x:
+                if st.button("✕", key=f"dismiss_pdf_{idx}", help="Fermer"):
+                    st.session_state['_appeal_pdfs'].pop(idx)
+                    st.rerun()
+
     st.divider()
 
     # ── Zone d'upload de preuves ──────────────────────────────────────────────
@@ -309,7 +328,7 @@ def render_assistant_page():
 
     st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-    # ── Bouton téléchargement CSV ─────────────────────────────────────────────
+    # ── Bouton téléchargement CSV ────────────────────────────────────────────
     if st.session_state.get('csv_export_data'):
         from datetime import datetime
         st.download_button(
@@ -321,16 +340,10 @@ def render_assistant_page():
         )
         st.session_state.pop('csv_export_data', None)
 
-    # ── Bouton téléchargement PDF (lettre contestation / mise en demeure) ─────
+    # ── Bouton téléchargement PDF (persistant entre les reruns) ────────────
+    # Le PDF est accumulé dans _appeal_pdfs (liste) — jamais effacé au rerun
     if st.session_state.get('_appeal_pdf'):
-        appeal = st.session_state['_appeal_pdf']
-        st.download_button(
-            label=f"📄 Télécharger : {appeal['doc_type']} — {appeal['claim_ref']}",
-            data=appeal['bytes'],
-            file_name=appeal['filename'],
-            mime="application/pdf",
-            key=f"appeal_dl_{len(st.session_state.messages)}",
-            type="primary",
-        )
-        st.session_state.pop('_appeal_pdf', None)
-
+        appeal = st.session_state.pop('_appeal_pdf')
+        if '_appeal_pdfs' not in st.session_state:
+            st.session_state['_appeal_pdfs'] = []
+        st.session_state['_appeal_pdfs'].append(appeal)

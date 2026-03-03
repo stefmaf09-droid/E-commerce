@@ -219,7 +219,6 @@ def _render_login_form():
                 if verify_client_password(email, password):
                     st.session_state.authenticated = True
                     st.session_state.client_email = email
-                    st.query_params["token"] = email # Persiste l'auth au rafraîchissement
                     
                     # Fetch and store user role
                     role = get_user_role(email)

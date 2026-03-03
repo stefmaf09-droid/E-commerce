@@ -503,9 +503,13 @@ class ChatbotManager:
 
                     
         except Exception as e:
-            error_msg = f"Erreur lors de l'appel à Gemini: {str(e)}"
+            error_str = str(e)
+            error_msg = f"Erreur lors de l'appel à Gemini: {error_str}"
             logger.error(error_msg, exc_info=True)
-            yield f"Désolé, j'ai rencontré une erreur technique: {str(e)}"
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                yield "⚠️ **Système IA temporairement surchargé.** Le quota gratuit de l'assistant (Gemini Free Tier) est limité. Veuillez patienter environ une minute avant de redemander."
+            else:
+                yield f"Désolé, j'ai rencontré une erreur technique: {error_str}"
     
     @retry(
         stop=stop_after_attempt(3),

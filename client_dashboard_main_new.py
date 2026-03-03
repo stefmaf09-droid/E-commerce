@@ -142,6 +142,11 @@ def main():
     # Ensure session state is initialized
     initialize_session()
 
+    # Synchronisation silencieuse du token d'authentification dans l'URL (évite les bugs liés au st.rerun() du login)
+    if st.session_state.get("authenticated") and "token" not in st.query_params:
+        if st.session_state.get("client_email"):
+            st.query_params["token"] = st.session_state.client_email
+
     # Initialize and check authentication
     if not authenticate():
         return

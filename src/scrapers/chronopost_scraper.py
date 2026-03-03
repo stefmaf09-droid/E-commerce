@@ -33,14 +33,14 @@ class ChronopostScraper(BaseScraper):
         
         soup = self._fetch_page(url)
         if not soup:
-            logger.error(f"Failed to fetch tracking page for {tracking_number}")
-            return None
+            logger.warning(f"Failed to fetch tracking page for {tracking_number}")
+            return self._fallback_response(tracking_number, "Numéro de tracking non trouvé ou accès refusé")
             
         try:
             return self._parse_tracking_page(soup, tracking_number)
         except Exception as e:
             logger.error(f"Error parsing Chronopost page for {tracking_number}: {e}")
-            return None
+            return self._fallback_response(tracking_number, str(e))
 
     def scrape(self, **kwargs) -> List[Dict]:
         """
@@ -125,5 +125,18 @@ class ChronopostScraper(BaseScraper):
             'delivery_date': delivery_date,
             'history': history,
             'pod_url': None, 
+            'scraped_at': datetime.now().isoformat()
+        }
+
+    def _fallback_response(self, tracking_number: str, error: str) -> Dict[str, Any]:
+        return {
+            'carrier': 'Chronopost',
+            'tracking_number': tracking_number,
+            'status': 'error',
+            'is_delivered': False,
+            'delivery_date': None,
+            'history': [],
+            'pod_url': None,
+            'error': error,
             'scraped_at': datetime.now().isoformat()
         }

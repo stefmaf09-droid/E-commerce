@@ -220,6 +220,11 @@ def render_assistant_page():
                     f"{ocr_status}"
                 )
                 st.session_state.messages.append({"role": "assistant", "content": notice})
+                
+                # Enchaînement automatique : si on a une ref et un motif, on lance le prompt générant le PDF
+                if claim_ref and locals().get("reason_key"):
+                    st.session_state["_quick_action"] = f"Génère la lettre de contestation PDF pour le litige {claim_ref} en utilisant le motif '{reason_key}' détecté sur la preuve."
+                
                 st.success("✅ Preuve enregistrée et analysée !")
                 st.rerun()
 
@@ -322,7 +327,11 @@ def render_assistant_page():
             message_placeholder.markdown(full_response)
 
         except Exception as e:
-            error_msg = f"❌ Erreur : {str(e)}"
+            error_str = str(e)
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                error_msg = "⚠️ **Système IA temporairement surchargé.** Le quota gratuit de l'assistant (Gemini Free Tier) est limité. Veuillez patienter environ une minute avant de redemander."
+            else:
+                error_msg = f"❌ Erreur technique : {error_str}"
             message_placeholder.error(error_msg)
             full_response = error_msg
 

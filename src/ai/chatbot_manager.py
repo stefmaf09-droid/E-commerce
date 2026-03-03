@@ -527,13 +527,13 @@ class ChatbotManager:
         if not api_key:
             raise ValueError("No API Key available")
             
-        # 2. Créer un client éphémère pour CETTE requête
-        fresh_client = genai.Client(api_key=api_key)
+        # 2. Créer un client pour CETTE requête et le stocker pour éviter le Garbage Collection
+        self.current_client = genai.Client(api_key=api_key)
         
         config = types.GenerateContentConfig(
             tools=self.gemini_tools if self.gemini_tools else None
         )
-        return fresh_client.models.generate_content_stream(
+        return self.current_client.models.generate_content_stream(
             model=self.model_name,
             contents=prompt,
             config=config

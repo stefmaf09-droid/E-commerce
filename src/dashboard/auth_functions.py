@@ -28,6 +28,19 @@ def authenticate():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
         st.session_state.client_email = None
+        
+        # Reconexion automatique (Protection perte F5)
+        qp = st.query_params
+        if "token" in qp:
+            saved_email = qp.get("token")
+            # Vérification très rapide
+            from src.auth.credentials_manager import CredentialsManager
+            from src.auth.password_manager import get_user_role
+            if CredentialsManager().get_credentials(saved_email):
+                st.session_state.authenticated = True
+                st.session_state.client_email = saved_email
+                st.session_state.role = get_user_role(saved_email)
+                st.session_state.show_portal = True
 
     if not st.session_state.authenticated:
         _inject_auth_css()
@@ -205,6 +218,7 @@ def _render_login_form():
                 if verify_client_password(email, password):
                     st.session_state.authenticated = True
                     st.session_state.client_email = email
+                    st.query_params["token"] = email # Persiste l'auth au rafraîchissement
                     
                     # Fetch and store user role
                     role = get_user_role(email)

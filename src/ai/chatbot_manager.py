@@ -518,12 +518,22 @@ class ChatbotManager:
         reraise=True
     )
     def _call_gemini_with_retry(self, prompt: str):
-        """Call Gemini API (nouveau SDK) with automatic retry on transient failures."""
-        logger.debug("Calling Gemini API via google.genai (with retry logic)")
+        """Call Gemini API (nouveau SDK) with automatic retry on transient failures.
+        Force a fresh API key choice on every request to bypass session caching."""
+        logger.debug("Calling Gemini API via google.genai (with dynamic key rotation)")
+        
+        # 1. Obtenir une clé API fraiche parmi la liste via le config manager
+        api_key = Config.get_gemini_api_key()
+        if not api_key:
+            raise ValueError("No API Key available")
+            
+        # 2. Créer un client éphémère pour CETTE requête
+        fresh_client = genai.Client(api_key=api_key)
+        
         config = types.GenerateContentConfig(
             tools=self.gemini_tools if self.gemini_tools else None
         )
-        return self.client.models.generate_content_stream(
+        return fresh_client.models.generate_content_stream(
             model=self.model_name,
             contents=prompt,
             config=config

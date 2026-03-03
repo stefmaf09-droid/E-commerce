@@ -226,9 +226,14 @@ def render_assistant_page():
                 # Enchaînement automatique
                 if detected_reason:
                     if claim_ref:
+                        # On a la ref : on demande à l'IA de générer le document
                         st.session_state["_quick_action"] = f"Génère la lettre de contestation PDF pour le litige {claim_ref} en utilisant le motif '{detected_reason}' détecté sur la preuve."
                     else:
-                        st.session_state["_quick_action"] = f"J'ai identifié le motif '{detected_reason}' sur la preuve qui vient d'être uploadée, mais le numéro de litige n'a pas été renseigné. Demande poliment à l'utilisateur pour quelle réclamation (numéro CLM-...) il souhaite générer une lettre de contestation PDF."
+                        # Pas de ref : message texte direct au lieu d'invoquer le Chatbot (économie de quota)
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": f"💡 J'ai identifié le motif **{detected_reason}** sur votre preuve. Pourriez-vous me préciser pour quelle réclamation (numéro commençant par `CLM-`) vous souhaitez générer une lettre de contestation ?"
+                        })
                 
                 st.success("✅ Preuve enregistrée et analysée !")
                 st.rerun()

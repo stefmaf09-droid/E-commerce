@@ -52,4 +52,4 @@ google-genai>=1.0.0
 
 
 streamlit-option-menu>=0.3.6
-streamlit-quill>=0.2.29
+streamlit-quill==0.0.3

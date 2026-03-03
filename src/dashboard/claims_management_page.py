@@ -55,7 +55,9 @@ def render_claims_management():
                 response_deadline,
                 pod_fetch_status,
                 pod_url,
-                pod_fetch_error
+                pod_fetch_error,
+                follow_up_level,
+                last_follow_up_at
             FROM claims
             WHERE client_id = ?
             ORDER BY submitted_at DESC
@@ -72,8 +74,10 @@ def render_claims_management():
         df = pd.DataFrame(claims, columns=[
             'id', 'claim_reference', 'carrier', 'status', 'amount_requested',
             'accepted_amount', 'submitted_at', 'dispute_type', 'tracking_number',
-            'response_deadline', 'pod_fetch_status', 'pod_url', 'pod_fetch_error'
+            'response_deadline', 'pod_fetch_status', 'pod_url', 'pod_fetch_error',
+            'follow_up_level', 'last_follow_up_at'
         ])
+        df['follow_up_level'] = df['follow_up_level'].fillna(0).astype(int)
         
         # Format amounts
         df['amount_requested'] = df['amount_requested'].apply(lambda x: f"{x:.2f}€" if x else "0€")
@@ -94,7 +98,7 @@ def render_claims_management():
         df['status_display'] = df['status'].apply(lambda x: f"{status_emoji.get(x, '❓')} {x.capitalize()}")
         
         # Show summary stats
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             st.metric("Total litiges", len(df))
         with col2:
@@ -106,6 +110,23 @@ def render_claims_management():
         with col4:
             rejected_count = len(df[df['status'] == 'rejected'])
             st.metric("Rejetés", rejected_count)
+        with col5:
+            rejected_no_followup = len(df[(df['status'] == 'rejected') & (df['follow_up_level'] == 0)])
+            st.metric("⚠️ Rejet sans suivi", rejected_no_followup,
+                      delta=f"-{rejected_no_followup} à contester" if rejected_no_followup > 0 else None,
+                      delta_color="inverse")
+
+        # ── Alerte dossiers rejected sans aucune relance ───────────────────────
+        rejected_no_fu = df[(df['status'] == 'rejected') & (df['follow_up_level'] == 0)]
+        if not rejected_no_fu.empty:
+            refs = ', '.join(rejected_no_fu['claim_reference'].tolist())
+            st.error(
+                f"⚠️ **{len(rejected_no_fu)} dossier(s) rejeté(s) sans aucune relance préalable !**  \n"
+                f"Références : **{refs}**  \n"
+                f"Ces dossiers ont été rejetés avant d'avoir été relancés. "
+                f"Contestez-les immédiatement via l'Assistant (bouton ⚖️ Contester).",
+                icon="🚨",
+            )
         
         st.markdown("---")
         

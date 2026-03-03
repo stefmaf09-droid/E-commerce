@@ -29,6 +29,9 @@ REMINDER_THRESHOLDS = [
 # Statuts qui rendent un dossier éligible à la relance automatique
 ELIGIBLE_STATUSES = ("submitted", "pending", "waiting_response", "under_review")
 
+# Seuil (jours) avant de contester automatiquement un rejected sans relance
+AUTO_CONTEST_AFTER_DAYS = 3  # contester si rejected depuis plus de 3 jours sans relance
+
 # Délai entre chaque scan (4 heures)
 SCAN_INTERVAL_SECONDS = 4 * 60 * 60
 
@@ -93,6 +96,21 @@ class ReminderWorker:
 
     def _run_loop(self):
         """Boucle infinie: scan immédiat au démarrage, puis toutes les 4h."""
+        # Test de connexion DB au démarrage pour diagnostiquer rapidement
+        try:
+            from src.database.database_manager import get_db_manager
+            db = get_db_manager()
+            conn = db.get_connection()
+            conn.close()
+            logger.info("ReminderWorker: connexion DB OK (%s).", db.db_type)
+        except Exception as db_err:
+            logger.error(
+                "ReminderWorker: IMPOSSIBLE de se connecter à la DB. "
+                "Les relances automatiques sont désactivées. Erreur: %s", db_err
+            )
+            self.stats["db_error"] = str(db_err)
+            return  # Arrêter le thread si la DB est inaccessible
+
         logger.info("ReminderWorker: premier scan au démarrage.")
         self._scan_and_remind()
 
@@ -193,8 +211,95 @@ class ReminderWorker:
             else:
                 logger.debug("ReminderWorker: aucun dossier éligible pour relance.")
 
+            # Scan supplementaire : rejected sans relance -> contestation auto
+            self._scan_rejected_without_followup()
+
         except Exception as e:
             logger.error(f"ReminderWorker scan error: {e}", exc_info=True)
+
+    def _scan_rejected_without_followup(self):
+        """
+        Scanne les dossiers rejected sans aucune relance préalable.
+        Si le rejet date de plus de AUTO_CONTEST_AFTER_DAYS jours,
+        génère automatiquement une lettre de contestation via AppealGenerator
+        et passe le statut en 'appealing'.
+        """
+        try:
+            from src.database.database_manager import get_db_manager
+            from src.ai.appeal_generator import AppealGenerator
+            import pathlib
+            db = get_db_manager()
+            conn = db.get_connection()
+            now = datetime.now()
+            cutoff = (now - timedelta(days=AUTO_CONTEST_AFTER_DAYS)).isoformat()
+
+            try:
+                cur = conn.execute(
+                    "SELECT id, claim_reference, carrier, tracking_number, "
+                    "amount_requested, ai_reason_key "
+                    "FROM claims WHERE status='rejected' "
+                    "AND (follow_up_level=0 OR follow_up_level IS NULL) "
+                    "AND created_at < ?",
+                    (cutoff,)
+                )
+            except Exception:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT id, claim_reference, carrier, tracking_number, "
+                    "amount_requested, ai_reason_key "
+                    "FROM claims WHERE status='rejected' "
+                    "AND (follow_up_level=0 OR follow_up_level IS NULL) "
+                    "AND created_at < %s",
+                    (cutoff,)
+                )
+            rows = cur.fetchall()
+
+            contested = 0
+            for row in rows:
+                try:
+                    row = dict(row)
+                    claim_ref = row['claim_reference']
+                    reason_key = row.get('ai_reason_key') or 'default'
+                    dispute_data = {
+                        'claim_reference': claim_ref,
+                        'tracking_number': row.get('tracking_number', 'N/A'),
+                        'carrier': row.get('carrier', 'le transporteur'),
+                        'amount_requested': row.get('amount_requested', 0),
+                    }
+                    gen = AppealGenerator()
+                    letter_text = gen.generate(dispute_data, reason_key)
+                    pdf_bytes = AppealGenerator.generate_pdf(
+                        letter_text, f"contestation_{claim_ref}.pdf"
+                    )
+                    if pdf_bytes:
+                        save_dir = pathlib.Path("data/appeals")
+                        save_dir.mkdir(parents=True, exist_ok=True)
+                        ts = now.strftime("%Y%m%d_%H%M%S")
+                        pdf_file = save_dir / f"{ts}_{claim_ref}_auto_contestation.pdf"
+                        pdf_file.write_bytes(pdf_bytes)
+
+                    # Passer en appealing
+                    db.update_claim(row['id'], status='appealing')
+                    contested += 1
+                    logger.info(
+                        f"\u2696\ufe0f Auto-contestation g\u00e9n\u00e9r\u00e9e pour {claim_ref} "
+                        f"(motif: {reason_key})"
+                    )
+                except Exception as row_err:
+                    logger.warning(f"Auto-contest failed for {row.get('claim_reference')}: {row_err}")
+
+            try:
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
+
+            if contested > 0:
+                logger.info(
+                    f"\u2696\ufe0f ReminderWorker: {contested} dossier(s) reject\u00e9(s) pass\u00e9(s) en contestation auto."
+                )
+        except Exception as e:
+            logger.error(f"_scan_rejected_without_followup error: {e}", exc_info=True)
 
     def _send_reminder(
         self,

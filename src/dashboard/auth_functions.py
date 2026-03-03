@@ -41,6 +41,14 @@ def authenticate():
                 st.session_state.client_email = saved_email
                 st.session_state.role = get_user_role(saved_email)
                 st.session_state.show_portal = True
+                
+                # Fetch onboarding status securely
+                try:
+                    from src.onboarding.onboarding_manager import OnboardingManager
+                    mgr = OnboardingManager(saved_email)
+                    st.session_state.onboarding_complete = mgr.is_onboarding_complete(saved_email)
+                except Exception:
+                    st.session_state.onboarding_complete = True  # fail-safe
 
 
     if not st.session_state.authenticated:

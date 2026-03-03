@@ -33,14 +33,15 @@ def authenticate():
         qp = st.query_params
         if "token" in qp:
             saved_email = qp.get("token")
-            # Vérification très rapide
-            from src.auth.credentials_manager import CredentialsManager
-            from src.auth.password_manager import get_user_role
-            if CredentialsManager().get_credentials(saved_email):
+            from src.auth.password_manager import get_user_role, has_password
+            
+            # Simple vérification d'existence pour la démo / F5 reload
+            if has_password(saved_email):
                 st.session_state.authenticated = True
                 st.session_state.client_email = saved_email
                 st.session_state.role = get_user_role(saved_email)
                 st.session_state.show_portal = True
+
 
     if not st.session_state.authenticated:
         _inject_auth_css()

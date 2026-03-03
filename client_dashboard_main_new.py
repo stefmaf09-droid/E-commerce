@@ -11,15 +11,14 @@ logger = logging.getLogger(__name__)
 
 # Path definitions
 root_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(root_dir, 'src'))
 sys.path.insert(0, root_dir)
 
-from auth.credentials_manager import CredentialsManager
-from analytics.metrics_calculator import MetricsCalculator
-from onboarding.onboarding_manager import OnboardingManager
+from src.auth.credentials_manager import CredentialsManager
+from src.analytics.metrics_calculator import MetricsCalculator
+from src.onboarding.onboarding_manager import OnboardingManager
 from onboarding_functions import render_onboarding
-from ui.theme import apply_premium_theme, render_premium_metric
-from ui.logos import LOGOS, ICONS
+from src.ui.theme import apply_premium_theme, render_premium_metric
+from src.ui.logos import LOGOS, ICONS
 from src.dashboard.auto_refresh import AutoRefresh, setup_auto_refresh
 from src.workers.reminder_worker import ReminderWorker
 
@@ -326,6 +325,7 @@ def main():
             st.rerun()
         if st.button("🚪 Déconnexion", width='stretch'):
             st.session_state.authenticated = False
+            st.query_params.clear()
             st.rerun()
         st.markdown("---")
         st.caption(f"👤 {st.session_state.client_email}")

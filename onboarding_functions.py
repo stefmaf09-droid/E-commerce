@@ -3,8 +3,8 @@ Onboarding UI functions for step-by-step client setup.
 """
 
 import streamlit as st
-from auth.credentials_manager import CredentialsManager
-from payments.manual_payment_manager import ManualPaymentManager
+from src.auth.credentials_manager import CredentialsManager
+from src.payments.manual_payment_manager import ManualPaymentManager
 
 
 def render_step_store_setup(client_email):

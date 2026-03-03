@@ -461,46 +461,64 @@ class ChatbotManager:
         try:
             # Call Gemini with retry logic
             logger.info(f"Sending prompt to Gemini (user: {client_email or 'anonymous'})")
-            response = self._call_gemini_with_retry(full_prompt)
             
-            # Stream la réponse et gérer les function calls
-            for chunk in response:
-                try:
-                    if hasattr(chunk, 'candidates') and chunk.candidates:
-                        for candidate in chunk.candidates:
-                            if not hasattr(candidate, 'content') or not candidate.content:
-                                continue
-                            for part in candidate.content.parts:
-                                # Traiter d'abord les function calls
-                                if hasattr(part, 'function_call') and part.function_call.name:
-                                    fc = part.function_call
-                                    yield f"🔧 Exécution de l'action : {fc.name}...\n\n"
-                                    params = dict(fc.args)
-                                    if 'client_email' in params and params['client_email'] == 'CURRENT_USER':
-                                        params['client_email'] = client_email
-                                    result = self.tools.execute_tool(fc.name, params)
-                                    if result['success']:
-                                        yield f"✅ {result['message']}\n\n"
-                                        if 'data' in result and result['data']:
-                                            yield f"📋 Détails :\n"
-                                            if isinstance(result['data'], dict):
-                                                for key, value in result['data'].items():
-                                                    yield f"- {key}: {value}\n"
-                                            else:
-                                                yield f"{result['data']}\n"
+            # Instance propre à ce générateur pour garantir sa durée de vie sur toute l'itération
+            api_key = Config.get_gemini_api_key()
+            if not api_key:
+                yield "Désolé, clé API manquante."
+                return
+            
+            # Stocker en variable d'instance pour éviter le Garbage Collection de Python pendant le yield
+            self.current_client = genai.Client(api_key=api_key)
+            config = types.GenerateContentConfig(
+                tools=self.gemini_tools if self.gemini_tools else None
+            )
+            
+            # Utilisation de l'appel synchrone complet pour éviter les "client closed"
+            # sur les yields asynchrones du nouveau SDK Google GenAI
+            raw_response = self.current_client.models.generate_content(
+                model=self.model_name,
+                contents=full_prompt,
+                config=config
+            )
+            
+            # Gérer les function calls
+            if hasattr(raw_response, 'candidates') and raw_response.candidates:
+                candidate = raw_response.candidates[0]
+                if hasattr(candidate, 'content') and candidate.content:
+                    for part in candidate.content.parts:
+                        if hasattr(part, 'function_call') and part.function_call.name:
+                            fc = part.function_call
+                            yield f"🔧 Exécution de l'action : {fc.name}...\n\n"
+                            params = dict(fc.args)
+                            if 'client_email' in params and params['client_email'] == 'CURRENT_USER':
+                                params['client_email'] = client_email
+                            result = self.tools.execute_tool(fc.name, params)
+                            if result['success']:
+                                yield f"✅ {result['message']}\n\n"
+                                if 'data' in result and result['data']:
+                                    yield f"📋 Détails :\n"
+                                    if isinstance(result['data'], dict):
+                                        for key, value in result['data'].items():
+                                            yield f"- {key}: {value}\n"
                                     else:
-                                        yield f"❌ Erreur : {result['message']}\n"
-                                    logger.info(f"Function call executed: {fc.name} - Success: {result['success']}")
-                                    return  # Stop après un function call
-                                # Sinon texte
-                                elif hasattr(part, 'text') and part.text:
-                                    yield part.text
-                    elif hasattr(chunk, 'text') and chunk.text:
-                        yield chunk.text
-                except Exception as chunk_error:
-                    logger.warning(f"Error processing chunk: {chunk_error}")
-                    continue
-
+                                        yield f"{result['data']}\n"
+                            else:
+                                yield f"❌ Erreur : {result['message']}\n"
+                            logger.info(f"Function call executed: {fc.name} - Success: {result['success']}")
+                            return  # Stop après un function call
+                        
+                        elif hasattr(part, 'text') and part.text:
+                            # Simuler un streaming pour l'UI
+                            words = part.text.split(' ')
+                            for i, word in enumerate(words):
+                                yield word + (' ' if i < len(words) - 1 else '')
+                                
+            elif hasattr(raw_response, 'text') and raw_response.text:
+                # Simuler un streaming pour l'UI
+                words = raw_response.text.split(' ')
+                for i, word in enumerate(words):
+                    yield word + (' ' if i < len(words) - 1 else '')
                     
         except Exception as e:
             error_str = str(e)

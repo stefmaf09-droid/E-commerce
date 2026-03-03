@@ -38,11 +38,7 @@ class PODAnalyzer:
         self.api_key = api_key or Config.get_gemini_api_key()
         if not self.api_key:
             logger.warning("No Gemini API key found. Analysis will fail.")
-            self.client = None
-            self.model = None
-        else:
-            self.client = genai.Client(api_key=self.api_key)
-            self.model = 'gemini-2.0-flash'
+        self.model = 'gemini-2.0-flash'
         
         logger.info("PODAnalyzer initialized with Gemini 2.0 Flash (google.genai SDK)")
     
@@ -79,8 +75,13 @@ class PODAnalyzer:
             logger.error(f"Image file not found: {image_path}")
             return self._create_error_response("Image file not found")
         
-        if not self.client:
-            return self._create_error_response("Gemini client not initialized (missing API key)")
+        
+        # Obtenir une clé API fraiche à la volée (Key Pooling)
+        current_api_key = Config.get_gemini_api_key()
+        if not current_api_key:
+            return self._create_error_response("Gemini API key is missing")
+        
+        local_client = genai.Client(api_key=current_api_key)
         
         try:
             # Load image and encode to bytes for the new SDK
@@ -99,7 +100,7 @@ class PODAnalyzer:
             
             # Call Gemini 2.0 Flash via new SDK
             logger.info(f"Calling Gemini Vision for {image_path}")
-            response = self.client.models.generate_content(
+            response = local_client.models.generate_content(
                 model=self.model,
                 contents=[
                     genai_types.Part.from_bytes(data=img_bytes, mime_type=mime_type),

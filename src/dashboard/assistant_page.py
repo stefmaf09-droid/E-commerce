@@ -240,7 +240,7 @@ def render_assistant_page():
                                 },
                                 {
                                     "label": "📁 Créer un nouveau dossier",
-                                    "action": f"Je souhaite créer un nouveau dossier avec le motif: {detected_reason}"
+                                    "action": "__NAVIGATE_DEPOSIT__"
                                 }
                             ]
                         })
@@ -259,7 +259,10 @@ def render_assistant_page():
                 cols = st.columns(len(message["proactive_options"]))
                 for col_idx, opt in enumerate(message["proactive_options"]):
                     if cols[col_idx].button(opt["label"], key=f"proact_{i}_{col_idx}"):
-                        st.session_state["_quick_action"] = opt["action"]
+                        if opt["action"] == "__NAVIGATE_DEPOSIT__":
+                            st.session_state["force_menu_selection"] = "Dépôt Preuves"
+                        else:
+                            st.session_state["_quick_action"] = opt["action"]
                         st.rerun()
 
     # ── Input : saisie manuelle ou raccourci ──────────────────────────────────
@@ -311,17 +314,7 @@ def render_assistant_page():
         st.session_state["_pending_action"] = {"type": "generate_letter", "reason": detected_reason}
         return
 
-    if prompt.startswith("Je souhaite créer un nouveau dossier avec le motif:"):
-        detected_reason = prompt.split("motif: ")[1] if "motif: " in prompt else "inconnu"
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-            
-        reply = f"✅ **Nouveau dossier (Motif: {detected_reason})**\n\n👉 Veuillez vous rendre dans l'onglet **Créer un Dossier** depuis le menu de gauche pour renseigner les détails."
-        st.session_state.messages.append({"role": "assistant", "content": reply})
-        with st.chat_message("assistant"):
-            st.markdown(reply)
-        return
+
 
     # Suite d'une action mise en attente (ex: attente du numéro CLM)
     if "_pending_action" in st.session_state and st.session_state["_pending_action"]["type"] == "generate_letter":

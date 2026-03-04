@@ -313,12 +313,20 @@ def main():
             menu_options.insert(2, "👑 Admin Panel")
             menu_icons.insert(2, "shield-lock")
         
+        # Permettre la navigation programmatique depuis d'autres pages (ex: Assistant)
+        default_idx = 0
+        if "force_menu_selection" in st.session_state:
+            target = st.session_state.pop("force_menu_selection")
+            if target in menu_options:
+                default_idx = menu_options.index(target)
+
         selected = option_menu(
             "Menu Principal",
             menu_options,
             icons=menu_icons,
             menu_icon="cast",
-            default_index=0,
+            default_index=default_idx,
+            key="main_menu_nav"
         )
         
         st.markdown("---")

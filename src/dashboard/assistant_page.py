@@ -259,10 +259,12 @@ def render_assistant_page():
                 cols = st.columns(len(message["proactive_options"]))
                 for col_idx, opt in enumerate(message["proactive_options"]):
                     if cols[col_idx].button(opt["label"], key=f"proact_{i}_{col_idx}"):
-                        if opt["action"] == "__NAVIGATE_DEPOSIT__":
+                        action = opt["action"]
+                        # Navigation directe (nouveau format OU ancien format texte)
+                        if action == "__NAVIGATE_DEPOSIT__" or "créer un nouveau dossier" in action.lower():
                             st.session_state["force_menu_selection"] = "Dépôt Preuves"
                         else:
-                            st.session_state["_quick_action"] = opt["action"]
+                            st.session_state["_quick_action"] = action
                         st.rerun()
 
     # ── Input : saisie manuelle ou raccourci ──────────────────────────────────

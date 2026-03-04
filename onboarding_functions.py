@@ -103,23 +103,21 @@ def render_step_store_setup(client_email):
                 st.error("❌ Veuillez remplir tous les champs")
                 return False
             
-            # Save store credentials
+            # Save store credentials using the correct method
             manager = CredentialsManager()
-            store_id = f"{store_name.lower().replace(' ', '_')}_{platform.lower()}"
-            
-            success = manager.save_credentials(
-                email=client_email,
+            store_creds = {
+                'api_key': api_key,
+                'api_secret': api_secret,
+                'shop_url': api_key if platform == "Shopify" else store_url,
+                'store_url': store_url,
+                'country': country_code,
+                'currency': currency_code,
+            }
+            success = manager.store_credentials(
+                client_id=client_email,
                 platform=platform,
-                credentials = {
-                    'api_key': api_key,
-                    'api_secret': api_secret,
-                    'shop_url': api_key if platform == "Shopify" else None,
-                    'country': country_code,
-                    'currency': currency_code
-                },
-                store_url=store_url,
+                credentials=store_creds,
                 store_name=store_name,
-                store_id=store_id
             )
             
             if success:

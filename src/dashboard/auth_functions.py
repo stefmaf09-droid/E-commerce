@@ -54,8 +54,55 @@ def authenticate():
     if not st.session_state.authenticated:
         _inject_auth_css()
 
-        # ── FLOATING SUCCESS BADGES (animated) ──────────────────────────
+        # Initialiser l'état d'affichage
+        if "_show_login" not in st.session_state:
+            st.session_state._show_login = False
+
+        # ── NAVIGATION HEADER (comme refundly.fr) ────────────────────────
         st.markdown("""
+<div class="auth-navbar">
+  <div class="auth-navbar-logo">
+    <div class="auth-navbar-logo-icon">R</div>
+    <span>Refundly<span style="color:#0d9488;font-weight:900;">.AI</span></span>
+  </div>
+  <div class="auth-navbar-links">
+    <span>Comment ça marche</span>
+    <span>Fonctionnalités</span>
+    <span>FAQ</span>
+    <span>☀️</span>
+  </div>
+</div>
+        """, unsafe_allow_html=True)
+
+        # Bouton Connexion seul en haut à droite
+        col_space, col_btn = st.columns([9, 1.5])
+        with col_btn:
+            if st.button("Connexion", key="nav_login", use_container_width=True):
+                st.session_state._show_login = True
+                st.rerun()
+
+        # ── AFFICHAGE CONDITIONNEL ───────────────────────────────────────
+        if st.session_state._show_login:
+            # ═══════ PAGE DE CONNEXION ═══════
+            st.markdown("<br>", unsafe_allow_html=True)
+            _, col_form, _ = st.columns([1.2, 2, 1.2])
+            with col_form:
+                default_tab = 1 if st.session_state.pop("_show_register_tab", False) else 0
+                tab1, tab2 = st.tabs(["🔑 Connexion", "✨ Créer un compte"])
+                with tab1:
+                    _render_login_form()
+                with tab2:
+                    _render_registration_form()
+
+                # Bouton retour
+                if st.button("← Retour à l'accueil", key="back_to_landing"):
+                    st.session_state._show_login = False
+                    st.rerun()
+        else:
+            # ═══════ LANDING PAGE (hero + stats + features) ═══════
+
+            # Floating badges
+            st.markdown("""
 <div class="floating-badge badge-left" style="animation-delay: 0s;">
   <div class="badge-icon" style="background: #dcfce7;">💰</div>
   <div>
@@ -70,42 +117,90 @@ def authenticate():
     <div class="badge-amount">UPS • +89,90 €</div>
   </div>
 </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
-        # ── HERO SECTION ─────────────────────────────────────────────────
-        st.markdown("""
+            # Hero
+            st.markdown("""
 <div class="auth-hero">
   <div class="auth-hero-pill">✨ Zéro risque • Commission uniquement sur les remboursements</div>
   <h1>On récupère <span class="highlight">ton argent</span><br>à ta place</h1>
   <p class="subtitle">
     Colis perdus, endommagés, retards de livraison…
-    Refundly analyse, détecte et réclame <strong>automatiquement</strong> ce qui t'est dû.
+    Refundly.ai analyse, détecte et réclame <strong>automatiquement</strong> ce qui t'est dû.
   </p>
 </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
-        # ── LOGIN / REGISTER FORM (centered) ─────────────────────────────
-        _, col_form, _ = st.columns([1.2, 2, 1.2])
-        with col_form:
-            st.markdown('<div class="auth-form-card">', unsafe_allow_html=True)
-            tab1, tab2 = st.tabs(["🔑 Connexion", "✨ Créer un compte"])
-            with tab1:
-                _render_login_form()
-            with tab2:
-                _render_registration_form()
-            st.markdown('</div>', unsafe_allow_html=True)
+            # CTA central
+            _, cta_col, _ = st.columns([1.5, 2, 1.5])
+            with cta_col:
+                if st.button("🚀 Commencer gratuitement →", key="hero_cta", use_container_width=True):
+                    st.session_state._show_login = True
+                    st.session_state._show_register_tab = True
+                    st.rerun()
 
-        # ── TRUST BADGES ─────────────────────────────────────────────────
-        st.markdown("""
+            # "COMMENT ÇA MARCHE ?" SECTION
+            st.markdown("""
+<div class="how-it-works-section" style="text-align: center; margin: 60px 0 40px;">
+  <div style="display:inline-flex; align-items:center; gap:6px; background:#dcfce7; color:#16a34a; padding:6px 16px; border-radius:50px; font-size:0.85rem; font-weight:600; margin-bottom:16px;">
+    <span>✓</span> Simple et efficace
+  </div>
+  <h2 style="font-size: 2.8rem; font-weight: 800; color: #111827; margin: 0 0 12px; letter-spacing: -0.5px;">Comment ça marche ?</h2>
+  <p style="color: #6b7280; font-size: 1.1rem; margin-bottom: 50px;">En 4 étapes simples, récupérez l'argent que vous méritez</p>
+  <div class="steps-container" style="display: flex; justify-content: space-between; align-items: flex-start; max-width: 900px; margin: 0 auto; position: relative;">
+    <!-- Ligne de progression au centre -->
+    <div style="position: absolute; top: 100px; left: 10%; right: 10%; height: 2px; background: linear-gradient(90deg, #3b82f6, #a855f7, #f97316, #22c55e); z-index: 0;"></div>
+    <!-- Step 1 -->
+    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 10px;">
+      <div style="width: 80px; height: 80px; background: #3b82f6; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);">
+        <span style="color: white; font-size: 2rem;">✉️</span>
+      </div>
+      <div style="width: 30px; height: 30px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: bold; color: #22c55e; font-size: 0.9rem;">1</div>
+      <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Connectez votre compte</h4>
+      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Connectez votre boutique e-commerce dans notre sas sécurisé pour l'analyse.</p>
+    </div>
+    <!-- Step 2 -->
+    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 10px;">
+      <div style="width: 80px; height: 80px; background: #a855f7; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 25px rgba(168, 85, 247, 0.4);">
+        <span style="color: white; font-size: 2rem;">🔍</span>
+      </div>
+      <div style="width: 30px; height: 30px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: bold; color: #22c55e; font-size: 0.9rem;">2</div>
+      <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Analyse automatique</h4>
+      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Notre IA identifie vos expéditions, détecte les pannes et analyse les CGU.</p>
+    </div>
+    <!-- Step 3 -->
+    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 10px;">
+      <div style="width: 80px; height: 80px; background: #f97316; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 25px rgba(249, 115, 22, 0.4);">
+        <span style="color: white; font-size: 2rem;">📄</span>
+      </div>
+      <div style="width: 30px; height: 30px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: bold; color: #22c55e; font-size: 0.9rem;">3</div>
+      <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Réclamation envoyée</h4>
+      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Nous envoyons automatiquement une demande de remboursement légale.</p>
+    </div>
+    <!-- Step 4 -->
+    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 10px;">
+      <div style="width: 80px; height: 80px; background: #22c55e; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 25px rgba(34, 197, 94, 0.4);">
+        <span style="color: white; font-size: 2rem;">💵</span>
+      </div>
+      <div style="width: 30px; height: 30px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: bold; color: #22c55e; font-size: 0.9rem;">4</div>
+      <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Argent récupéré</h4>
+      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Recevez votre remboursement. Nous prenons une commission uniquement au succès.</p>
+    </div>
+  </div>
+</div>
+            """, unsafe_allow_html=True)
+
+            # Trust badges
+            st.markdown("""
 <div class="trust-badges">
   <div class="trust-badge-item"><span class="icon">⚡</span> Analyse en 2 minutes</div>
   <div class="trust-badge-item"><span class="icon">🔒</span> Données sécurisées</div>
   <div class="trust-badge-item"><span class="icon">📈</span> +2M€ récupérés</div>
 </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
-        # ── STATS CARDS ──────────────────────────────────────────────────
-        st.markdown("""
+            # Stats cards
+            st.markdown("""
 <div class="auth-stats">
   <div class="auth-stat-card">
     <div class="stat-icon">💰</div>
@@ -123,10 +218,10 @@ def authenticate():
     <div class="stat-label">Taux de succès</div>
   </div>
 </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
-        # ── FEATURES GRID ────────────────────────────────────────────────
-        st.markdown("""
+            # Features grid
+            st.markdown("""
 <div class="auth-features">
   <div class="auth-feature-card">
     <div class="auth-feature-icon" style="background: #7c3aed;">🧠</div>
@@ -159,7 +254,7 @@ def authenticate():
     <p>Suivez tous vos litiges et remboursements en un coup d'œil.</p>
   </div>
 </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
         return False
 
@@ -174,6 +269,49 @@ def _inject_auth_css():
 /* ===== GLOBAL AUTH PAGE ===== */
 .stApp {
     background: linear-gradient(180deg, #f0fdf9 0%, #ecfeff 30%, #f0f9ff 70%, #eff6ff 100%) !important;
+}
+
+/* ===== AUTH NAVBAR ===== */
+.auth-navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    margin-bottom: 8px;
+}
+.auth-navbar-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #111827;
+}
+.auth-navbar-logo-icon {
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(135deg, #0d9488, #0f766e);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 900;
+    font-size: 16px;
+}
+.auth-navbar-links {
+    display: flex;
+    gap: 28px;
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+.auth-navbar-links span {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.auth-navbar-links span:hover {
+    color: #0d9488;
 }
 
 /* ===== HERO SECTION ===== */

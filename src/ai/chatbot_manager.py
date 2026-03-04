@@ -180,44 +180,23 @@ class ChatbotManager:
             yield "Désolé, je ne suis pas correctement configuré (Clé API manquante)."
             return
 
-        # Construction du prompt système avec base de connaissances enrichie
-        system_prompt = f"""
-        Tu es l'Assistant Refundly, un expert en recouvrement de litiges e-commerce et logistique.
-        Ton rôle est d'aider les marchands à comprendre et utiliser la plateforme Refundly.ai.
-        
-        IMPORTANT - UTILISATION DES OUTILS DISPONIBLES :
-        Tu as accès à des outils pour EXÉCUTER DES ACTIONS RÉELLES. Utilise-les systématiquement pour :
-        - "suivre un colis" / "où est mon colis" / "état du colis [numéro]" → APPELLE get_tracking_status(tracking_number="...")
-        - "exporter" / "télécharger" / "récupérer en CSV" / "exporter litiges" → APPELLE export_claims_csv()
-        - "créer une réclamation" / "faire une réclamation" → APPELLE create_claim()
-        - "relancer" / "envoyer un rappel" → APPELLE send_carrier_reminder()
-        - "marquer comme payé" / "enregistrer paiement" → APPELLE mark_claim_paid()
-        - "lister mes réclamations" / "voir mes dossiers" → APPELLE list_pending_claims()
-        
-        VOCABULAIRE - Ces termes sont ÉQUIVALENTS :
-        - Réclamation = Claim = Dossier = Litige (dans le contexte de gestion Refundly)
-        - Exporter = Télécharger = Récupérer les données
-        
-        RÈGLES CRUCIALES:
-        1. Quand l'utilisateur demande une ACTION concrète (suivre un colis, exporter, créer, relancer, etc.),
-           tu DOIS appeler la fonction correspondante au lieu de juste expliquer comment faire.
-        2. Utilise TOUJOURS le contexte fourni pour répondre de manière précise
-        3. Si le client a des données personnels (réclamations, statistiques), cite-les explicitement
-        4. Cite les références de réclamations (CLM-XXXXXX-XXX) quand pertinent
-        5. Pour les questions juridiques, cite les articles de loi appropriés
-        6. Sois concis, professionnel et serviable
-        7. Réponds TOUJOURS en Français
-        
-        --- BASE DE CONNAISSANCES REFUNDLY ---
-        {self.context}
-        --- FIN BASE DE CONNAISSANCES ---
-        """
-        
+        # Construction du prompt système — allégé pour économiser les tokens
+        # Les questions qui arrivent ici sont purement conversationnelles/Q&A
+        system_prompt = (
+            "Tu es l'Assistant Refundly.AI, expert en litiges e-commerce et logistique.\n"
+            "Réponds TOUJOURS en Français. Sois concis, précis et professionnel.\n"
+            "Aide le client à comprendre la plateforme, ses droits, et les démarches.\n\n"
+            "--- BASE DE CONNAISSANCES ---\n"
+            f"{self.context}\n"
+            "--- FIN BASE DE CONNAISSANCES ---\n"
+        )
+
         # Ajouter le contexte client si disponible
         client_context = ""
         if client_email:
             client_context = self._load_client_context(client_email)
-            system_prompt += f"\n\n{client_context}\n"
+            system_prompt += f"\n{client_context}\n"
+
         
         # FALLBACK MANUEL: Détecter les intentions d'action directement
         # Car Gemini ne déclenche pas toujours les function calls de manière fiable
@@ -448,7 +427,212 @@ class ChatbotManager:
                 yield f"❌ Erreur lors de la génération : {e}"
             return
 
-        # Si pas de détection manuelle, envoyer à Gemini
+        # ── 8. STATISTIQUES / TAUX DE SUCCÈS ──────────────────────────────────
+        if any(kw in user_input_lower for kw in [
+            'statistique', 'stats', 'taux', 'succès', 'combien', 'récupéré',
+            'remboursement', 'performance', 'bilan', 'résumé', 'résultats',
+            'montant', 'total', 'dossiers clos', 'accepté', 'rejeté'
+        ]) and any(kw in user_input_lower for kw in [
+            'mes', 'mon', 'mes dossiers', 'mes réclamations', 'globales', 'global',
+            'remboursement', 'statistique', 'stat', 'taux', 'bilan', 'performance'
+        ]):
+            logger.info("MANUAL TRIGGER: statistics from DB (no Gemini call)")
+            try:
+                from src.database.database_manager import get_db_manager
+                db = get_db_manager()
+                client = db.get_client(email=client_email) if client_email else None
+                if not client:
+                    yield "ℹ️ Impossible de charger vos statistiques (client non identifié)."
+                    return
+                client_id = client['id']
+                stats = db.get_client_statistics(client_id) or {}
+                claims = db.get_client_claims(client_id) or []
+
+                total = stats.get('total_claims', 0) or 0
+                accepted = stats.get('accepted_claims', 0) or 0
+                pending = stats.get('pending_claims', 0) or 0
+                rejected = total - accepted - pending if total > 0 else 0
+                requested = stats.get('total_requested', 0) or 0
+                recovered = stats.get('total_recovered', 0) or 0
+                paid = stats.get('total_paid_to_client', 0) or 0
+                rate = round(accepted / total * 100, 1) if total > 0 else 0
+
+                # Répartition par transporteur
+                carriers: dict = {}
+                for c in claims:
+                    car = c.get('carrier', 'Inconnu')
+                    carriers[car] = carriers.get(car, 0) + 1
+                top_carriers = sorted(carriers.items(), key=lambda x: -x[1])[:3]
+
+                yield "📊 **Vos Statistiques Refundly.AI**\n\n"
+                yield f"| Indicateur | Valeur |\n|---|---|\n"
+                yield f"| 📋 Total dossiers | **{total}** |\n"
+                yield f"| ✅ Acceptés | **{accepted}** ({rate}% de succès) |\n"
+                yield f"| ⏳ En attente | **{pending}** |\n"
+                yield f"| ❌ Rejetés | **{rejected}** |\n"
+                yield f"| 💶 Montant réclamé | **{requested:,.2f} €** |\n"
+                yield f"| 💰 Montant récupéré | **{recovered:,.2f} €** |\n"
+                yield f"| 🏦 Versé à votre compte | **{paid:,.2f} €** |\n"
+
+                if top_carriers:
+                    yield "\n**Top transporteurs :**\n"
+                    for car, cnt in top_carriers:
+                        yield f"- {car} : {cnt} dossier(s)\n"
+
+                if accepted == 0 and total > 0:
+                    yield "\n💡 *Aucun dossier accepté encore — les délais de traitement transporteurs sont souvent de 30 à 60 jours.*"
+                elif rate >= 50:
+                    yield f"\n🎉 *Excellent taux de succès ({rate}%) — continuez !*"
+            except Exception as e:
+                logger.error(f"Stats handler error: {e}")
+                yield f"❌ Erreur lors du chargement des statistiques : {e}"
+            return
+
+        # ── 9. STATUT D'UN DOSSIER SPÉCIFIQUE ────────────────────────────────
+        if clm_match and any(kw in user_input_lower for kw in [
+            'statut', 'état', 'avancement', 'info', 'détail', 'où en est',
+            'quoi de neuf', 'news', 'progression', 'dossier', 'réclamation'
+        ]):
+            claim_ref = clm_match.group(1)
+            logger.info(f"MANUAL TRIGGER: get_claim_details for {claim_ref}")
+            yield f"🔍 Chargement du dossier **{claim_ref}**...\n\n"
+            result = self.tools.execute_tool('get_claim_details', {'claim_reference': claim_ref})
+            if result['success']:
+                c = result['data']
+                status_labels = {
+                    'pending': '⏳ En attente',
+                    'submitted': '📤 Soumis au transporteur',
+                    'under_review': '🔍 En cours d\'instruction',
+                    'accepted': '✅ Accepté',
+                    'rejected': '❌ Rejeté',
+                    'appealing': '⚖️ Contestation en cours',
+                    'paid': '💰 Payé',
+                    'closed': '📁 Clôturé',
+                }
+                s = status_labels.get(c.get('status', ''), c.get('status', 'Inconnu'))
+                yield f"**Référence :** {claim_ref}\n"
+                yield f"**Statut :** {s}\n"
+                yield f"**Transporteur :** {c.get('carrier', 'N/A')}\n"
+                yield f"**Type :** {c.get('dispute_type', 'N/A')}\n"
+                yield f"**Montant demandé :** {c.get('amount_requested', 0):.2f} €\n"
+                if c.get('tracking_number'):
+                    yield f"**Numéro de suivi :** `{c['tracking_number']}`\n"
+                if c.get('follow_up_level', 0) > 0:
+                    yield f"**Relances envoyées :** {c['follow_up_level']}\n"
+                if c.get('status') == 'rejected':
+                    yield "\n💡 Ce dossier a été rejeté. Vous pouvez contester — dites-moi *\"génère une lettre de contestation pour {claim_ref}\"*."
+                elif c.get('status') == 'pending':
+                    yield "\n💡 Dossier en attente. Si pas de réponse sous 15 jours, dites *\"relance le transporteur pour {claim_ref}\"*."
+            else:
+                yield f"❌ {result['message']}"
+            return
+
+        # ── 10. ANNULER UN DOSSIER ────────────────────────────────────────────
+        if any(kw in user_input_lower for kw in [
+            'annuler', 'annulation', 'supprimer', 'clôturer', 'fermer',
+            'abandonner', 'retirer', 'retrait'
+        ]) and any(kw in user_input_lower for kw in ['dossier', 'réclamation', 'litige', 'claim']):
+            if clm_match:
+                claim_ref = clm_match.group(1)
+                yield f"⚠️ **Demande d'annulation du dossier {claim_ref}**\n\n"
+            else:
+                yield "⚠️ **Annulation d'un dossier**\n\n"
+            yield "Pour annuler un dossier, notre équipe doit intervenir manuellement (pour des raisons de traçabilité légale).\n\n"
+            yield "**Procédure :**\n"
+            yield "1. Envoyez un email à **support@recours-ecommerce.fr** avec l'objet : `ANNULATION DOSSIER [référence]`\n"
+            yield "2. Indiquez la raison de l'annulation\n"
+            yield "3. Nous clôturerons le dossier sous 48h ouvrées\n\n"
+            yield "💡 *Si le transporteur a finalement accepté la réclamation, dites-moi plutôt \"marque comme payé\" avec le montant reçu.*"
+            return
+
+        # ── 11. DÉLAI DE REMBOURSEMENT / QUAND SERAI-JE PAYÉ ? ──────────────
+        if any(kw in user_input_lower for kw in [
+            'quand', 'combien de temps', 'délai', 'remboursé', 'paiement attendu',
+            'serai payé', 'virement', 'délai moyen', 'combien temps'
+        ]) and any(kw in user_input_lower for kw in [
+            'remboursé', 'payé', 'paiement', 'virer', 'versement', 'reçu', 'délai'
+        ]):
+            logger.info("MANUAL TRIGGER: delay estimation")
+            yield "⏱️ **Délais de traitement typiques :**\n\n"
+            yield "| Transporteur | Délai moyen de réponse |\n|---|---|\n"
+            yield "| 📦 Colissimo (La Poste) | 30 à 60 jours |\n"
+            yield "| ⚡ Chronopost | 15 à 30 jours |\n"
+            yield "| 🟤 UPS | 10 à 20 jours |\n"
+            yield "| 🔴 DHL | 10 à 20 jours |\n"
+            yield "| 🟢 GLS | 20 à 45 jours |\n"
+            yield "| 🟡 Mondial Relay | 30 à 60 jours |\n\n"
+            yield "Une fois le transporteur ayant accepté votre réclamation :\n"
+            yield "- **Virement Refundly → votre compte** : sous 5 jours ouvrés\n\n"
+            # Chercher les dossiers en attente depuis longtemps
+            try:
+                from src.database.database_manager import get_db_manager
+                from datetime import datetime as _dt
+                db = get_db_manager()
+                client = db.get_client(email=client_email) if client_email else None
+                if client:
+                    claims = db.get_client_claims(client['id']) or []
+                    overdue = []
+                    for c in claims:
+                        if c.get('status') in ('pending', 'submitted', 'under_review'):
+                            created = c.get('submitted_at') or c.get('created_at', '')
+                            try:
+                                days = (_dt.now() - _dt.fromisoformat(str(created)[:19])).days
+                                if days > 30:
+                                    overdue.append((c.get('claim_reference', ''), c.get('carrier', ''), days))
+                            except Exception:
+                                pass
+                    if overdue:
+                        yield f"\n⚠️ **{len(overdue)} dossier(s) en attente depuis + de 30 jours** — pensez à relancer :\n"
+                        for ref, carrier, days in overdue[:5]:
+                            yield f"- **{ref}** ({carrier}) — {days} jours sans réponse\n"
+                        yield "\nDites *\"relance le transporteur pour [référence]\"* pour chaque dossier bloqué."
+            except Exception:
+                pass
+            return
+
+        # ── 12. DOSSIERS BLOQUÉS / ANCIENS / SANS RÉPONSE ────────────────────
+        if any(kw in user_input_lower for kw in [
+            'bloqué', 'sans réponse', 'pas de réponse', 'rien depuis', 'ignoré',
+            'ancien', 'vieux dossier', 'dossiers anciens', 'en retard', 'dépasse'
+        ]):
+            logger.info("MANUAL TRIGGER: overdue claims")
+            yield "🔴 **Dossiers sans réponse (+ de 30 jours)**\n\n"
+            try:
+                from src.database.database_manager import get_db_manager
+                from datetime import datetime as _dt
+                db = get_db_manager()
+                client = db.get_client(email=client_email) if client_email else None
+                if not client:
+                    yield "ℹ️ Impossible d'identifier le client."
+                    return
+                claims = db.get_client_claims(client['id']) or []
+                overdue = []
+                for c in claims:
+                    if c.get('status') in ('pending', 'submitted', 'under_review'):
+                        created = c.get('submitted_at') or c.get('created_at', '')
+                        try:
+                            days = (_dt.now() - _dt.fromisoformat(str(created)[:19])).days
+                            if days > 30:
+                                overdue.append((c.get('claim_reference', ''), c.get('carrier', ''), c.get('amount_requested', 0), days, c.get('follow_up_level', 0)))
+                        except Exception:
+                            pass
+                if overdue:
+                    overdue.sort(key=lambda x: -x[3])
+                    yield f"**{len(overdue)} dossier(s) bloqué(s) :**\n\n"
+                    yield "| Référence | Transporteur | Montant | Jours | Relances |\n|---|---|---|---|---|\n"
+                    for ref, carrier, amt, days, lvl in overdue:
+                        level_badge = "🟢 Aucune" if lvl == 0 else (f"🟡 {lvl}×" if lvl == 1 else f"🔴 {lvl}×")
+                        yield f"| {ref} | {carrier} | {amt:.2f}€ | {days}j | {level_badge} |\n"
+                    yield "\n💡 Dites *\"relance le transporteur pour [référence]\"* pour réactiver un dossier."
+                else:
+                    yield "✅ Aucun dossier bloqué ! Tous vos dossiers actifs ont moins de 30 jours."
+            except Exception as e:
+                yield f"❌ Erreur : {e}"
+            return
+
+        # Si pas de détection manuelle, envoyer à Gemini — prompt allégé
+
+
         full_prompt = f"{system_prompt}\n\nHistorique de conversation:\n"
         for msg in history[-5:]:  # Garde les 5 derniers échanges
             role = "Utilisateur" if msg["role"] == "user" else "Assistant"

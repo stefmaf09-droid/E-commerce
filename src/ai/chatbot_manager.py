@@ -5,7 +5,6 @@ import json
 from google import genai
 from google.genai import types
 from typing import List, Dict, Generator, Optional, Any
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from src.config import Config
 from src.database.database_manager import get_db_manager
@@ -529,30 +528,4 @@ class ChatbotManager:
             else:
                 yield f"Désolé, j'ai rencontré une erreur technique: {error_str}"
     
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((ConnectionError, TimeoutError)),
-        reraise=True
-    )
-    def _call_gemini_with_retry(self, prompt: str):
-        """Call Gemini API (nouveau SDK) with automatic retry on transient failures.
-        Force a fresh API key choice on every request to bypass session caching."""
-        logger.debug("Calling Gemini API via google.genai (with dynamic key rotation)")
-        
-        # 1. Obtenir une clé API fraiche parmi la liste via le config manager
-        api_key = Config.get_gemini_api_key()
-        if not api_key:
-            raise ValueError("No API Key available")
-            
-        # 2. Créer un client pour CETTE requête et le stocker pour éviter le Garbage Collection
-        self.current_client = genai.Client(api_key=api_key)
-        
-        config = types.GenerateContentConfig(
-            tools=self.gemini_tools if self.gemini_tools else None
-        )
-        return self.current_client.models.generate_content_stream(
-            model=self.model_name,
-            contents=prompt,
-            config=config
-        )
+

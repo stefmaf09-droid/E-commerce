@@ -306,7 +306,7 @@ def render_assistant_page():
         with st.chat_message("user"):
             st.markdown(prompt)
         
-        reply = f"📝 **J'ai bien noté le motif '{detected_reason}'.**\n\n👉 **Veuillez taper uniquement votre numéro de réclamation** (ex: `CLM-12345`) dans la barre de discussion pour que je puisse générer la lettre."
+        reply = f"📝 **J'ai bien noté le motif '{detected_reason}'.**\n\n👉 **Tapez votre numéro de réclamation** (ex: `CLM-12345`) ou tapez **annuler** pour revenir au mode normal."
         st.session_state.messages.append({"role": "assistant", "content": reply})
         with st.chat_message("assistant"):
             st.markdown(reply)
@@ -318,6 +318,14 @@ def render_assistant_page():
 
     # Suite d'une action mise en attente (ex: attente du numéro CLM)
     if "_pending_action" in st.session_state and st.session_state["_pending_action"]["type"] == "generate_letter":
+        # Permettre à l'utilisateur d'annuler
+        if prompt.strip().lower() in ('annuler', 'cancel', 'non', 'stop'):
+            del st.session_state["_pending_action"]
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            st.session_state.messages.append({"role": "assistant", "content": "✅ Action annulée. Vous pouvez poser une nouvelle question."})
+            st.rerun()
+            return
+
         clm_match = re.search(r'CLM-[\w-]+', prompt.upper())
         if clm_match:
             claim_ref = clm_match.group(0)
@@ -329,19 +337,20 @@ def render_assistant_page():
                 
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
-                message_placeholder.markdown(f"🔧 Exécution de l'action : Génération du PDF pour **{claim_ref}**...\n\n")
+                message_placeholder.markdown(f"🔧 Génération du PDF pour **{claim_ref}**...\n\n")
                 client_email = st.session_state.get('client_email', None)
                 
                 try:
                     from src.database.database_manager import get_db_manager
                     from src.ai.appeal_generator import AppealGenerator
-                    import base64
+                    import pathlib
+                    from datetime import datetime as _dt
                     
                     db = get_db_manager()
-                    claim = db.get_claim(claim_ref)
+                    claim = db.get_claim(claim_reference=claim_ref)
                     
                     if not claim:
-                        reply = f"❌ Erreur : La réclamation **{claim_ref}** n'existe pas."
+                        reply = f"❌ La réclamation **{claim_ref}** n'existe pas en base."
                     else:
                         dispute_data = {
                             'claim_reference': claim_ref,
@@ -355,24 +364,30 @@ def render_assistant_page():
                             'status': claim.get('status', '')
                         }
                         
-                        # Utilisation de l'IA (AppealGenerator) pour rédiger la lettre
                         gen = AppealGenerator()
                         letter_text = gen.generate(dispute_data, reason)
-                        
-                        # Génération du PDF
                         pdf_bytes = AppealGenerator.generate_pdf(letter_text, f"contestation_{claim_ref}.pdf")
                         
                         if pdf_bytes:
-                            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                            # Sauvegarder sur disque
+                            save_dir = pathlib.Path("data/appeals")
+                            save_dir.mkdir(parents=True, exist_ok=True)
+                            ts = _dt.now().strftime("%Y%m%d_%H%M%S")
+                            pdf_file = save_dir / f"{ts}_{claim_ref}_Lettre_de_Contestation.pdf"
+                            pdf_file.write_bytes(pdf_bytes)
+                            
+                            # Format aligné sur le système persistant _appeal_pdfs
                             st.session_state['_appeal_pdf'] = {
-                                "ref": claim_ref,
-                                "b64": pdf_base64
+                                'bytes': pdf_bytes,
+                                'filename': pdf_file.name,
+                                'doc_type': 'Lettre de Contestation',
+                                'claim_ref': claim_ref,
                             }
-                            reply = f"✅ Lettre de contestation générée avec succès pour **{claim_ref}**.\n\n"
+                            reply = f"✅ Lettre de contestation générée pour **{claim_ref}**.\n\n📥 Cliquez sur le bouton de téléchargement ci-dessus."
                         else:
-                            reply = f"❌ Erreur lors de l'assemblage du PDF.\n"
+                            reply = f"❌ Erreur lors de l'assemblage du PDF (ReportLab manquant ?).\n"
                 except Exception as e:
-                    reply = f"❌ Erreur technique lors de la génération : {e}"
+                    reply = f"❌ Erreur technique : {e}"
                     
                 message_placeholder.markdown(reply)
                 st.session_state.messages.append({"role": "assistant", "content": reply})
@@ -381,12 +396,12 @@ def render_assistant_page():
             st.rerun()
             return
         else:
-            # L'utilisateur n'a pas tapé un CLM valide, on l'avertit
+            # L'utilisateur n'a pas tapé un CLM valide — mais ne pas bloquer
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
                 
-            warning_reply = "⚠️ Je n'ai pas reconnu de numéro de réclamation valide. Veuillez saisir un numéro commençant par `CLM-` (ex: `CLM-41625`)."
+            warning_reply = "⚠️ Je n'ai pas reconnu de numéro `CLM-`. Tapez votre référence (ex: `CLM-41625`) ou tapez **annuler** pour revenir au mode normal."
             st.session_state.messages.append({"role": "assistant", "content": warning_reply})
             with st.chat_message("assistant"):
                 st.markdown(warning_reply)

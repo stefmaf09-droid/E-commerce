@@ -86,7 +86,7 @@ class LegalDocumentGenerator:
         
         # 0. Logo
         root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        logo_path = os.path.join(root_dir, 'static', 'refundly_logo.png')
+        logo_path = os.path.join(root_dir, 'static', 'logo_premium.png')
         if os.path.exists(logo_path):
             im = Image(logo_path, width=8*cm, height=2.5*cm)
             im.hAlign = 'LEFT'

@@ -121,7 +121,7 @@ def render_application_sidebar():
         st.markdown("---")
 
         # Logo & Navigation
-        logo_path = os.path.join(root_dir, "static", "refundly_logo.png")
+        logo_path = os.path.join(root_dir, "static", "logo_premium.png")
         if os.path.exists(logo_path):
             try:
                 image = Image.open(logo_path)

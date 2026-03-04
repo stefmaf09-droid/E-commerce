@@ -229,10 +229,20 @@ def render_assistant_page():
                         # On a la ref : on demande à l'IA de générer le document
                         st.session_state["_quick_action"] = f"Génère la lettre de contestation PDF pour le litige {claim_ref} en utilisant le motif '{detected_reason}' détecté sur la preuve."
                     else:
-                        # Pas de ref : message texte direct au lieu d'invoquer le Chatbot (économie de quota)
+                        # Pas de ref : message texte direct + boutons d'action (économie de quota)
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": f"💡 J'ai identifié le motif **{detected_reason}** sur votre preuve. Pourriez-vous me préciser pour quelle réclamation (numéro commençant par `CLM-`) vous souhaitez générer une lettre de contestation ?"
+                            "content": f"💡 J'ai identifié le motif **{detected_reason}** sur votre preuve. Pour quelle réclamation (numéro commençant par `CLM-`) souhaitez-vous générer une lettre de contestation ?",
+                            "proactive_options": [
+                                {
+                                    "label": "📄 Générer une lettre (J'ai la Réf)", 
+                                    "action": f"Génère la lettre de contestation PDF pour le litige CLM-XXXX en utilisant le motif '{detected_reason}'"
+                                },
+                                {
+                                    "label": "📁 Créer un nouveau dossier",
+                                    "action": f"Je souhaite créer un nouveau dossier avec le motif: {detected_reason}"
+                                }
+                            ]
                         })
                 
                 st.success("✅ Preuve enregistrée et analysée !")
@@ -240,9 +250,17 @@ def render_assistant_page():
 
 
     # ── Historique ────────────────────────────────────────────────────────────
-    for message in st.session_state.messages:
+    for i, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            
+            # Affichage des boutons d'actions proactives (seulement pour le dernier message)
+            if i == len(st.session_state.messages) - 1 and "proactive_options" in message:
+                cols = st.columns(len(message["proactive_options"]))
+                for col_idx, opt in enumerate(message["proactive_options"]):
+                    if cols[col_idx].button(opt["label"], key=f"proact_{i}_{col_idx}"):
+                        st.session_state["_quick_action"] = opt["action"]
+                        st.rerun()
 
     # ── Input : saisie manuelle ou raccourci ──────────────────────────────────
     prompt = st.chat_input("Votre question ou action…")

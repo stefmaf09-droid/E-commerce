@@ -319,14 +319,17 @@ def main():
             target = st.session_state.pop("force_menu_selection")
             if target in menu_options:
                 default_idx = menu_options.index(target)
+            # Incrémenter le compteur pour forcer option_menu à se réinitialiser
+            st.session_state["_menu_nav_version"] = st.session_state.get("_menu_nav_version", 0) + 1
 
+        menu_key = f"main_menu_nav_{st.session_state.get('_menu_nav_version', 0)}"
         selected = option_menu(
             "Menu Principal",
             menu_options,
             icons=menu_icons,
             menu_icon="cast",
             default_index=default_idx,
-            key="main_menu_nav"
+            key=menu_key
         )
         
         st.markdown("---")

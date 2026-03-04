@@ -226,24 +226,22 @@ def render_assistant_page():
                 # Enchaînement automatique
                 if detected_reason:
                     if claim_ref:
-                        # On a la ref : on demande à l'IA de générer le document
+                        # On a la ref : on lance directement la génération du document
                         st.session_state["_quick_action"] = f"Génère la lettre de contestation PDF pour le litige {claim_ref} en utilisant le motif '{detected_reason}' détecté sur la preuve."
                     else:
-                        # Pas de ref : message texte direct + boutons d'action (économie de quota)
+                        # Pas de ref : on demande juste le CLM et on enchaîne automatiquement
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": f"💡 J'ai identifié le motif **{detected_reason}** sur votre preuve. Pour quelle réclamation (numéro commençant par `CLM-`) souhaitez-vous générer une lettre de contestation ?",
-                            "proactive_options": [
-                                {
-                                    "label": "📄 Générer une lettre (J'ai la Réf)", 
-                                    "action": f"Génère la lettre de contestation PDF pour le litige CLM-XXXX en utilisant le motif '{detected_reason}'"
-                                },
-                                {
-                                    "label": "📁 Créer un nouveau dossier",
-                                    "action": "__NAVIGATE_DEPOSIT__"
-                                }
-                            ]
+                            "content": (
+                                f"💡 J'ai identifié le motif **{detected_reason}** sur votre preuve.\n\n"
+                                f"👉 **Tapez votre numéro de réclamation** (ex: `CLM-12345`) "
+                                f"et je génèrerai automatiquement la lettre de contestation.\n\n"
+                                f"_Si vous n'avez pas encore de dossier, tapez le numéro de suivi du colis "
+                                f"et je créerai le dossier pour vous._"
+                            )
                         })
+                        # Activer directement l'attente du CLM (plus besoin de bouton)
+                        st.session_state["_pending_action"] = {"type": "generate_letter", "reason": detected_reason}
                 
                 st.success("✅ Preuve enregistrée et analysée !")
                 st.rerun()

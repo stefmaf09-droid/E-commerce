@@ -260,9 +260,9 @@ def render_assistant_page():
                 for col_idx, opt in enumerate(message["proactive_options"]):
                     if cols[col_idx].button(opt["label"], key=f"proact_{i}_{col_idx}"):
                         action = opt["action"]
-                        # Navigation directe (nouveau format OU ancien format texte)
+                        # "Créer un nouveau dossier" → déclencher la création directement dans le chat
                         if action == "__NAVIGATE_DEPOSIT__" or "créer un nouveau dossier" in action.lower():
-                            st.session_state["force_menu_selection"] = "Dépôt Preuves"
+                            st.session_state["_quick_action"] = "Créer une réclamation"
                         else:
                             st.session_state["_quick_action"] = action
                         st.rerun()

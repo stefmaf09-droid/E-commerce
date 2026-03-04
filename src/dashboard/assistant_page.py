@@ -296,6 +296,88 @@ def render_assistant_page():
             return
     st.session_state.last_request_time = time.time()
 
+    # ── Interception Proactive (Bypass IA) ───────────────────────────────────
+    if prompt.startswith("Génère la lettre de contestation PDF pour le litige CLM-XXXX"):
+        detected_reason = prompt.split("motif '")[1].split("'")[0] if "motif '" in prompt else "inconnu"
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        reply = f"📝 **J'ai bien noté le motif '{detected_reason}'.**\n\n👉 **Veuillez taper uniquement votre numéro de réclamation** (ex: `CLM-12345`) dans la barre de discussion pour que je puisse générer la lettre."
+        st.session_state.messages.append({"role": "assistant", "content": reply})
+        with st.chat_message("assistant"):
+            st.markdown(reply)
+            
+        st.session_state["_pending_action"] = {"type": "generate_letter", "reason": detected_reason}
+        return
+
+    if prompt.startswith("Je souhaite créer un nouveau dossier avec le motif:"):
+        detected_reason = prompt.split("motif: ")[1] if "motif: " in prompt else "inconnu"
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+            
+        reply = f"✅ **Nouveau dossier (Motif: {detected_reason})**\n\n👉 Veuillez vous rendre dans l'onglet **Créer un Dossier** depuis le menu de gauche pour renseigner les détails."
+        st.session_state.messages.append({"role": "assistant", "content": reply})
+        with st.chat_message("assistant"):
+            st.markdown(reply)
+        return
+
+    # Suite d'une action mise en attente (ex: attente du numéro CLM)
+    if "_pending_action" in st.session_state and st.session_state["_pending_action"]["type"] == "generate_letter":
+        clm_match = re.search(r'CLM-[\w-]+', prompt.upper())
+        if clm_match:
+            claim_ref = clm_match.group(0)
+            reason = st.session_state["_pending_action"]["reason"]
+            
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+                
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                message_placeholder.markdown(f"🔧 Exécution de l'action : Génération du PDF pour **{claim_ref}**...\n\n")
+                client_email = st.session_state.get('client_email', None)
+                
+                try:
+                    from src.ai.tools_library import RefundlyTools
+                    tools = RefundlyTools()
+                    result = tools.execute_tool("generate_claim_document", {
+                        "claim_reference": claim_ref,
+                        "reason": reason,
+                        "client_email": client_email
+                    })
+                    
+                    if result['success']:
+                        reply = f"✅ {result['message']}\n\n"
+                        if 'data' in result and 'pdf_base64' in result['data']:
+                            st.session_state['_appeal_pdf'] = {
+                                "ref": claim_ref,
+                                "b64": result['data']['pdf_base64']
+                            }
+                    else:
+                        reply = f"❌ Erreur lors de la génération : {result['message']}\n"
+                except Exception as e:
+                    reply = f"❌ Erreur technique lors de la génération : {e}"
+                    
+                message_placeholder.markdown(reply)
+                st.session_state.messages.append({"role": "assistant", "content": reply})
+                
+            del st.session_state["_pending_action"]
+            st.rerun()
+            return
+        else:
+            # L'utilisateur n'a pas tapé un CLM valide, on l'avertit
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+                
+            warning_reply = "⚠️ Je n'ai pas reconnu de numéro de réclamation valide. Veuillez saisir un numéro commençant par `CLM-` (ex: `CLM-41625`)."
+            st.session_state.messages.append({"role": "assistant", "content": warning_reply})
+            with st.chat_message("assistant"):
+                st.markdown(warning_reply)
+            return
+
     # ── Confirmation pour actions sensibles ──────────────────────────────────
     is_sensitive = any(kw in prompt.lower() for kw in ['relancer', 'relance', 'payé', 'paiement', 'mark', 'marquer'])
     has_clm_ref  = bool(re.search(r'CLM-[\w-]+', prompt.upper()))

@@ -222,7 +222,7 @@ class EscalationEmailHandler:
             logger.error("SMTP credentials not configured")
             return False
         
-        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'static', 'refundly_logo.png')
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'static', 'logo_premium.png')
         
         try:
             # 1. Root container (mixed) pour supporter body + attachments

@@ -340,23 +340,44 @@ def render_assistant_page():
                 client_email = st.session_state.get('client_email', None)
                 
                 try:
-                    from src.ai.tools_library import RefundlyTools
-                    tools = RefundlyTools()
-                    result = tools.execute_tool("generate_claim_document", {
-                        "claim_reference": claim_ref,
-                        "reason": reason,
-                        "client_email": client_email
-                    })
+                    from src.database.database_manager import get_db_manager
+                    from src.ai.appeal_generator import AppealGenerator
+                    import base64
                     
-                    if result['success']:
-                        reply = f"✅ {result['message']}\n\n"
-                        if 'data' in result and 'pdf_base64' in result['data']:
+                    db = get_db_manager()
+                    claim = db.get_claim(claim_ref)
+                    
+                    if not claim:
+                        reply = f"❌ Erreur : La réclamation **{claim_ref}** n'existe pas."
+                    else:
+                        dispute_data = {
+                            'claim_reference': claim_ref,
+                            'tracking_number': claim.get('tracking_number', 'N/A'),
+                            'carrier': claim.get('carrier', 'le transporteur'),
+                            'amount_requested': claim.get('amount_requested', 0),
+                            'order_date': str(claim.get('order_date', 'N/A')),
+                            'client_name': client_email or 'Client',
+                            'client_email': client_email or '',
+                            'recipient_name': claim.get('customer_name', 'le destinataire'),
+                            'status': claim.get('status', '')
+                        }
+                        
+                        # Utilisation de l'IA (AppealGenerator) pour rédiger la lettre
+                        gen = AppealGenerator()
+                        letter_text = gen.generate(dispute_data, reason)
+                        
+                        # Génération du PDF
+                        pdf_bytes = AppealGenerator.generate_pdf(letter_text, f"contestation_{claim_ref}.pdf")
+                        
+                        if pdf_bytes:
+                            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
                             st.session_state['_appeal_pdf'] = {
                                 "ref": claim_ref,
-                                "b64": result['data']['pdf_base64']
+                                "b64": pdf_base64
                             }
-                    else:
-                        reply = f"❌ Erreur lors de la génération : {result['message']}\n"
+                            reply = f"✅ Lettre de contestation générée avec succès pour **{claim_ref}**.\n\n"
+                        else:
+                            reply = f"❌ Erreur lors de l'assemblage du PDF.\n"
                 except Exception as e:
                     reply = f"❌ Erreur technique lors de la génération : {e}"
                     

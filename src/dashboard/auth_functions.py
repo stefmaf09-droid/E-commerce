@@ -54,98 +54,112 @@ def authenticate():
     if not st.session_state.authenticated:
         _inject_auth_css()
 
-        col_left, col_right = st.columns([1.1, 1], gap="large")
-
-        # ── LEFT: Marketing / value proposition ──────────────────────────
-        with col_left:
-            st.markdown(
-                """
-<div class="auth-brand">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-    <div style="
-      width:38px;height:38px;
-      background: #667eea;
-      border-radius:50%;
-      display:flex;align-items:center;justify-content:center;
-      color:white;font-weight:900;font-size:18px;
-      flex-shrink:0;
-    ">R</div>
-    <span style="font-size:2rem;font-weight:900;color:#667eea;">
-      Refundly<span style="color:#764ba2;opacity:.7;">.ai</span>
-    </span>
+        # ── FLOATING SUCCESS BADGES (animated) ──────────────────────────
+        st.markdown("""
+<div class="floating-badge badge-left" style="animation-delay: 0s;">
+  <div class="badge-icon" style="background: #dcfce7;">💰</div>
+  <div>
+    <div class="badge-title">Remboursement reçu</div>
+    <div class="badge-amount">+45,00 € Chronopost</div>
   </div>
-  <p style="color:#555;font-size:1.05rem;margin:6px 0 0;">
-    Récupérez l'argent que les transporteurs vous doivent — <strong>automatiquement</strong>.
+</div>
+<div class="floating-badge badge-right" style="animation-delay: 1.5s;">
+  <div class="badge-icon" style="background: #d1fae5;">✅</div>
+  <div>
+    <div class="badge-title">Demande approuvée</div>
+    <div class="badge-amount">UPS • +89,90 €</div>
+  </div>
+</div>
+        """, unsafe_allow_html=True)
+
+        # ── HERO SECTION ─────────────────────────────────────────────────
+        st.markdown("""
+<div class="auth-hero">
+  <div class="auth-hero-pill">✨ Zéro risque • Commission uniquement sur les remboursements</div>
+  <h1>On récupère <span class="highlight">ton argent</span><br>à ta place</h1>
+  <p class="subtitle">
+    Colis perdus, endommagés, retards de livraison…
+    Refundly analyse, détecte et réclame <strong>automatiquement</strong> ce qui t'est dû.
   </p>
 </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        """, unsafe_allow_html=True)
 
-            st.markdown(
-                """
-<div class="auth-hero-badge">
-  💰 <strong>Modèle 100 % succès</strong> — Vous payez 20 % uniquement si on récupère de l'argent.<br>
-  Coût fixe : <strong>0 €</strong>
-</div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            st.markdown("#### Comment ça fonctionne ?")
-            steps = [
-                ("🔌", "Connectez votre boutique", "Shopify, WooCommerce, PrestaShop… en 2 minutes."),
-                ("🤖", "Notre IA détecte vos litiges", "Colis perdus, endommagés, retards — sur les 12 derniers mois."),
-                ("📨", "On s'occupe de tout", "Réclamations, relances, mise en demeure — 100 % automatique."),
-                ("💳", "Vous recevez 80 %", "Virement direct sur votre IBAN dès que le transporteur rembourse."),
-            ]
-            for icon, title, desc in steps:
-                st.markdown(
-                    f"""
-<div class="auth-step">
-  <div class="auth-step-icon">{icon}</div>
-  <div>
-    <strong>{title}</strong><br>
-    <span style="font-size:.85rem;color:#666;">{desc}</span>
-  </div>
-</div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-            st.markdown("---")
-            st.markdown(
-                """
-<div style="display:flex;gap:32px;flex-wrap:wrap;margin-top:6px;">
-  <div style="text-align:center;">
-    <div style="font-size:1.6rem;font-weight:800;color:#667eea;">+87 %</div>
-    <div style="font-size:.78rem;color:#888;">taux de succès moyen</div>
-  </div>
-  <div style="text-align:center;">
-    <div style="font-size:1.6rem;font-weight:800;color:#764ba2;">4–8 sem.</div>
-    <div style="font-size:.78rem;color:#888;">délai moyen de récupération</div>
-  </div>
-  <div style="text-align:center;">
-    <div style="font-size:1.6rem;font-weight:800;color:#667eea;">0 €</div>
-    <div style="font-size:.78rem;color:#888;">si aucun résultat</div>
-  </div>
-</div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        # ── RIGHT: Login / Register form ──────────────────────────────────
-        with col_right:
-            st.markdown(
-                """<div class="auth-form-card">""",
-                unsafe_allow_html=True,
-            )
+        # ── LOGIN / REGISTER FORM (centered) ─────────────────────────────
+        _, col_form, _ = st.columns([1.2, 2, 1.2])
+        with col_form:
+            st.markdown('<div class="auth-form-card">', unsafe_allow_html=True)
             tab1, tab2 = st.tabs(["🔑 Connexion", "✨ Créer un compte"])
             with tab1:
                 _render_login_form()
             with tab2:
                 _render_registration_form()
-            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── TRUST BADGES ─────────────────────────────────────────────────
+        st.markdown("""
+<div class="trust-badges">
+  <div class="trust-badge-item"><span class="icon">⚡</span> Analyse en 2 minutes</div>
+  <div class="trust-badge-item"><span class="icon">🔒</span> Données sécurisées</div>
+  <div class="trust-badge-item"><span class="icon">📈</span> +2M€ récupérés</div>
+</div>
+        """, unsafe_allow_html=True)
+
+        # ── STATS CARDS ──────────────────────────────────────────────────
+        st.markdown("""
+<div class="auth-stats">
+  <div class="auth-stat-card">
+    <div class="stat-icon">💰</div>
+    <div class="stat-value">127€</div>
+    <div class="stat-label">Montant moyen récupéré</div>
+  </div>
+  <div class="auth-stat-card">
+    <div class="stat-icon">⚡</div>
+    <div class="stat-value">15 min</div>
+    <div class="stat-label">Temps moyen par demande</div>
+  </div>
+  <div class="auth-stat-card">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value">94%</div>
+    <div class="stat-label">Taux de succès</div>
+  </div>
+</div>
+        """, unsafe_allow_html=True)
+
+        # ── FEATURES GRID ────────────────────────────────────────────────
+        st.markdown("""
+<div class="auth-features">
+  <div class="auth-feature-card">
+    <div class="auth-feature-icon" style="background: #7c3aed;">🧠</div>
+    <h4>IA avancée</h4>
+    <p>Détection automatique des opportunités de remboursement sur vos colis.</p>
+  </div>
+  <div class="auth-feature-card">
+    <div class="auth-feature-icon" style="background: #0d9488;">🔒</div>
+    <h4>100% sécurisé</h4>
+    <p>Vos données sont chiffrées et ne sont jamais partagées avec des tiers.</p>
+  </div>
+  <div class="auth-feature-card">
+    <div class="auth-feature-icon" style="background: #0284c7;">⏱️</div>
+    <h4>Gain de temps</h4>
+    <p>Plus besoin de gérer les réclamations manuellement.</p>
+  </div>
+  <div class="auth-feature-card">
+    <div class="auth-feature-icon" style="background: #ea580c;">🛡️</div>
+    <h4>Zéro risque</h4>
+    <p>Pas de remboursement = pas de frais. Vous payez uniquement sur le succès.</p>
+  </div>
+  <div class="auth-feature-card">
+    <div class="auth-feature-icon" style="background: #dc2626;">🔔</div>
+    <h4>Notifications</h4>
+    <p>Restez informé à chaque étape de vos demandes de remboursement.</p>
+  </div>
+  <div class="auth-feature-card">
+    <div class="auth-feature-icon" style="background: #16a34a;">📊</div>
+    <h4>Tableau de bord</h4>
+    <p>Suivez tous vos litiges et remboursements en un coup d'œil.</p>
+  </div>
+</div>
+        """, unsafe_allow_html=True)
 
         return False
 
@@ -153,41 +167,252 @@ def authenticate():
 
 
 def _inject_auth_css():
-    """Premium CSS for the 2-column auth page."""
+    """Premium CSS inspired by refundly.fr landing page design."""
     st.markdown(
         """
 <style>
-.auth-brand { margin-bottom: 18px; }
-.auth-hero-badge {
-    background: linear-gradient(135deg, rgba(102,126,234,.12), rgba(118,75,162,.12));
-    border: 1px solid rgba(102,126,234,.25);
-    border-radius: 12px;
-    padding: 14px 18px;
-    margin: 14px 0 22px;
-    font-size: .95rem;
-    line-height: 1.5;
+/* ===== GLOBAL AUTH PAGE ===== */
+.stApp {
+    background: linear-gradient(180deg, #f0fdf9 0%, #ecfeff 30%, #f0f9ff 70%, #eff6ff 100%) !important;
 }
-.auth-step {
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    margin: 12px 0;
-    padding: 12px 14px;
-    border-radius: 10px;
-    transition: background .2s;
-}
-.auth-step:hover { background: rgba(102,126,234,.06); }
-.auth-step-icon {
-    font-size: 1.6rem;
-    min-width: 36px;
+
+/* ===== HERO SECTION ===== */
+.auth-hero {
     text-align: center;
+    padding: 40px 20px 20px;
+    max-width: 800px;
+    margin: 0 auto;
 }
+.auth-hero-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(13, 148, 136, 0.08);
+    border: 1px solid rgba(13, 148, 136, 0.2);
+    border-radius: 50px;
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    color: #0d9488;
+    font-weight: 600;
+    margin-bottom: 24px;
+}
+.auth-hero h1 {
+    font-size: 3.2rem;
+    font-weight: 900;
+    line-height: 1.15;
+    color: #111827;
+    margin: 0 0 20px;
+    letter-spacing: -1px;
+}
+.auth-hero h1 .highlight {
+    color: #0d9488;
+}
+.auth-hero .subtitle {
+    font-size: 1.05rem;
+    color: #6b7280;
+    line-height: 1.6;
+    max-width: 600px;
+    margin: 0 auto 32px;
+}
+
+/* ===== TRUST BADGES ===== */
+.trust-badges {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin: 20px 0 32px;
+    flex-wrap: wrap;
+}
+.trust-badge-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+    color: #6b7280;
+}
+.trust-badge-item .icon {
+    font-size: 1.1rem;
+    color: #0d9488;
+}
+
+/* ===== KPI STAT CARDS ===== */
+.auth-stats {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin: 24px auto 32px;
+    max-width: 720px;
+    flex-wrap: wrap;
+}
+.auth-stat-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 24px 28px;
+    min-width: 200px;
+    flex: 1;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.auth-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.auth-stat-card .stat-icon {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+}
+.auth-stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #111827;
+    margin: 4px 0;
+}
+.auth-stat-card .stat-label {
+    font-size: 0.82rem;
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+/* ===== FLOATING BADGES ===== */
+.floating-badge {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: white;
+    border-radius: 14px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    font-size: 0.82rem;
+    z-index: 10;
+    animation: floatBadge 3s ease-in-out infinite;
+    border: 1px solid #f3f4f6;
+}
+.floating-badge .badge-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+.floating-badge .badge-title {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.78rem;
+}
+.floating-badge .badge-amount {
+    color: #0d9488;
+    font-weight: 700;
+    font-size: 0.82rem;
+}
+.badge-left {
+    left: 3%;
+    top: 18%;
+}
+.badge-right {
+    right: 3%;
+    top: 30%;
+}
+.badge-bottom-left {
+    left: 5%;
+    bottom: 25%;
+}
+@keyframes floatBadge {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+/* ===== AUTH FORM CARD ===== */
 .auth-form-card {
     background: white;
-    border-radius: 18px;
-    padding: 28px 24px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.09);
-    border: 1px solid rgba(102,126,234,.15);
+    border-radius: 20px;
+    padding: 32px 28px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    border: 1px solid rgba(0,0,0,0.06);
+    max-width: 440px;
+    margin: 0 auto;
+}
+
+/* ===== FEATURES GRID ===== */
+.auth-features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 800px;
+    margin: 32px auto;
+}
+.auth-feature-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 24px 20px;
+    text-align: left;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.auth-feature-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.auth-feature-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    margin-bottom: 14px;
+    color: white;
+}
+.auth-feature-card h4 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 6px;
+}
+.auth-feature-card p {
+    font-size: 0.82rem;
+    color: #6b7280;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ===== BUTTON OVERRIDE ===== */
+.stButton button {
+    background: #0f766e !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 12px 28px !important;
+    font-weight: 700 !important;
+    font-size: 0.95rem !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25) !important;
+}
+.stButton button:hover {
+    background: #0d9488 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 16px rgba(13, 148, 136, 0.35) !important;
+}
+
+/* ===== STREAMLIT OVERRIDES ===== */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
+/* Tabs */
+[data-testid="stTab"] {
+    font-weight: 600 !important;
+    color: #6b7280 !important;
+}
+[data-testid="stTab"][aria-selected="true"] {
+    color: #0d9488 !important;
+    border-bottom-color: #0d9488 !important;
 }
 </style>
         """,

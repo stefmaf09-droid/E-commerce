@@ -303,7 +303,7 @@ def template_claim_accepted(client_email: str, client_name: str, claim_reference
             <p>Le paiement est en cours de traitement. Vous recevrez une notification dès que le virement sera effectué sur votre compte bancaire enregistré.</p>
             
             <p style="text-align: center; margin: 30px 0;">
-                <a href="{DASHBOARD_URL}?token={client_email}&page=Gestion" class="button">Voir les détails du paiement</a>
+                <a href="{DASHBOARD_URL}?token={client_email}&page=Mes%20Litiges" class="button">Voir les détails du paiement</a>
             </p>
             
             <p>Félicitations ! 🎊</p>

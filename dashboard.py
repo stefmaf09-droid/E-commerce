@@ -77,8 +77,8 @@ st.markdown("""
 # ── URL param shortcuts (for demo & deep-linking) ───────────────────────────
 _qp = st.query_params
 
-# ?portal=true  → auto-open the auth portal
-if _qp.get("portal") == "true" and not st.session_state.get("show_portal"):
+# ?portal=true or ?token=... → auto-open the auth portal
+if (_qp.get("portal") == "true" or "token" in _qp) and not st.session_state.get("show_portal"):
     st.session_state.show_portal = True
 
 # ?demo_wizard=true&step=N → bypass auth, go straight to wizard step N

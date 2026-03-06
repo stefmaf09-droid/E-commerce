@@ -352,6 +352,7 @@ class EmailSender:
         subject = f"🚨 {disputes_count} nouveau{'x' if disputes_count > 1 else ''} litige{'s' if disputes_count > 1 else ''} détecté{'s' if disputes_count > 1 else ''} - {total_amount:.0f}€ récupérables"
         
         html_body = template_disputes_detected(
+            client_email=to_email,
             client_name=client_name,
             disputes_count=disputes_count,
             total_amount=total_amount,
@@ -392,6 +393,7 @@ class EmailSender:
         subject = f"✅ Réclamation {claim_reference} soumise - {amount_requested:.0f}€"
         
         html_body = template_claim_submitted(
+            client_email=to_email,
             client_name=client_name,
             claim_reference=claim_reference,
             carrier=carrier,
@@ -433,6 +435,7 @@ class EmailSender:
         subject = f"🎉 Réclamation acceptée - Vous recevez {client_share:.0f}€ !"
         
         html_body = template_claim_accepted(
+            client_email=to_email,
             client_name=client_name,
             claim_reference=claim_reference,
             carrier=carrier,
@@ -469,6 +472,7 @@ class EmailSender:
         subject = f"⚠️ Réclamation {claim_reference} refusée"
         
         html_body = template_claim_rejected(
+            client_email=to_email,
             client_name=client_name,
             claim_reference=claim_reference,
             carrier=carrier,

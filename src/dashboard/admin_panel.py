@@ -120,4 +120,50 @@ def render_admin_panel():
     # TAB 3: SETTINGS
     # ----------------------------------------------------
     with tab_settings:
-        st.info("Paramètres globaux de l'instance (ex: mode maintenance, clés API globales, etc.)")
+        st.subheader("Outils de Test & Débogage")
+        
+        st.info("Utilisez ces outils pour préparer l'environnement de test.")
+        
+        col_test1, col_test2 = st.columns([2, 1])
+        
+        with col_test1:
+            target_email = st.text_input("Email du client cible", value="stephenrouxel22@orange.fr")
+            
+        with col_test2:
+            st.write("") # Spacer
+            if st.button("🚀 Générer Données de Test", use_container_width=True):
+                with st.spinner("Génération des litiges REF-TEST-XXX..."):
+                    try:
+                        db = get_db_manager()
+                        client = db.get_client(target_email)
+                        
+                        if not client:
+                            st.error(f"Client {target_email} non trouvé.")
+                        else:
+                            client_id = client['id']
+                            test_claims = [
+                                ("REF-TEST-001", "CMD-12345", "Colissimo", "lost", 125.50, "processing", None, None),
+                                ("REF-TEST-002", "CMD-12346", "Chronopost", "delay", 150.00, "accepted", 150.00, None),
+                                ("REF-TEST-003", "CMD-12347", "Mondial Relay", "damaged", 85.00, "rejected", None, "Poids non conforme")
+                            ]
+                            
+                            for ref, order, carrier, dtype, amt, status, acc_amt, rej_msg in test_claims:
+                                existing = db.get_claim(claim_reference=ref)
+                                if existing:
+                                    db.update_claim(existing['id'], status=status, accepted_amount=acc_amt, rejection_reason=rej_msg)
+                                else:
+                                    db.create_claim(
+                                        claim_reference=ref, client_id=client_id, order_id=order, 
+                                        carrier=carrier, dispute_type=dtype, amount_requested=amt,
+                                        tracking_number=f"TRK-{order}"
+                                    )
+                                    # Second update for specific status/accepted_amount
+                                    new_c = db.get_claim(claim_reference=ref)
+                                    db.update_claim(new_c['id'], status=status, accepted_amount=acc_amt, rejection_reason=rej_msg)
+                            
+                            st.success(f"✅ 3 litiges de test générés pour {target_email} !")
+                    except Exception as e:
+                        st.error(f"Échec de la génération : {e}")
+        
+        st.markdown("---")
+        st.caption("Mode: TEST (Supabase)")

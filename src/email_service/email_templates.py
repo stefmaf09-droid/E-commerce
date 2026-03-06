@@ -236,7 +236,7 @@ def template_claim_submitted(client_email: str, client_name: str, claim_referenc
             <p>Le transporteur dispose d'un délai légal pour répondre à votre réclamation.</p>
             
             <p style="text-align: center; margin: 30px 0;">
-                <a href="{DASHBOARD_URL}?token={client_email}&page=Mes%20Litiges" class="button">Voir le détail du litige</a>
+                <a href="{DASHBOARD_URL}?token={client_email}&page=Mes%20Litiges&claim_id={claim_reference}" class="button">Voir le détail du litige</a>
             </p>
             
             <p><strong>💡 Prochaines étapes :</strong></p>
@@ -303,7 +303,7 @@ def template_claim_accepted(client_email: str, client_name: str, claim_reference
             <p>Le paiement est en cours de traitement. Vous recevrez une notification dès que le virement sera effectué sur votre compte bancaire enregistré.</p>
             
             <p style="text-align: center; margin: 30px 0;">
-                <a href="{DASHBOARD_URL}?token={client_email}&page=Mes%20Litiges" class="button">Voir les détails du paiement</a>
+                <a href="{DASHBOARD_URL}?token={client_email}&page=Mes%20Litiges&claim_id={claim_reference}" class="button">Voir les détails du paiement</a>
             </p>
             
             <p>Félicitations ! 🎊</p>
@@ -356,7 +356,7 @@ def template_claim_rejected(client_email: str, client_name: str, claim_reference
             </ul>
             
             <p style="text-align: center; margin: 30px 0;">
-                <a href="{DASHBOARD_URL}?token={client_email}&page=Mes%20Litiges" class="button">Consulter la réponse complète</a>
+                <a href="{DASHBOARD_URL}?token={client_email}&page=Mes%20Litiges&claim_id={claim_reference}" class="button">Consulter la réponse complète</a>
             </p>
             
             <p>Connectez-vous à votre tableau de bord pour plus de détails et voir les options d'appel.</p>

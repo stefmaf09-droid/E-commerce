@@ -222,6 +222,18 @@ def main():
             logger.warning(f"ReminderWorker non démarré: {e}")
 
     # Detail sub-pages (no navbar needed)
+    
+    # URL Deep Link for a specific claim
+    claim_id_param = st.query_params.get("claim_id")
+    if claim_id_param and "processed_claim_id" not in st.session_state:
+        from src.database.database_manager import DatabaseManager
+        db = DatabaseManager()
+        claim = db.get_claim(claim_id_param)
+        if claim:
+            st.session_state.selected_dispute = claim
+            st.session_state.active_page = "Dispute Details"
+            st.session_state.processed_claim_id = claim_id_param
+    
     sub_page = st.session_state.get("active_page", "")
     if sub_page == "Dispute Details":
         from src.dashboard.dispute_details_page import render_dispute_details_page

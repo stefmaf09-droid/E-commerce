@@ -249,8 +249,25 @@ def main():
         set_db_manager(db)
         
         claim = db.get_claim(pending_claim_id)
+        
+        # Auto-bootstrap test claims if not found (for Streamlit Cloud PGSQL)
+        if not claim and pending_claim_id.startswith("REF-TEST"):
+            st.warning("DEBUG: Auto-bootstrapping test claims into the cloud database...")
+            try:
+                client = db.get_client("stephenrouxel22@orange.fr")
+                client_id = client['id'] if client else db.create_client("stephenrouxel22@orange.fr", "Stephen Test")
+                
+                db.create_claim(claim_reference="REF-TEST-001", client_id=client_id, order_id="CMD-12345", carrier="Colissimo", dispute_type="lost", amount_requested=125.50, status="processing")
+                db.create_claim(claim_reference="REF-TEST-002", client_id=client_id, order_id="CMD-12346", carrier="Chronopost", dispute_type="delay", amount_requested=150.00, status="accepted", accepted_amount=150.0)
+                db.create_claim(claim_reference="REF-TEST-003", client_id=client_id, order_id="CMD-12347", carrier="Mondial Relay", dispute_type="damaged", amount_requested=85.00, status="rejected", rejection_reason="Le poids mesuré en agence ne correspond pas.")
+                
+                # Fetch again
+                claim = db.get_claim(pending_claim_id)
+            except Exception as e:
+                st.error(f"Failed to bootstrap claims: {e}")
+
         if claim:
-            st.warning(f"DEBUG: Claim found! Type: {type(claim)}")
+            st.success(f"DEBUG: Claim loaded correctly.")
             # Map claim_reference to dispute_id for the UI details page
             claim['dispute_id'] = claim.get('claim_reference', pending_claim_id)
             st.session_state.selected_dispute = claim

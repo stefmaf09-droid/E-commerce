@@ -187,6 +187,9 @@ def initialize_session():
 
 def main():
     """Main dashboard application."""
+    if st.query_params:
+        st.warning(f"DEBUG RAW QUERY PARAMS ON LOAD: {dict(st.query_params)}")
+    
     initialize_session()
 
     # Handle logout via URL param
@@ -195,6 +198,11 @@ def main():
         st.session_state.active_tab = "Dashboard"
         st.query_params.clear()
         st.rerun()
+        
+    # Capture URL Deep Link for a specific claim BEFORE authentication logic might clear it
+    claim_id_param = st.query_params.get("claim_id")
+    if claim_id_param and st.session_state.get("processed_claim_id") != claim_id_param:
+        st.session_state.pending_claim_id = claim_id_param
 
     # Token auto-reconnect
     email_param = st.query_params.get("token", "")
@@ -223,19 +231,42 @@ def main():
 
     # Detail sub-pages (no navbar needed)
     
-    # URL Deep Link for a specific claim
-    claim_id_param = st.query_params.get("claim_id")
-    if claim_id_param and "processed_claim_id" not in st.session_state:
-        from src.database.database_manager import DatabaseManager
-        db = DatabaseManager()
-        claim = db.get_claim(claim_id_param)
+    # Process pending deep link claim if authentication is successful
+    pending_claim_id = st.session_state.get("pending_claim_id")
+    if pending_claim_id and st.session_state.get("processed_claim_id") != pending_claim_id:
+        from src.database.database_manager import DatabaseManager, set_db_manager
+        
+        # Ensure we use the right DB depending on env_mode
+        db_path = os.path.join(
+            root_dir,
+            "data",
+            "test_recours_ecommerce.db" if st.session_state.get("env_mode", "TEST") == "TEST"
+            else "recours_ecommerce.db",
+        )
+        db_type_override = "sqlite" if st.session_state.get("env_mode", "TEST") == "TEST" else None
+        
+        db = DatabaseManager(db_path=db_path, db_type=db_type_override)
+        set_db_manager(db)
+        
+        claim = db.get_claim(pending_claim_id)
         if claim:
+            st.warning(f"DEBUG: Claim found! Type: {type(claim)}")
+            # Map claim_reference to dispute_id for the UI details page
+            claim['dispute_id'] = claim.get('claim_reference', pending_claim_id)
             st.session_state.selected_dispute = claim
             st.session_state.active_page = "Dispute Details"
-            st.session_state.processed_claim_id = claim_id_param
+            st.session_state.processed_claim_id = pending_claim_id
+            st.session_state.pop("pending_claim_id", None)
+        else:
+            st.error(f"DEBUG: Claim {pending_claim_id} NOT found in DB path {db.db_path} or DB type {db.db_type}")
     
     sub_page = st.session_state.get("active_page", "")
     if sub_page == "Dispute Details":
+        # Check if login token is present but user not authenticated yet.
+        # If so, force authentication first so navbar shows correctly
+        if st.query_params.get("token") and not st.session_state.get("authenticated"):
+            authenticate()
+        
         from src.dashboard.dispute_details_page import render_dispute_details_page
         render_dispute_details_page(st.session_state.get("selected_dispute", {}))
         return

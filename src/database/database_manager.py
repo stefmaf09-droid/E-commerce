@@ -40,7 +40,7 @@ class DatabaseManager:
                 db_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'recours_ecommerce.db')
         
         self.db_path = db_path
-        print(f"DEBUG: DatabaseManager using path: {self.db_path}")
+        logger.debug(f"DatabaseManager using path: {self.db_path}")
         
         # Priority: explicit arg > config > default sqlite
         self.db_type = (db_type or Config.get('DATABASE_TYPE', 'sqlite')).lower()

@@ -365,20 +365,6 @@ class AutoRecoveryOrchestrator:
                 'submitted_at': datetime.now().isoformat(),
                 'action_required': 'Create manual task ticket for human operator'
             }
-            # Automatisation de la création de ticket manuel et notification
-            try:
-                from src.notifications.task_manager import create_manual_task, notify_operator
-                task_id = create_manual_task(
-                    task_type='manual_claim_submission',
-                    claim_reference=dispute.get('claim_reference'),
-                    carrier=dispute.get('carrier'),
-                    reason='Automation fallback',
-                    priority='high'
-                )
-                notify_operator(task_id=task_id, message=f"Intervention requise pour la réclamation {dispute.get('claim_reference')}")
-                logger.info(f"📝 Ticket manuel créé et opérateur notifié (task_id={task_id})")
-            except Exception as e:
-                logger.error(f"Erreur lors de la création du ticket manuel ou notification opérateur: {e}")
     
     async def _update_dashboard(self, dispute: Dict, result: Dict):
         """Update client dashboard with claim status."""

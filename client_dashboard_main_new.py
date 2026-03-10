@@ -15,6 +15,7 @@ from src.onboarding.onboarding_manager import OnboardingManager
 from onboarding_functions import render_onboarding
 from src.ui.theme import apply_premium_theme, render_premium_metric
 from src.ui.logos import LOGOS, ICONS
+from src.ui.logo import logo_img_tag
 from src.dashboard.auto_refresh import AutoRefresh, setup_auto_refresh
 from src.workers.reminder_worker import ReminderWorker
 
@@ -34,13 +35,16 @@ from src.dashboard.assistant_page import render_assistant_page
 from src.dashboard.attachments_page import render_attachments_page
 
 
-# ── Page config ────────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Refundly.AI | Dashboard",
-    page_icon="🔄",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+# ── Page config (only set when running standalone, not imported by dashboard.py) ──
+_is_standalone = not st.session_state.get("_page_config_set")
+if _is_standalone:
+    st.set_page_config(
+        page_title="Refundly.AI | Dashboard",
+        page_icon="🔄",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
+    st.session_state["_page_config_set"] = True
 
 # ── Navigation items ───────────────────────────────────────────────────────────
 MENU_ITEMS = [
@@ -104,6 +108,8 @@ def _render_top_navbar(active: str, email: str, role: str = "client"):
     safe_email_esc = email.replace("@", "%40").replace("+", "%2B")
     logout_url = f"?logout=1&token={safe_email_esc}"
 
+    logo_html = logo_img_tag(height=120)
+
     navbar_html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -116,21 +122,16 @@ def _render_top_navbar(active: str, email: str, role: str = "client"):
     backdrop-filter:blur(12px);
     border-bottom:1px solid #e5e7eb;
     box-shadow:0 2px 16px rgba(0,0,0,0.06);
-    padding:0 28px; height:60px;
+    padding:6px 28px; height:96px;
     position:fixed; top:0; left:0; right:0; z-index:9999;
   }}
   .logo {{
-    display:flex; align-items:center; gap:10px;
-    font-size:1.15rem; font-weight:800; color:#111827;
+    display:flex; align-items:center; gap:0px;
     text-decoration:none; flex-shrink:0;
   }}
-  .logo-icon {{
-    width:32px; height:32px;
-    background:linear-gradient(135deg,#0d9488,#0f766e);
-    border-radius:9px; display:flex; align-items:center;
-    justify-content:center; color:white; font-weight:900; font-size:15px;
+  .logo img {{
+    height:36px; width:auto; display:block;
   }}
-  .logo .ai {{ color:#0d9488; font-weight:900; }}
   .tabs {{ display:flex; align-items:center; gap:2px; }}
   .nav-tab {{
     padding:7px 13px; border-radius:8px; font-size:0.85rem;
@@ -156,8 +157,7 @@ def _render_top_navbar(active: str, email: str, role: str = "client"):
 <body>
 <nav class="navbar">
   <div class="logo">
-    <div class="logo-icon">R</div>
-    <span>Refundly<span class="ai">.AI</span></span>
+    {logo_html}
   </div>
   <div class="tabs">
     {tabs_html}
@@ -188,7 +188,7 @@ def initialize_session():
 def main():
     """Main dashboard application."""
     if st.query_params:
-        st.warning(f"DEBUG RAW QUERY PARAMS ON LOAD: {dict(st.query_params)}")
+        logger.debug(f"Raw query params on load: {dict(st.query_params)}")
     
     initialize_session()
 
@@ -252,7 +252,7 @@ def main():
         
         # Auto-bootstrap test claims if not found (for Streamlit Cloud PGSQL)
         if not claim and pending_claim_id.startswith("REF-TEST"):
-            st.warning("DEBUG: Auto-bootstrapping test claims into the cloud database...")
+            logger.info("Deep-link: auto-bootstrapping test claims into the cloud database...")
             try:
                 client = db.get_client("stephenrouxel22@orange.fr")
                 client_id = client['id'] if client else db.create_client("stephenrouxel22@orange.fr", "Stephen Test")
@@ -267,7 +267,7 @@ def main():
                 st.error(f"Failed to bootstrap claims: {e}")
 
         if claim:
-            st.success(f"DEBUG: Claim loaded correctly.")
+            logger.info(f"Deep-link: claim {pending_claim_id} loaded successfully.")
             # Map claim_reference to dispute_id for the UI details page
             claim['dispute_id'] = claim.get('claim_reference', pending_claim_id)
             st.session_state.selected_dispute = claim
@@ -275,7 +275,8 @@ def main():
             st.session_state.processed_claim_id = pending_claim_id
             st.session_state.pop("pending_claim_id", None)
         else:
-            st.error(f"DEBUG: Claim {pending_claim_id} NOT found in DB path {db.db_path} or DB type {db.db_type}")
+            logger.warning(f"Deep-link: claim {pending_claim_id} not found in DB ({getattr(db, 'db_path', '?')} / {getattr(db, 'db_type', '?')})")  
+            st.warning(f"⚠️ La réclamation **{pending_claim_id}** est introuvable. Elle a peut-être été supprimée ou vous accédez avec un mauvais compte.")
     
     sub_page = st.session_state.get("active_page", "")
     if sub_page == "Dispute Details":
@@ -419,9 +420,6 @@ def main():
 
     elif active_tab == "Assistant":
         render_assistant_page()
-
-    elif active_tab == "Pièces Jointes":
-        render_attachments_page()
 
     elif active_tab == "Réglages":
         render_settings_page()

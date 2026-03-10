@@ -1,18 +1,15 @@
 """
-Universal Parcel Tracker — 17track + ParcelsApp fallback.
+Universal Parcel Tracker — 17track API (officiel) + ParcelsApp fallback.
 
-Uses multiple tracking sources in order:
-  1. 17track.net public API (no key needed for basic queries)
-  2. ParcelsApp long-polling API (no key for initiation)
+Utilise la clé API 17track (secrets.toml > [tracking] > seventeen_track_api_key)
+pour interroger 3100+ transporteurs mondiaux.
 
-Supports 600+ carriers: DHL, Colissimo, Chronopost, Mondial Relay,
-UPS, FedEx, TNT, GLS, Cainiao, etc.
+Fallback: ParcelsApp long-polling si 17track indisponible.
 """
 
 import logging
 import requests
-import json
-import re
+import os
 import time
 import uuid
 from typing import Optional, Dict, Any, List
@@ -20,6 +17,18 @@ from datetime import datetime
 from .base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
+
+
+def _get_17track_key() -> str:
+    """Charge la clé API 17track depuis st.secrets ou variable d'env."""
+    # Streamlit secrets
+    try:
+        import streamlit as st
+        return st.secrets.get("tracking", {}).get("seventeen_track_api_key", "")
+    except Exception:
+        pass
+    # Variable d'environnement fallback
+    return os.environ.get("SEVENTEEN_TRACK_API_KEY", "")
 
 
 _DELIVERED_KEYWORDS = {
@@ -42,32 +51,43 @@ _STATUS_MAP = {
     "delayed": "Retardé",
 }
 
-# 17track status codes → French
-_17TRACK_STATUS = {
-    0:  "En attente d'informations",
-    10: "Informations d'expédition reçues",
-    20: "En transit",
-    25: "En transit international",
-    30: "En cours de livraison 🚚",
-    35: "Tentative de livraison échouée",
-    40: "Livré ✅",
-    50: "Retourné à l'expéditeur",
-    60: "Exception / Anomalie ⚠️",
-    99: "Expiré",
+# 17track carrier codes pour les transporteurs courants
+_17TRACK_CARRIERS = {
+    "dhl": 2151,           # DHL Express
+    "dhl express": 2151,
+    "colissimo": 100002,   # La Poste / Colissimo
+    "laposte": 100002,
+    "chronopost": 100003,  # Chronopost
+    "ups": 2,              # UPS
+    "fedex": 3,            # FedEx
+    "tnt": 6,              # TNT
+    "dpd": 8,              # DPD
+    "gls": 10,             # GLS
+    "mondial relay": 100071, # Mondial Relay
+    "mondialrelay": 100071,
+    "cainiao": 190089,     # Cainiao (AliExpress)
+    "yanwen": 100139,
+    "amazon": 100233,
 }
+
+# Carriers à essayer en auto-détection (ordre de fréquence)
+_CARRIER_PROBE_ORDER = [2151, 100002, 100003, 2, 3, 6, 8, 10, 100071, 190089]
 
 
 class ParcelsAppScraper(BaseScraper):
     """
-    Universal parcel tracker — multi-source, no API key required.
+    Universal parcel tracker — 17track officiel + ParcelsApp fallback.
 
-    Tries 17track → ParcelsApp in order.
-    Returns a normalized dict compatible with all other scrapers.
+    Utilise la clé API 17track (3100+ transporteurs).
+    Retourne un dict normalisé compatible avec tous les autres scrapers.
     """
+
+    # 17track v2 official API
+    TRACK17_API = "https://api.17track.net/track/v2.2/gettrackinfo"
+    TRACK17_REGISTER = "https://api.17track.net/track/v2.2/register"
 
     PARCELSAPP_API = "https://parcelsapp.com/api/v3/shipments/tracking"
     PARCELSAPP_PAGE = "https://parcelsapp.com/en/tracking/{tracking}"
-    TRACK17_URL = "https://t.17track.net/restapi/track"
 
     def get_tracking(self, tracking_number: str, language: str = "fr") -> Optional[Dict[str, Any]]:
         """
@@ -106,61 +126,121 @@ class ParcelsAppScraper(BaseScraper):
     def scrape(self, **kwargs) -> List[Dict]:
         raise NotImplementedError("Use get_tracking() for single parcel lookup.")
 
-    # ── Source 1: 17track ─────────────────────────────────────────────────
+    # ── Source 1: 17track API officielle ─────────────────────────────────
 
-    def _fetch_17track(self, tracking_number: str) -> Optional[Dict[str, Any]]:
-        """Query 17track.net public tracking endpoint."""
-        payload = [{"num": tracking_number}]
+    def _fetch_17track(self, tracking_number: str, carrier_hint: str = "") -> Optional[Dict[str, Any]]:
+        """Interroge l'API officielle 17track v2.2 avec clé API."""
+        api_key = _get_17track_key()
+        if not api_key:
+            logger.warning("[17track] Clé API manquante — verifier secrets.toml [tracking]")
+            return None
+
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Origin": "https://www.17track.net",
-            "Referer": f"https://www.17track.net/en/track#nums={tracking_number}",
-            "17token": "",
+            "17token": api_key,
         }
-        resp = requests.post(
-            self.TRACK17_URL,
-            json=payload,
-            headers=headers,
-            timeout=15,
-        )
+
+        # Déterminer le code carrier
+        carrier_code = None
+        if carrier_hint:
+            carrier_code = _17TRACK_CARRIERS.get(carrier_hint.lower())
+
+        # Essayer l'enregistrement avec ou sans carrier
+        registered = False
+        if carrier_code:
+            # Cas 1 : carrier connu
+            r = requests.post(self.TRACK17_REGISTER,
+                json=[{"number": tracking_number, "carrier": carrier_code}],
+                headers=headers, timeout=10)
+            if r.json().get("data", {}).get("accepted"):
+                registered = True
+        
+        if not registered:
+            # Cas 2 : pas de carrier — essai auto-détection
+            r = requests.post(self.TRACK17_REGISTER,
+                json=[{"number": tracking_number}],
+                headers=headers, timeout=10)
+            data_reg = r.json().get("data", {})
+            if data_reg.get("accepted"):
+                registered = True
+            else:
+                # Cas 3 : probe parmi les carriers courants
+                for cid in _CARRIER_PROBE_ORDER:
+                    r = requests.post(self.TRACK17_REGISTER,
+                        json=[{"number": tracking_number, "carrier": cid}],
+                        headers=headers, timeout=8)
+                    if r.json().get("data", {}).get("accepted"):
+                        registered = True
+                        carrier_code = cid
+                        logger.info(f"[17track] Auto-detected carrier {cid} for {tracking_number}")
+                        break
+
+        if not registered:
+            logger.warning(f"[17track] Impossible d'enregistrer {tracking_number}")
+            return None
+
+        # Récupérer les infos de tracking
+        payload = [{"number": tracking_number}]
+        if carrier_code:
+            payload[0]["carrier"] = carrier_code
+
+        resp = requests.post(self.TRACK17_API, json=payload, headers=headers, timeout=15)
         resp.raise_for_status()
         data = resp.json()
 
-        accepted = data.get("dat", {}).get("accepted", [])
+        accepted = (
+            data.get("data", {}).get("accepted")
+            or data.get("dat", {}).get("accepted")
+            or []
+        )
         if not accepted:
+            logger.warning(f"[17track] Pas de données pour {tracking_number}: {data.get('message', '')}")
             return None
 
         item = accepted[0]
-        track_info = item.get("track", {})
+        track = item.get("track_info", item.get("track", {}))
+        latest_status = track.get("latest_status", {})
 
         # Status
-        status_code = track_info.get("e", 0)
-        status_text = _17TRACK_STATUS.get(status_code, track_info.get("z1", "Inconnu"))
+        status_code = latest_status.get("status", track.get("e", 0))
+        if isinstance(status_code, str):
+            status_text = status_code
+        else:
+            status_text = _17TRACK_STATUS.get(status_code, latest_status.get("sub_status", "En attente d'informations"))
 
-        # History
+        # Historique
         history = []
-        for ev in (track_info.get("z2") or []):
+        providers = track.get("tracking", {}).get("providers", [{}])
+        events = (providers[0].get("events", []) if providers else []) or track.get("z2", [])
+        for ev in events:
             history.append({
-                "date": ev.get("a", ""),
-                "status": ev.get("z", ""),
-                "location": ev.get("c", ""),
+                "date": ev.get("time_iso") or ev.get("a") or "",
+                "status": ev.get("description") or ev.get("z") or "",
+                "location": ev.get("location") or ev.get("c") or "",
             })
 
         # Carrier
-        carrier_name = item.get("fn") or item.get("fc") or "Inconnu"
+        carrier_info = track.get("shipping_info", {})
+        carrier_name = carrier_info.get("carrier") or item.get("fn") or str(carrier_code or "Inconnu")
+
+        est_delivery = (
+            track.get("time_metrics", {}).get("estimated_delivery_date", {}).get("from")
+            or track.get("b3")
+        )
+
+        is_delivered = status_code == 40 or (isinstance(status_code, str) and "delivered" in status_code.lower())
 
         return {
             "carrier": carrier_name,
             "tracking_number": tracking_number,
             "status": status_text,
             "status_normalized": self._normalize_status(status_text),
-            "is_delivered": status_code == 40,
+            "is_delivered": is_delivered,
             "has_problem": status_code in (50, 60),
-            "delivery_date": track_info.get("b2"),
-            "estimated_delivery": track_info.get("b3"),
-            "origin": track_info.get("od"),
-            "destination": track_info.get("dd"),
+            "delivery_date": carrier_info.get("delivery_time") or track.get("b2"),
+            "estimated_delivery": est_delivery,
+            "origin": carrier_info.get("origin_country") or track.get("od"),
+            "destination": carrier_info.get("destination_country") or track.get("dd"),
             "history": history,
             "source": "17track",
             "tracking_url": self.PARCELSAPP_PAGE.format(tracking=tracking_number),

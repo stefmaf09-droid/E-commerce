@@ -7,6 +7,7 @@ Steps: Profile → Store connection → Bank info → Done!
 
 import streamlit as st
 import time
+from src.ui.logo import logo_img_tag as _logo_tag
 
 
 def render_onboarding_wizard():
@@ -24,23 +25,12 @@ def render_onboarding_wizard():
     step = st.session_state.onboarding_step
 
     # ── Brand header ─────────────────────────────────────────────────────────
+    _logo_html = _logo_tag(height=50)
     st.markdown(
-        """
-        <div style="text-align:center;padding:20px 0 5px;">
-          <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px;">
-            <div style="
-              width:38px;height:38px;
-              background: #667eea;
-              border-radius:50%;
-              display:flex;align-items:center;justify-content:center;
-              color:white;font-weight:900;font-size:18px;
-              flex-shrink:0;
-            ">R</div>
-            <span style="font-size:2.2rem;font-weight:900;color:#667eea;">
-              Refundly<span style="color:#764ba2;opacity:.7;">.ai</span>
-            </span>
-          </div>
-          <p style="color:#888;margin:4px 0 0;">Recouvrement logistique automatisé</p>
+        f"""
+        <div style="text-align:center;padding:24px 0 8px;">
+          {_logo_html}
+          <p style="color:#888;margin:10px 0 0;font-size:.9rem;">🚀 Recouvrement logistique automatisé</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -84,10 +74,11 @@ def _render_progress_bar(current: int):
             if i < current:
                 st.markdown(
                     f"""<div style="text-align:center">
-                      <div style="width:40px;height:40px;border-radius:50%;background:#667eea;
+                      <div style="width:40px;height:40px;border-radius:50%;background:#0072ff;
                                   color:white;display:inline-flex;align-items:center;
-                                  justify-content:center;font-size:16px;font-weight:bold;">✓</div>
-                      <div style="font-size:11px;color:#667eea;margin-top:4px;font-weight:600;">{label}</div>
+                                  justify-content:center;font-size:16px;font-weight:bold;
+                                  box-shadow:0 2px 8px rgba(0,114,255,.3);">&#10003;</div>
+                      <div style="font-size:11px;color:#0072ff;margin-top:4px;font-weight:600;">{label}</div>
                     </div>""",
                     unsafe_allow_html=True,
                 )
@@ -95,11 +86,11 @@ def _render_progress_bar(current: int):
                 st.markdown(
                     f"""<div style="text-align:center">
                       <div style="width:40px;height:40px;border-radius:50%;
-                                  background:linear-gradient(135deg,#667eea,#764ba2);
+                                  background:linear-gradient(135deg,#00c6ff,#0072ff);
                                   color:white;display:inline-flex;align-items:center;
                                   justify-content:center;font-size:16px;font-weight:bold;
-                                  box-shadow:0 4px 12px rgba(102,126,234,.4);">{i}</div>
-                      <div style="font-size:11px;color:#764ba2;font-weight:700;margin-top:4px;">{label}</div>
+                                  box-shadow:0 4px 14px rgba(0,114,255,.4);">{i}</div>
+                      <div style="font-size:11px;color:#0072ff;font-weight:700;margin-top:4px;">{label}</div>
                     </div>""",
                     unsafe_allow_html=True,
                 )
@@ -394,12 +385,13 @@ def _step_done(email: str):
     with center:
         st.markdown(
             """<div style="text-align:center;margin-bottom:24px;">
-              <div style="font-size:4rem;">🚀</div>
-              <h1 style="background:linear-gradient(135deg,#667eea,#764ba2);
-                         -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+              <div style="font-size:4rem;">&#x1F680;</div>
+              <h1 style="background:linear-gradient(135deg,#00c6ff,#0072ff);
+                         -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+                         font-size:2.4rem;font-weight:900;">
                 Tout est prêt !
               </h1>
-              <p style="color:#666;font-size:1.1rem;">
+              <p style="color:#555;font-size:1.1rem;">
                 Refundly va maintenant analyser vos commandes en arrière-plan.
               </p>
             </div>""",
@@ -415,10 +407,10 @@ def _step_done(email: str):
             with col:
                 st.markdown(
                     f"""<div style="text-align:center;padding:18px;
-                                   background:rgba(102,126,234,.08);border-radius:14px;
-                                   border:1px solid rgba(102,126,234,.18);">
+                                   background:rgba(0,114,255,.06);border-radius:14px;
+                                   border:1px solid rgba(0,114,255,.15);">
                          <div style="font-size:2rem;">{icon}</div>
-                         <strong>{title}</strong>
+                         <strong style="color:#0f0f1a;">{title}</strong>
                          <p style="font-size:.82rem;color:#666;margin-top:8px;">{desc}</p>
                        </div>""",
                     unsafe_allow_html=True,

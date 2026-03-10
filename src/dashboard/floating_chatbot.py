@@ -9,9 +9,12 @@ For the onboarding wizard (sidebar hidden), the chat renders as an inline
 expandable panel at the bottom of each step.
 """
 
+import logging
 import streamlit as st
 import streamlit.components.v1 as components
 import time
+
+logger = logging.getLogger(__name__)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

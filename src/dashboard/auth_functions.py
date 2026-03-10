@@ -14,6 +14,8 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 sys.path.insert(0, os.path.join(root_dir, 'src'))
 sys.path.insert(0, root_dir)
 
+from src.ui.logo import logo_img_tag as _logo_tag
+
 from auth.credentials_manager import CredentialsManager
 from onboarding.onboarding_manager import OnboardingManager
 
@@ -59,11 +61,11 @@ def authenticate():
             st.session_state._show_login = False
 
         # ── NAVIGATION HEADER (comme refundly.fr) ────────────────────────
-        st.markdown("""
+        _logo_html = _logo_tag(height=38)
+        st.markdown(f"""
 <div class="auth-navbar">
   <div class="auth-navbar-logo">
-    <div class="auth-navbar-logo-icon">R</div>
-    <span>Refundly<span style="color:#0d9488;font-weight:900;">.AI</span></span>
+    {_logo_html}
   </div>
   <div class="auth-navbar-links">
     <span>Comment ça marche</span>
@@ -87,7 +89,6 @@ def authenticate():
             st.markdown("<br>", unsafe_allow_html=True)
             _, col_form, _ = st.columns([1.2, 2, 1.2])
             with col_form:
-                default_tab = 1 if st.session_state.pop("_show_register_tab", False) else 0
                 tab1, tab2 = st.tabs(["🔑 Connexion", "✨ Créer un compte"])
                 with tab1:
                     _render_login_form()

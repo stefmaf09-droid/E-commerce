@@ -29,35 +29,49 @@ from src.dashboard.reports_page import (
 from src.dashboard.carrier_breakdown import render_carrier_breakdown
 
 
-@pytest.mark.skip(reason="Streamlit mocking issues - manual testing preferred")
 class TestSettingsPage:
-    """Test suite for settings page functionality."""
-    
-    @patch('streamlit.session_state', {'client_email': 'test@example.com'})
-    @patch('streamlit.markdown')
-    def test_render_settings_page_structure(self, mock_markdown):
-        """Test that settings page renders main sections."""
-        with patch('src.dashboard.settings_page.render_store_management'), \
-             patch('src.dashboard.settings_page.render_platform_info'), \
-             patch('src.dashboard.settings_page.render_bank_info'):
-            
+    """Test suite for settings page — uses full mocking to avoid Streamlit runtime issues."""
+
+    def test_render_settings_page_calls_subsections(self):
+        """Settings page should invoke all sub-render functions."""
+        with patch('src.dashboard.settings_page.render_store_management') as mock_store, \
+             patch('src.dashboard.settings_page.render_platform_info') as mock_platform, \
+             patch('src.dashboard.settings_page.render_bank_info') as mock_bank, \
+             patch('src.dashboard.settings_page.render_notification_preferences'), \
+             patch('src.dashboard.settings_page.render_email_templates_section'), \
+             patch('src.dashboard.settings_page.get_browser_language', return_value='fr'), \
+             patch('src.dashboard.settings_page.get_i18n_text', return_value='R\u00e9glages'), \
+             patch('streamlit.markdown'), \
+             patch('streamlit.session_state', {'client_email': 'test@example.com'}), \
+             patch('src.ui.stripe_onboarding.render_stripe_onboarding', create=True):
             render_settings_page()
-            
-            # Verify header was rendered
-            assert any('Settings' in str(call) for call in mock_markdown.call_args_list)
-    
-    @patch('streamlit.session_state', {'client_email': 'test@example.com'})
-    @patch('src.dashboard.settings_page.CredentialsManager')
-    @patch('streamlit.info')
-    def test_render_store_management_no_stores(self, mock_info, mock_creds):
-        """When no stores exist, an info message should be shown."""
-        mock_creds.return_value.get_all_stores.return_value = []
 
-        # Render the store management section
-        render_store_management()
+        mock_store.assert_called_once()
+        mock_platform.assert_called_once()
+        mock_bank.assert_called_once()
 
-        # Should call info at least once for "no stores" message
-        assert mock_info.call_count >= 1
+    def test_render_store_management_no_stores(self):
+        """When no stores exist, st.info should be called (\"no stores\" message)."""
+        mock_manager = MagicMock()
+        mock_manager.get_all_stores.return_value = []
+
+        with patch('src.dashboard.settings_page.CredentialsManager', return_value=mock_manager), \
+             patch('src.dashboard.settings_page.get_browser_language', return_value='fr'), \
+             patch('src.dashboard.settings_page.get_i18n_text', side_effect=lambda k, l: k), \
+             patch('streamlit.session_state', {'client_email': 'test@example.com'}), \
+             patch('streamlit.markdown'), \
+             patch('streamlit.caption'), \
+             patch('streamlit.expander', return_value=MagicMock(
+                 __enter__=lambda s: s, __exit__=MagicMock(return_value=False))), \
+             patch('streamlit.form', return_value=MagicMock(
+                 __enter__=lambda s: s, __exit__=MagicMock(return_value=False))), \
+             patch('streamlit.form_submit_button', return_value=False), \
+             patch('streamlit.selectbox', return_value='Shopify'), \
+             patch('streamlit.text_input', return_value=''), \
+             patch('streamlit.info') as mock_info:
+            render_store_management()
+
+        mock_info.assert_called()
 
 
 class TestReportsPage:

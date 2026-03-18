@@ -162,6 +162,19 @@ class CredentialsManager:
             logger.error(f"Failed to get stores: {e}")
             return []
 
+    def list_clients(self) -> List[tuple]:
+        """List all unique clients and their platforms."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT DISTINCT client_id, platform, created_at FROM credentials")
+            results = cursor.fetchall()
+            conn.close()
+            return results
+        except Exception as e:
+            logger.error(f"Failed to list clients: {e}")
+            return []
+
     def get_credentials(self, client_id: str) -> Optional[Dict[str, Any]]:
         """Backward compatibility for single store retrieval."""
         stores = self.get_all_stores(client_id)

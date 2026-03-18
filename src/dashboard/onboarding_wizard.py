@@ -2,7 +2,7 @@
 4-step onboarding wizard for new Refundly clients.
 
 Shown automatically on first login until onboarding is complete.
-Steps: Profile → Store connection → Bank info → Done!
+Steps: Profile → Store connection → Documents → Bank info → Done!
 """
 
 import streamlit as st
@@ -45,8 +45,10 @@ def render_onboarding_wizard():
     elif step == 2:
         _step_store(email)
     elif step == 3:
-        _step_bank(email)
+        _step_documents(email)
     elif step == 4:
+        _step_bank(email)
+    elif step == 5:
         _step_done(email)
 
     # ── Floating chatbot (inline panel, sidebar is hidden during wizard) ─────
@@ -54,8 +56,9 @@ def render_onboarding_wizard():
     contexts = {
         1: "profil bienvenue",
         2: "boutique api connexion",
-        3: "bancaire iban virement",
-        4: "tableau de bord prêt",
+        3: "documents preuves upload",
+        4: "bancaire iban virement",
+        5: "tableau de bord prêt",
     }
     render_floating_chatbot(
         context=contexts.get(step, ""),
@@ -67,18 +70,18 @@ def render_onboarding_wizard():
 # ── Progress bar ─────────────────────────────────────────────────────────────
 
 def _render_progress_bar(current: int):
-    labels = ["Profil", "Boutique", "Paiements", "Prêt !"]
-    cols = st.columns(4)
+    labels = ["Profil", "Boutique", "Documents", "Paiements", "Prêt !"]
+    cols = st.columns(5)
     for i, (col, label) in enumerate(zip(cols, labels), 1):
         with col:
             if i < current:
                 st.markdown(
                     f"""<div style="text-align:center">
-                      <div style="width:40px;height:40px;border-radius:50%;background:#0072ff;
+                      <div style="width:40px;height:40px;border-radius:50%;background:#0f766e;
                                   color:white;display:inline-flex;align-items:center;
                                   justify-content:center;font-size:16px;font-weight:bold;
-                                  box-shadow:0 2px 8px rgba(0,114,255,.3);">&#10003;</div>
-                      <div style="font-size:11px;color:#0072ff;margin-top:4px;font-weight:600;">{label}</div>
+                                  box-shadow:0 2px 8px rgba(13,148,136,.3);">&#10003;</div>
+                      <div style="font-size:11px;color:#0f766e;margin-top:4px;font-weight:600;">{label}</div>
                     </div>""",
                     unsafe_allow_html=True,
                 )
@@ -86,11 +89,11 @@ def _render_progress_bar(current: int):
                 st.markdown(
                     f"""<div style="text-align:center">
                       <div style="width:40px;height:40px;border-radius:50%;
-                                  background:linear-gradient(135deg,#00c6ff,#0072ff);
+                                  background:linear-gradient(135deg,#0d9488,#0f766e);
                                   color:white;display:inline-flex;align-items:center;
                                   justify-content:center;font-size:16px;font-weight:bold;
-                                  box-shadow:0 4px 14px rgba(0,114,255,.4);">{i}</div>
-                      <div style="font-size:11px;color:#0072ff;font-weight:700;margin-top:4px;">{label}</div>
+                                  box-shadow:0 4px 14px rgba(13,148,136,.4);">{i}</div>
+                      <div style="font-size:11px;color:#0d9488;font-weight:700;margin-top:4px;">{label}</div>
                     </div>""",
                     unsafe_allow_html=True,
                 )
@@ -318,8 +321,75 @@ def _step_store(email: str):
         st.session_state.onboarding_step = 1
         st.rerun()
 
+# ── Step 3 : Documents ──────────────────────────────────────────────────────────
 
-# ── Step 3 : Bank ─────────────────────────────────────────────────────────────
+def _step_documents(email: str):
+    _, center, _ = st.columns([1, 4, 1])
+    with center:
+        st.markdown(
+            """<div style="text-align:center;margin-bottom:16px;">
+              <div style="font-size:3rem;">📄</div>
+              <h2 style="margin:0;">Preuves & Documents</h2>
+              <p style="color:#666;">
+                Si vous avez des preuves de livraison ou des historiques, importez-les ici (optionnel).
+              </p>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+        st.info(
+            "💡 **Pourquoi uploader ?** Une preuve photo d'un colis endommagé "
+            "accélère le remboursement. Les documents sont analysés automatiquement par notre IA (OCR)."
+        )
+
+        uploaded_files = st.file_uploader(
+            "Glissez-déposez vos fichiers ici (PNG, JPG, PDF)",
+            type=['png', 'jpg', 'jpeg', 'pdf'],
+            accept_multiple_files=True
+        )
+
+        if uploaded_files:
+            st.success(f"{len(uploaded_files)} fichier(s) chargé(s) avec succès. Analyse en cours...")
+            
+            with st.expander("🤖 Aperçu de l'Analyse IA (OCR)", expanded=True):
+                from src.scrapers.ocr_processor import OCRProcessor
+                ocr = OCRProcessor()
+                
+                for file in uploaded_files:
+                    with st.spinner(f"Lecture de {file.name}..."):
+                        # Extract text
+                        ext_text = ocr.extract_text_from_file(file, file.name)
+                        # Predict reason
+                        analysis = ocr.analyze_rejection_text(ext_text)
+                        
+                        # Basic carrier heuristic just for the demo wow effect
+                        text_lower = ext_text.lower()
+                        carrier = "Inconnu"
+                        if "dpd" in text_lower: carrier = "DPD"
+                        elif "ups" in text_lower or "1z" in text_lower: carrier = "UPS"
+                        elif "colissimo" in text_lower or "la poste" in text_lower: carrier = "Colissimo"
+                        elif "chronopost" in text_lower: carrier = "Chronopost"
+                        
+                        st.markdown(f"""
+                        <div style="background-color:rgba(13,148,136,.05); padding:10px; border-radius:8px; margin-bottom:10px; border-left:4px solid #0d9488;">
+                            <strong>📄 {file.name}</strong><br/>
+                            • <strong>Transporteur :</strong> {carrier}<br/>
+                            • <strong>Motif identifié :</strong> {analysis.get('label_fr', 'Automatique')}<br/>
+                            <span style="font-size:0.9em; color:#666;">💡 {analysis.get('advice_fr', 'Le document sera traité automatiquement.')}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("← Retour", key="back_docs", use_container_width=True):
+                st.session_state.onboarding_step = 2
+                st.rerun()
+        with c2:
+            if st.button("Étape suivante →", type="primary", use_container_width=True):
+                st.session_state.onboarding_step = 4
+                st.rerun()
+
+# ── Step 4 : Bank ─────────────────────────────────────────────────────────────
 
 def _step_bank(email: str):
     _, center, _ = st.columns([1, 3, 1])
@@ -361,7 +431,7 @@ def _step_bank(email: str):
                 nxt = st.form_submit_button("Terminer →", type="primary", use_container_width=True)
 
         if skip:
-            st.session_state.onboarding_step = 4
+            st.session_state.onboarding_step = 5
             st.rerun()
 
         if nxt:
@@ -369,15 +439,15 @@ def _step_bank(email: str):
                 st.error("⚠️ IBAN et titulaire obligatoires.")
             else:
                 _save_bank(email, iban, bic, holder, bank)
-                st.session_state.onboarding_step = 4
+                st.session_state.onboarding_step = 5
                 st.rerun()
 
     if st.button("← Retour", key="back_bank"):
-        st.session_state.onboarding_step = 2
+        st.session_state.onboarding_step = 3
         st.rerun()
 
 
-# ── Step 4 : Done ─────────────────────────────────────────────────────────────
+# ── Step 5 : Done ─────────────────────────────────────────────────────────────
 
 def _step_done(email: str):
     st.balloons()
@@ -386,7 +456,7 @@ def _step_done(email: str):
         st.markdown(
             """<div style="text-align:center;margin-bottom:24px;">
               <div style="font-size:4rem;">&#x1F680;</div>
-              <h1 style="background:linear-gradient(135deg,#00c6ff,#0072ff);
+              <h1 style="background:linear-gradient(135deg,#0d9488,#0f766e);
                          -webkit-background-clip:text;-webkit-text-fill-color:transparent;
                          font-size:2.4rem;font-weight:900;">
                 Tout est prêt !
@@ -407,8 +477,8 @@ def _step_done(email: str):
             with col:
                 st.markdown(
                     f"""<div style="text-align:center;padding:18px;
-                                   background:rgba(0,114,255,.06);border-radius:14px;
-                                   border:1px solid rgba(0,114,255,.15);">
+                                   background:rgba(13,148,136,.06);border-radius:14px;
+                                   border:1px solid rgba(13,148,136,.15);">
                          <div style="font-size:2rem;">{icon}</div>
                          <strong style="color:#0f0f1a;">{title}</strong>
                          <p style="font-size:.82rem;color:#666;margin-top:8px;">{desc}</p>
@@ -425,7 +495,24 @@ def _step_done(email: str):
             st.warning("⚠️ Boutique non connectée — configurez-la depuis **Paramètres → Boutiques**")
 
         if st.button("🚀 Accéder à mon tableau de bord", type="primary", use_container_width=True):
-            _mark_complete(email)
+            with st.spinner("Finalisation en cours..."):
+                _mark_complete(email)
+                
+                # Envoi email de confirmation (comme dans React)
+                try:
+                    from src.email_service.email_sender import EmailSender, _get_smtp_settings
+                    cfg = _get_smtp_settings()
+                    sender = EmailSender(**cfg)
+                    client_name = st.session_state.get("_wiz_name", email.split('@')[0])
+                    sender.send_welcome_email(
+                        to_email=email,
+                        client_name=client_name,
+                        dashboard_url="https://app.refundly.ai/dashboard"
+                    )
+                except Exception as e:
+                    import logging
+                    logging.error(f"Failed to send welcome email during onboarding: {e}")
+
             st.session_state["onboarding_complete"] = True
             st.rerun()
 

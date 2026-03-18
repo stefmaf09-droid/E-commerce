@@ -11,6 +11,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+from src.config import Config
+
 class SupabaseStorageManager:
     """Gestionnaire de stockage pour Supabase Storage."""
     
@@ -21,10 +23,9 @@ class SupabaseStorageManager:
             self.client = None
             return
 
-        self.url = os.getenv("SUPABASE_URL")
-
-        self.key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") # Utiliser service_role pour outrepasser RLS
-        self.bucket_name = os.getenv("SUPABASE_STORAGE_BUCKET", "evidence")
+        self.url = Config.get("SUPABASE_URL")
+        self.key = Config.get("SUPABASE_SERVICE_ROLE_KEY")  # service_role to bypass RLS
+        self.bucket_name = Config.get("SUPABASE_STORAGE_BUCKET", default="evidence")
         
         if not self.url or not self.key:
             logger.warning("Supabase credentials missing. Cloud storage disabled.")

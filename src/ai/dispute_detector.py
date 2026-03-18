@@ -44,13 +44,6 @@ class DisputeDetector:
         if db_manager:
             self.db = db_manager
         else:
-            import sys
-            import os
-            # Add project root to path for imports
-            root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            if root_dir not in sys.path:
-                sys.path.insert(0, root_dir)
-            
             from src.database.database_manager import get_db_manager
             self.db = get_db_manager()
         

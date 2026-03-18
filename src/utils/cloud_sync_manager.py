@@ -8,13 +8,15 @@ from supabase import create_client, Client
 
 logger = logging.getLogger(__name__)
 
+from src.config import Config
+
 class CloudSyncManager:
     """Gère la synchronisation automatique des données et fichiers vers Supabase."""
     
     def __init__(self):
-        self.supabase_url = os.getenv("SUPABASE_URL")
-        self.supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-        self.db_url = os.getenv("DATABASE_URL")
+        self.supabase_url = Config.get("SUPABASE_URL")
+        self.supabase_key = Config.get("SUPABASE_SERVICE_ROLE_KEY")
+        self.db_url = Config.get("DATABASE_URL")
         self.local_db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'database', 'main.db')
         self.local_photos_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'client_photos')
         

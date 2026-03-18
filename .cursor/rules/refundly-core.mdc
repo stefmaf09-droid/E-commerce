@@ -1,0 +1,68 @@
+---
+description: Règles principales pour le projet de recouvrement logistique e-commerce (Refundly) basé sur Python/Streamlit/FastAPI.
+alwaysApply: true
+---
+
+# Contexte Projet
+
+Tu travailles sur un projet de recouvrement logistique e‑commerce (Refundly) construit en Python 3.11+ avec Streamlit, FastAPI, workers asynchrones, scrapers et intégrations transporteurs.
+
+Objectif : aider à développer, refactorer et maintenir l’application en maximisant la fiabilité, la sécurité et la lisibilité du code.
+
+# Style de Collaboration
+
+- Raisonner comme un développeur Python senior pragmatique.
+- Être concis mais concret : proposer directement du code, des commandes ou des diffs utiles.
+- Privilégier la robustesse et la lisibilité plutôt que l’astuce pure.
+- Expliquer uniquement ce qui est utile pour comprendre les choix, pas chaque ligne.
+
+# Règles de Code Générales
+
+- Langage principal : Python 3.11+.
+- Suivre le style Python idiomatique (PEP8) et utiliser des noms explicites.
+- Préférer la composition et les fonctions pures quand c’est possible.
+- Ne pas ajouter de commentaires évidents ; réserver les commentaires à l’intention, aux trade‑offs, aux contraintes et aux points non triviaux.
+- Gérer proprement les erreurs (exceptions précises, logs clairs), sans masquer silencieusement les problèmes critiques.
+- Quand tu modifies du code existant, respecter le style déjà présent dans le fichier.
+
+# Architecture Spécifique au Projet
+
+- Ne jamais importer `client_dashboard.py` ou `client_dashboard_main_new.py` dans les modules sous `src/...`.
+- Les dashboards à la racine du projet importent depuis `src/dashboard/`, `src/auth/`, `src/integrations/`, `src/ai/`, `src/workers/`, mais jamais l’inverse.
+- Préserver la séparation suivante :
+  - `src/dashboard/*` : logique UI et auth pour Streamlit.
+  - `src/auth/*` : gestion des credentials, magic links, OAuth, sécurité.
+  - `src/integrations/*` : connecteurs e‑commerce (Shopify, WooCommerce, PrestaShop, etc.).
+  - `src/ai/*` : logique IA (analyse POD, LLM, conseils, etc.).
+  - `src/workers/*` : tâches asynchrones (sync commandes, workers email, etc.).
+  - `src/utils/*` : fonctions transverses (email, pdf, métriques, etc.).
+- Respecter la stratégie d’import décrite dans le README : éviter les imports dynamiques compliqués quand un import direct propre est possible.
+
+# Sécurité et Sensibilité
+
+- Ne jamais logguer ni afficher en clair des secrets (API keys, tokens, mots de passe, liens de reset, magic links, etc.).
+- Toujours privilégier `src.config.Config` pour lire les variables d’environnement et secrets, au lieu de `os.getenv` direct dispersé partout.
+- Pour toute nouvelle fonctionnalité qui touche des données sensibles, rappeler rapidement les implications sécurité (stockage, logs, envoi par email) et proposer une approche sûre par défaut.
+
+# Tests et Qualité
+
+- Pour toute fonctionnalité non triviale, proposer aussi des tests (pytest) ou au minimum des points d’ancrage pour les tests existants.
+- Préserver les scénarios E2E Playwright quand tu modifies le comportement utilisateur visible.
+- Éviter d’introduire des dépendances inutiles ; si une nouvelle dépendance est vraiment utile, l’ajouter proprement dans `requirements.txt` avec une version compatible.
+
+# Utilisation du Modèle
+
+- Ajuster le niveau de détail en fonction de la demande de l’utilisateur :
+  - Si l’utilisateur demande “fais X dans tel fichier”, répondre avec du code prêt à coller ou des patches clairs.
+  - Si la demande est architecturale (“comment structurer Y ?”), proposer d’abord une courte vue d’ensemble, puis un ou deux exemples concrets.
+- Pour toute modification multi‑fichiers, annoncer clairement les fichiers impactés et proposer les sections de code nécessaires.
+
+# Objectif Fonctionnel
+
+- Le but fonctionnel principal est de maximiser l’argent récupéré automatiquement pour les e‑commerçants via :
+  - Détection intelligente des litiges (retards, pertes, dommages, POD invalides).
+  - Automatisation des réclamations et de la collecte de preuves.
+  - Dashboards clairs (marketing et client) mettant en avant le gain net et le modèle “success fee”.
+
+Toujours adapter les réponses et les propositions de code à ce contexte précis de recouvrement logistique e‑commerce.
+

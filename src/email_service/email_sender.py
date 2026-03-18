@@ -7,11 +7,44 @@ Sends automated emails for onboarding, OAuth links, and notifications.
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from pathlib import Path
 import logging
 
 logger = logging.getLogger(__name__)
+
+from src.config import Config
+
+
+def _get_smtp_settings() -> dict:
+    """
+    Centralize SMTP settings loading.
+
+    Supports legacy env var names for backward compatibility:
+    - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
+    - GMAIL_SENDER, GMAIL_APP_PASSWORD
+    - FROM_EMAIL, FROM_NAME
+    """
+    smtp_host = Config.get("SMTP_HOST", default="smtp.gmail.com")
+    smtp_port_raw = Config.get("SMTP_PORT", default=587)
+    try:
+        smtp_port = int(smtp_port_raw)  # may come as str
+    except Exception:
+        smtp_port = 587
+
+    smtp_user = Config.get("SMTP_USER") or Config.get("GMAIL_SENDER")
+    smtp_password = Config.get("SMTP_PASSWORD") or Config.get("GMAIL_APP_PASSWORD")
+    from_email = Config.get("FROM_EMAIL") or smtp_user
+    from_name = Config.get("FROM_NAME", default="Refundly.ai")
+
+    return {
+        "smtp_host": smtp_host,
+        "smtp_port": smtp_port,
+        "smtp_user": smtp_user,
+        "smtp_password": smtp_password,
+        "from_email": from_email,
+        "from_name": from_name,
+    }
 
 
 class EmailSender:
@@ -526,14 +559,8 @@ class EmailSender:
 def send_disputes_detected_email(client_email: str, disputes_count: int,
                                  total_amount: float, disputes_summary: list) -> bool:
     """Helper function to send disputes detected email."""
-    import os
-    sender = EmailSender(
-        smtp_host=os.getenv('SMTP_HOST', 'smtp.gmail.com'),
-        smtp_port=int(os.getenv('SMTP_PORT', 587)),
-        smtp_user=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER'),
-        smtp_password=os.getenv('SMTP_PASSWORD') or os.getenv('GMAIL_APP_PASSWORD'),
-        from_email=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER')
-    )
+    cfg = _get_smtp_settings()
+    sender = EmailSender(**cfg)
     return sender.send_disputes_detected_email(
         to_email=client_email,
         client_name=client_email.split('@')[0].title(),
@@ -548,14 +575,8 @@ def send_claim_submitted_email(client_email: str, claim_reference: str,
                                order_id: str, submission_method: str,
                                dispute_type: str = "N/A") -> bool:
     """Helper function to send claim submitted email."""
-    import os
-    sender = EmailSender(
-        smtp_host=os.getenv('SMTP_HOST', 'smtp.gmail.com'),
-        smtp_port=int(os.getenv('SMTP_PORT', 587)),
-        smtp_user=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER'),
-        smtp_password=os.getenv('SMTP_PASSWORD') or os.getenv('GMAIL_APP_PASSWORD'),
-        from_email=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER')
-    )
+    cfg = _get_smtp_settings()
+    sender = EmailSender(**cfg)
     return sender.send_claim_submitted_email(
         to_email=client_email,
         client_name=client_email.split('@')[0].title(),
@@ -572,14 +593,8 @@ def send_claim_accepted_email(client_email: str, claim_reference: str,
                               carrier: str, accepted_amount: float,
                               client_share: float, platform_fee: float) -> bool:
     """Helper function to send claim accepted email."""
-    import os
-    sender = EmailSender(
-        smtp_host=os.getenv('SMTP_HOST', 'smtp.gmail.com'),
-        smtp_port=int(os.getenv('SMTP_PORT', 587)),
-        smtp_user=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER'),
-        smtp_password=os.getenv('SMTP_PASSWORD') or os.getenv('GMAIL_APP_PASSWORD'),
-        from_email=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER')
-    )
+    cfg = _get_smtp_settings()
+    sender = EmailSender(**cfg)
     return sender.send_claim_accepted_email(
         to_email=client_email,
         client_name=client_email.split('@')[0].title(),
@@ -594,14 +609,8 @@ def send_claim_accepted_email(client_email: str, claim_reference: str,
 def send_claim_rejected_email(client_email: str, claim_reference: str,
                               carrier: str, rejection_reason: str) -> bool:
     """Helper function to send claim rejected email."""
-    import os
-    sender = EmailSender(
-        smtp_host=os.getenv('SMTP_HOST', 'smtp.gmail.com'),
-        smtp_port=int(os.getenv('SMTP_PORT', 587)),
-        smtp_user=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER'),
-        smtp_password=os.getenv('SMTP_PASSWORD') or os.getenv('GMAIL_APP_PASSWORD'),
-        from_email=os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER')
-    )
+    cfg = _get_smtp_settings()
+    sender = EmailSender(**cfg)
     return sender.send_claim_rejected_email(
         to_email=client_email,
         client_name=client_email.split('@')[0].title(),

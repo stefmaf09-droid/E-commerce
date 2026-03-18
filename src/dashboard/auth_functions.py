@@ -7,17 +7,11 @@ registration, and password reset functionality.
 
 import streamlit as st
 import os
-import sys
-
-# Path configuration
-root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(root_dir, 'src'))
-sys.path.insert(0, root_dir)
 
 from src.ui.logo import logo_img_tag as _logo_tag
 
-from auth.credentials_manager import CredentialsManager
-from onboarding.onboarding_manager import OnboardingManager
+from src.auth.credentials_manager import CredentialsManager
+from src.onboarding.onboarding_manager import OnboardingManager
 
 
 def authenticate():
@@ -61,27 +55,26 @@ def authenticate():
             st.session_state._show_login = False
 
         # ── NAVIGATION HEADER (comme refundly.fr) ────────────────────────
-        _logo_html = _logo_tag(height=38)
-        st.markdown(f"""
-<div class="auth-navbar">
-  <div class="auth-navbar-logo">
-    {_logo_html}
-  </div>
-  <div class="auth-navbar-links">
-    <span>Comment ça marche</span>
-    <span>Fonctionnalités</span>
-    <span>FAQ</span>
-    <span>☀️</span>
-  </div>
-</div>
-        """, unsafe_allow_html=True)
-
-        # Bouton Connexion seul en haut à droite
-        col_space, col_btn = st.columns([9, 1.5])
-        with col_btn:
-            if st.button("Connexion", key="nav_login", use_container_width=True):
-                st.session_state._show_login = True
-                st.rerun()
+        _logo_html = _logo_tag(height=80)
+        col_logo, col_links, col_start = st.columns([4, 5.5, 2.5])
+        with col_logo:
+             st.markdown(f'<div style="margin-top:-5px; padding-left:20px;">{_logo_html}</div>', unsafe_allow_html=True)
+             
+        with col_links:
+             st.markdown("""
+             <div style="display:flex; justify-content:center; gap: 30px; margin-top:20px; font-weight:500; color:#4b5563; font-size:0.95rem;">
+                 <a href="#how-it-works" style="text-decoration:none; color:inherit; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#0f766e'" onmouseout="this.style.color='#4b5563'">Comment ça marche</a>
+                 <a href="#features" style="text-decoration:none; color:inherit; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#0f766e'" onmouseout="this.style.color='#4b5563'">Fonctionnalités</a>
+                 <a href="#faq" style="text-decoration:none; color:inherit; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#0f766e'" onmouseout="this.style.color='#4b5563'">FAQ</a>
+             </div>
+             """, unsafe_allow_html=True)
+             
+        with col_start:
+             st.markdown('<div style="margin-top:12px;"></div>', unsafe_allow_html=True)
+             if st.button("Connexion", type="primary", key="nav_login", use_container_width=True):
+                 st.session_state._show_login = True
+                 st.session_state._show_register_tab = False
+                 st.rerun()
 
         # ── AFFICHAGE CONDITIONNEL ───────────────────────────────────────
         if st.session_state._show_login:
@@ -122,27 +115,66 @@ def authenticate():
 
             # Hero
             st.markdown("""
-<div class="auth-hero">
-  <div class="auth-hero-pill">✨ Zéro risque • Commission uniquement sur les remboursements</div>
-  <h1>On récupère <span class="highlight">ton argent</span><br>à ta place</h1>
-  <p class="subtitle">
-    Colis perdus, endommagés, retards de livraison…
-    Refundly.ai analyse, détecte et réclame <strong>automatiquement</strong> ce qui t'est dû.
+<div class="auth-hero" style="margin-top: 40px; margin-bottom: 20px;">
+  <div class="auth-hero-pill" style="background: rgba(13, 148, 136, 0.08); border: 1px solid rgba(13, 148, 136, 0.2); color: #0f766e;">✨ Zéro risque • Commission uniquement sur les remboursements</div>
+  <h1 style="font-size: 4.5rem; letter-spacing: -2px; line-height: 1.1;">On récupère <span class="highlight" style="color: #0f766e;">ton argent</span><br>à ta place</h1>
+  <p class="subtitle" style="font-size: 1.2rem; margin-top: 24px;">
+    Colis perdus, livraisons en retard, colis endommagés... Refundly analyse, détecte et réclame <strong>automatiquement</strong> ce qui vous est dû.
   </p>
 </div>
             """, unsafe_allow_html=True)
+            
+            # CTA Button (Redirect to login)
+            st.markdown('<div style="max-width: 400px; margin: 0 auto;">', unsafe_allow_html=True)
+            if st.button("Analyser mes expéditions →", key="hero_cta", use_container_width=True, type="primary"):
+                st.session_state._show_login = True
+                st.session_state._show_register_tab = False # Redirect to Login
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            # CTA central
-            _, cta_col, _ = st.columns([1.5, 2, 1.5])
-            with cta_col:
-                if st.button("🚀 Commencer gratuitement →", key="hero_cta", use_container_width=True):
-                    st.session_state._show_login = True
-                    st.session_state._show_register_tab = True
-                    st.rerun()
+            # Mini trust badges below button
+            st.markdown("""
+<div style="display:flex; justify-content:center; gap: 32px; margin-top:24px; font-size:0.85rem; color:#6b7280; font-weight: 500;">
+  <span style="display:flex; align-items:center; gap:6px;"><span style="color:#0f766e;">⚡</span> Analyse en 2 minutes</span>
+  <span style="display:flex; align-items:center; gap:6px;"><span style="color:#0f766e;">🛡️</span> Données sécurisées</span>
+  <span style="display:flex; align-items:center; gap:6px;"><span style="color:#0f766e;">📈</span> +2M€ récupérés</span>
+</div>
+            """, unsafe_allow_html=True)
+
+            # 3 KPI Cards at the bottom
+            st.markdown('<div style="margin-top: 60px;"></div>', unsafe_allow_html=True)
+            _, c1, c2, c3, _ = st.columns([1, 2.5, 2.5, 2.5, 1])
+            
+            with c1:
+                st.markdown("""
+                <div class="auth-stat-card" style="text-align: left; padding: 24px;">
+                  <div style="font-size: 1.5rem; margin-bottom: 8px;">💰</div>
+                  <div style="font-size: 2.5rem; font-weight: 800; color: #111827; line-height:1;">127€</div>
+                  <div style="font-size: 0.85rem; color: #6b7280; margin-top: 4px;">Montant moyen récupéré</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with c2:
+                st.markdown("""
+                <div class="auth-stat-card" style="text-align: left; padding: 24px;">
+                  <div style="font-size: 1.5rem; margin-bottom: 8px;">⚡</div>
+                  <div style="font-size: 2.5rem; font-weight: 800; color: #111827; line-height:1;">15 min</div>
+                  <div style="font-size: 0.85rem; color: #6b7280; margin-top: 4px;">Temps moyen par demande</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with c3:
+                st.markdown("""
+                <div class="auth-stat-card" style="text-align: left; padding: 24px;">
+                  <div style="font-size: 1.5rem; margin-bottom: 8px;">✅</div>
+                  <div style="font-size: 2.5rem; font-weight: 800; color: #111827; line-height:1;">94%</div>
+                  <div style="font-size: 0.85rem; color: #6b7280; margin-top: 4px;">Taux de succès</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown('<div style="margin-bottom: 80px;"></div>', unsafe_allow_html=True)
 
             # "COMMENT ÇA MARCHE ?" SECTION
             st.markdown("""
-<div class="how-it-works-section" style="text-align: center; margin: 60px 0 40px;">
+<div id="how-it-works" class="how-it-works-section" style="text-align: center; margin: 60px 0 40px; scroll-margin-top: 100px;">
   <div style="display:inline-flex; align-items:center; gap:6px; background:#dcfce7; color:#16a34a; padding:6px 16px; border-radius:50px; font-size:0.85rem; font-weight:600; margin-bottom:16px;">
     <span>✓</span> Simple et efficace
   </div>
@@ -157,8 +189,8 @@ def authenticate():
         <span style="color: white; font-size: 2rem;">✉️</span>
       </div>
       <div style="width: 30px; height: 30px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: bold; color: #22c55e; font-size: 0.9rem;">1</div>
-      <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Connectez votre compte</h4>
-      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Connectez votre boutique e-commerce dans notre sas sécurisé pour l'analyse.</p>
+      <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Connectez votre boutique</h4>
+      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Connectez votre boutique e-commerce sur notre portail sécurisé pour l'analyse.</p>
     </div>
     <!-- Step 2 -->
     <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 10px;">
@@ -167,7 +199,7 @@ def authenticate():
       </div>
       <div style="width: 30px; height: 30px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: bold; color: #22c55e; font-size: 0.9rem;">2</div>
       <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Analyse automatique</h4>
-      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Notre IA identifie vos expéditions, détecte les pannes et analyse les CGU.</p>
+      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Notre IA identifie vos expéditions, détecte les litiges et analyse les CGV transporteurs.</p>
     </div>
     <!-- Step 3 -->
     <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 10px;">
@@ -223,7 +255,7 @@ def authenticate():
 
             # Features grid
             st.markdown("""
-<div class="auth-features">
+<div id="features" class="auth-features" style="scroll-margin-top: 100px;">
   <div class="auth-feature-card">
     <div class="auth-feature-icon" style="background: #7c3aed;">🧠</div>
     <h4>IA avancée</h4>
@@ -245,15 +277,30 @@ def authenticate():
     <p>Pas de remboursement = pas de frais. Vous payez uniquement sur le succès.</p>
   </div>
   <div class="auth-feature-card">
-    <div class="auth-feature-icon" style="background: #dc2626;">🔔</div>
-    <h4>Notifications</h4>
-    <p>Restez informé à chaque étape de vos demandes de remboursement.</p>
-  </div>
-  <div class="auth-feature-card">
     <div class="auth-feature-icon" style="background: #16a34a;">📊</div>
     <h4>Tableau de bord</h4>
     <p>Suivez tous vos litiges et remboursements en un coup d'œil.</p>
   </div>
+</div>
+
+<!-- FAQ SECTION -->
+<div id="faq" style="max-width: 800px; margin: 80px auto; padding: 20px; scroll-margin-top: 50px;">
+    <h2 style="font-size: 2.5rem; font-weight: 800; color: #111827; text-align: center; margin-bottom: 40px;">Questions fréquentes</h2>
+    
+    <div style="background: white; border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb; margin-bottom: 16px;">
+        <h4 style="color: #0d9488; margin-bottom: 8px;">Comment Refundly se rémunère-t-il ?</h4>
+        <p style="color: #6b7280; font-size: 0.95rem;">Nous travaillons uniquement au succès. Nous prenons une commission sur les remboursements que nous parvenons à récupérer pour vous. Pas de résultat, pas de frais.</p>
+    </div>
+    
+    <div style="background: white; border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb; margin-bottom: 16px;">
+        <h4 style="color: #0d9488; margin-bottom: 8px;">Quels transporteurs sont supportés ?</h4>
+        <p style="color: #6b7280; font-size: 0.95rem;">Nous supportons la majorité des acteurs du marché : Colissimo, Chronopost, UPS, DHL, FedEx, TNT, GLS, et bien d'autres.</p>
+    </div>
+    
+    <div style="background: white; border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb;">
+        <h4 style="color: #0d9488; margin-bottom: 8px;">Mes données sont-elles en sécurité ?</h4>
+        <p style="color: #6b7280; font-size: 0.95rem;">Oui, nous utilisons un chiffrement de niveau bancaire et nous n'accédons qu'aux données strictement nécessaires pour identifier vos expéditions litigieuses.</p>
+    </div>
 </div>
             """, unsafe_allow_html=True)
 
@@ -268,8 +315,53 @@ def _inject_auth_css():
         """
 <style>
 /* ===== GLOBAL AUTH PAGE ===== */
+html {
+    scroll-behavior: smooth;
+}
 .stApp {
     background: linear-gradient(180deg, #f0fdf9 0%, #ecfeff 30%, #f0f9ff 70%, #eff6ff 100%) !important;
+}
+
+/* Force Primary Buttons to be Teal */
+div[data-testid="stButton"] button[kind="primary"] {
+    background-color: #0f766e !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: 600 !important;
+    transition: all 0.2s !important;
+}
+div[data-testid="stButton"] button[kind="primary"]:hover {
+    background-color: #0d9488 !important;
+    box-shadow: 0 4px 12px rgba(13,148,136,0.2) !important;
+}
+
+/* Secondary Buttons (e.g. Connexion) to look like text links */
+div[data-testid="stButton"] button[kind="secondary"] {
+    background-color: transparent !important;
+    color: #4b5563 !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-weight: 600 !important;
+    transition: color 0.2s !important;
+}
+div[data-testid="stButton"] button[kind="secondary"]:hover {
+    color: #0f766e !important;
+    background-color: transparent !important;
+}
+
+/* Clean Input Style */
+.stTextInput > div > div > input {
+    border-radius: 8px !important;
+    border: 1px solid #e5e7eb !important;
+    padding: 0.5rem 1rem !important;
+    background: white !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+}
+.stTextInput > div > div > input:focus {
+    border-color: #0f766e !important;
+    box-shadow: 0 0 0 2px rgba(15,118,110,0.2) !important;
 }
 
 /* ===== AUTH NAVBAR ===== */

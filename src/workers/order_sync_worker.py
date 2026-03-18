@@ -12,12 +12,9 @@ import time
 import logging
 from datetime import datetime, timedelta
 from typing import List, Dict
-import sys
 
-sys.path.insert(0, 'src')
-
-from auth.credentials_manager import CredentialsManager
-from integrations import (
+from src.auth.credentials_manager import CredentialsManager
+from src.integrations import (
     ShopifyConnector,
     WooCommerceConnector,
     PrestaShopConnector,
@@ -25,7 +22,7 @@ from integrations import (
     BigCommerceConnector,
     WixConnector
 )
-from dispute_detector import DisputeDetectionEngine
+from src.ai.dispute_detector import DisputeDetector
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,7 +52,7 @@ class OrderSyncWorker:
         """
         self.sync_interval = sync_interval_hours
         self.credentials_manager = CredentialsManager()
-        self.dispute_detector = DisputeDetectionEngine()
+        self.dispute_detector = DisputeDetector()
         
         logger.info(f"OrderSyncWorker initialized (sync every {sync_interval_hours}h)")
     
@@ -160,12 +157,10 @@ class OrderSyncWorker:
         
         # Detect disputes
         logger.info(f"🔍 Analyzing orders for disputes...")
-        disputes = self.dispute_detector.analyze_orders(orders)
+        detected_disputes = self.dispute_detector.scan_orders(orders=orders, client_email=client_id)
+        total_recoverable = sum(d.get('total_recoverable', 0.0) for d in detected_disputes)
         
-        disputed_orders = [d for d in disputes if d['has_dispute']]
-        total_recoverable = sum(d['total_recoverable'] for d in disputed_orders)
-        
-        logger.info(f"💰 Found {len(disputed_orders)} disputes worth {total_recoverable:,.2f}€")
+        logger.info(f"💰 Found {len(detected_disputes)} disputes worth {total_recoverable:,.2f}€")
         
         # Update sync status
         last_order_id = orders[0]['order_id'] if orders else None
@@ -189,23 +184,25 @@ class OrderSyncWorker:
             
             # Save each dispute
             new_disputes_count = 0
-            for dispute_data in disputed_orders:
+            existing = db.get_client_disputes(client_db_id)
+            existing_order_ids = {d.get('order_id') for d in existing}
+
+            for dispute_data in detected_disputes:
                 # Check if dispute already exists
-                existing = db.get_client_disputes(client_db_id)
-                order_exists = any(d['order_id'] == dispute_data['order_id'] for d in existing)
-                
-                if not order_exists:
+                order_id = dispute_data.get('order_id')
+                if order_id and order_id not in existing_order_ids:
                     db.create_dispute(
                         client_id=client_db_id,
-                        order_id=dispute_data['order_id'],
+                        order_id=order_id,
                         carrier=dispute_data.get('carrier', ''),
                         dispute_type=dispute_data.get('dispute_type', ''),
                         amount_recoverable=dispute_data.get('total_recoverable', 0.0),
                         order_date=dispute_data.get('order_date'),
                         tracking_number=dispute_data.get('tracking_number'),
-                        customer_name=dispute_data.get('recipient', {}).get('name')
+                        customer_name=dispute_data.get('customer_name')
                     )
                     new_disputes_count += 1
+                    existing_order_ids.add(order_id)
             
             logger.info(f"📝 Saved {new_disputes_count} new disputes to database")
             
@@ -217,7 +214,7 @@ class OrderSyncWorker:
                         client_email=client_id,
                         disputes_count=new_disputes_count,
                         total_amount=total_recoverable,
-                        disputes_summary=disputed_orders
+                        disputes_summary=detected_disputes
                     )
                     logger.info(f"📧 Notification email sent to {client_id}")
                     

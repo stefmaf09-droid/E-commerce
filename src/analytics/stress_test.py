@@ -1,10 +1,8 @@
-import os
-import sys
 import time
 import pandas as pd
 import numpy as np
 import logging
-sys.path.append(os.getcwd())
+
 from dispute_detector import DisputeDetectionEngine
 
 logger = logging.getLogger(__name__)

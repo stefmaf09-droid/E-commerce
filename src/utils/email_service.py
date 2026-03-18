@@ -5,7 +5,6 @@ Supports SMTP email sending for password reset links.
 """
 
 import smtplib
-import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
@@ -14,25 +13,32 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from src.config import Config
+
 
 class EmailService:
     """Handle email sending for password resets and notifications."""
     
     def __init__(self):
         """Initialize email service with SMTP configuration."""
-        # Configuration from environment variables
-        self.smtp_host = os.getenv('SMTP_HOST', 'smtp.gmail.com')
-        self.smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        self.smtp_user = os.getenv('SMTP_USER', '')
-        self.smtp_password = os.getenv('SMTP_PASSWORD', '')
-        self.from_email = os.getenv('FROM_EMAIL', self.smtp_user)
-        self.from_name = os.getenv('FROM_NAME', 'Agent IA Recouvrement')
+        # Configuration from Config manager (env/secrets/default)
+        self.smtp_host = Config.get('SMTP_HOST', default='smtp.gmail.com')
+        smtp_port_raw = Config.get('SMTP_PORT', default='587')
+        try:
+            self.smtp_port = int(smtp_port_raw)
+        except Exception:
+            self.smtp_port = 587
+
+        self.smtp_user = Config.get('SMTP_USER') or ''
+        self.smtp_password = Config.get('SMTP_PASSWORD') or ''
+        self.from_email = Config.get('FROM_EMAIL') or self.smtp_user
+        self.from_name = Config.get('FROM_NAME', default='Agent IA Recouvrement')
         
         # Token storage
         self.tokens_file = "data/reset_tokens.json"
         Path(self.tokens_file).parent.mkdir(parents=True, exist_ok=True)
         
-        if not os.path.exists(self.tokens_file):
+        if not Path(self.tokens_file).exists():
             with open(self.tokens_file, 'w') as f:
                 json.dump({}, f)
     

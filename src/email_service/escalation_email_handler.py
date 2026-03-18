@@ -4,7 +4,6 @@ EscalationEmailHandler - Gestion des emails d'escalade avec pièces jointes PDF.
 Ce module gère l'envoi d'emails d'escalade juridique avec les mises en demeure PDF attachées.
 """
 
-import os
 import logging
 from typing import Dict, Any, Optional, List
 from pathlib import Path
@@ -16,6 +15,7 @@ import smtplib
 
 from src.utils.i18n import get_i18n_text, format_currency
 from src.database.email_template_manager import EmailTemplateManager
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +44,15 @@ class EscalationEmailHandler:
             from_name: Sender display name
         """
         # Configuration SMTP générique (priorité aux vars d'env, fallback sur Gmail pour compatibilité)
-        self.smtp_host = smtp_host or os.getenv('SMTP_HOST', 'smtp.gmail.com')
-        self.smtp_port = smtp_port or int(os.getenv('SMTP_PORT', 587))
-        self.smtp_user = smtp_user or os.getenv('SMTP_USER') or os.getenv('GMAIL_SENDER')
-        self.smtp_password = smtp_password or os.getenv('SMTP_PASSWORD') or os.getenv('GMAIL_APP_PASSWORD')
+        self.smtp_host = smtp_host or Config.get('SMTP_HOST', default='smtp.gmail.com')
+        smtp_port_raw = smtp_port or Config.get('SMTP_PORT', default=587)
+        try:
+            self.smtp_port = int(smtp_port_raw)
+        except Exception:
+            self.smtp_port = 587
+
+        self.smtp_user = smtp_user or Config.get('SMTP_USER') or Config.get('GMAIL_SENDER')
+        self.smtp_password = smtp_password or Config.get('SMTP_PASSWORD') or Config.get('GMAIL_APP_PASSWORD')
         self.from_email = from_email or self.smtp_user
         self.from_name = from_name
         
@@ -64,8 +69,8 @@ class EscalationEmailHandler:
         }
         
         # Sécurité pour les tests : si TEST_MODE est actif, on ne contacte pas les transporteurs
-        self.test_mode = os.getenv('TEST_MODE', 'False').lower() == 'true'
-        self.test_recipient = os.getenv('TEST_EMAIL_RECIPIENT', self.from_email)
+        self.test_mode = str(Config.get('TEST_MODE', default='False')).lower() == 'true'
+        self.test_recipient = Config.get('TEST_EMAIL_RECIPIENT', default=self.from_email)
 
     def _get_safe_recipient(self, carrier: str) -> str:
         """Retourne l'email du destinataire (réel ou test)."""
@@ -222,7 +227,7 @@ class EscalationEmailHandler:
             logger.error("SMTP credentials not configured")
             return False
         
-        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'static', 'logo_premium.png')
+        logo_path = str(Path(__file__).resolve().parents[2] / 'static' / 'logo_premium.png')
         
         try:
             # 1. Root container (mixed) pour supporter body + attachments
@@ -239,7 +244,7 @@ class EscalationEmailHandler:
             msg_related.attach(MIMEText(html_body, 'html'))
             
             # 2.2 Logo Inline
-            if os.path.exists(logo_path):
+            if Path(logo_path).exists():
                 with open(logo_path, 'rb') as f:
                     img_data = f.read()
                     from email.mime.image import MIMEImage
@@ -253,13 +258,13 @@ class EscalationEmailHandler:
 
             # 3. PDF Attachment (attached to Root Mixed)
             if attachment_path:
-                if os.path.exists(attachment_path):
+                if Path(attachment_path).exists():
                     with open(attachment_path, 'rb') as f:
                         part = MIMEBase('application', 'pdf')
                         part.set_payload(f.read())
                         encoders.encode_base64(part)
                         
-                        filename = os.path.basename(attachment_path)
+                        filename = Path(attachment_path).name
                         part.add_header(
                             'Content-Disposition',
                             f'attachment; filename="{filename}"'

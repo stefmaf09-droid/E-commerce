@@ -5,7 +5,7 @@ import os
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.connectors.dhl_connector import DHLConnector
+from src.integrations.dhl_connector import DHLConnector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

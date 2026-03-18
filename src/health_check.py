@@ -11,6 +11,7 @@ import psycopg2
 import redis
 import os
 import psutil
+from src.config import Config
 
 app = FastAPI(title="Agent IA Recouvrement - Health Checks")
 
@@ -111,9 +112,9 @@ async def readiness_check():
 
 async def check_database():
     """Check PostgreSQL database connection."""
-    database_url = os.getenv('DATABASE_URL')
+    database_url = Config.get_database_url()
     
-    if not database_url:
+    if not database_url or database_url.startswith("sqlite"):
         return {
             'status': 'unconfigured',
             'message': 'DATABASE_URL not set'
@@ -144,7 +145,7 @@ async def check_database():
 
 async def check_redis():
     """Check Redis connection."""
-    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+    redis_url = Config.get('REDIS_URL', default='redis://localhost:6379/0')
     
     try:
         r = redis.from_url(redis_url)

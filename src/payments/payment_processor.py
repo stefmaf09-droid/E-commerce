@@ -12,10 +12,12 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+from src.config import Config
+
 # Configuration Stripe
-stripe.api_key = os.getenv('STRIPE_SECRET_KEY', '')
-STRIPE_MODE = os.getenv('STRIPE_MODE', 'test')
-PLATFORM_COMMISSION_RATE = float(os.getenv('PLATFORM_COMMISSION_RATE', '0.20'))  # 20%
+stripe.api_key = Config.get('STRIPE_SECRET_KEY', default='') or ''
+STRIPE_MODE = Config.get('STRIPE_MODE', default='test')
+PLATFORM_COMMISSION_RATE = float(Config.get('PLATFORM_COMMISSION_RATE', default='0.20'))  # 20%
 
 
 class PaymentProcessor:
@@ -61,8 +63,8 @@ class PaymentProcessor:
             # Create account link for onboarding
             account_link = stripe.AccountLink.create(
                 account=account.id,
-                refresh_url=f'{os.getenv("BASE_URL", "http://localhost:8501")}/reauth',
-                return_url=f'{os.getenv("BASE_URL", "http://localhost:8501")}/dashboard',
+                refresh_url=f'{Config.get("BASE_URL", default="http://localhost:8501")}/reauth',
+                return_url=f'{Config.get("BASE_URL", default="http://localhost:8501")}/dashboard',
                 type='account_onboarding',
             )
             

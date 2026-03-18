@@ -23,18 +23,13 @@ Usage:
 """
 
 import os
-import sys
 import logging
 from typing import Dict, Optional, Any
 from datetime import datetime, timedelta
 import requests
 import json
 from pathlib import Path
-
-# Add project root to path
-root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -115,23 +110,27 @@ class PODFetcher:
                         'source': None
                     }
                 
-                result = connector.get_pod(tracking_number)
-                
-                if result.get('success'):
-                    # Cache result
+                pod_bytes = connector.get_proof_of_delivery(tracking_number)
+                if pod_bytes:
+                    # For now, cache POD bytes as base64 would be heavy; we keep metadata only.
+                    result = {
+                        "success": True,
+                        "pod_url": None,
+                        "pod_data": {},
+                        "error": None,
+                    }
                     if self.cache_enabled:
                         self._save_to_cache(tracking_number, carrier, result)
-                    
-                    result['source'] = 'api'
+                    result["source"] = "api"
                     logger.info(f"✅ POD fetched successfully for {tracking_number}")
                     return result
-                else:
-                    logger.warning(f"Attempt {attempt + 1}/{retry_count} failed: {result.get('error')}")
-                    
-                    if attempt < retry_count - 1:
-                        # Exponential backoff
-                        import time
-                        time.sleep(2 ** attempt)
+
+                logger.warning(f"Attempt {attempt + 1}/{retry_count} failed: POD not available")
+
+                if attempt < retry_count - 1:
+                    # Exponential backoff
+                    import time
+                    time.sleep(2 ** attempt)
                     
             except Exception as e:
                 logger.error(f"POD fetch error (attempt {attempt + 1}): {e}")
@@ -165,7 +164,7 @@ class PODFetcher:
         try:
             if carrier_lower == 'colissimo':
                 from src.integrations.colissimo_connector import ColissimoConnector
-                api_key = os.getenv('LAPOSTE_API_KEY', 'demo_key')  # Use demo key for testing
+                api_key = Config.get('LAPOSTE_API_KEY') or Config.get('COLISSIMO_API_KEY') or 'demo_key'
                 connector = ColissimoConnector(api_key=api_key)
             elif carrier_lower == 'chronopost':
                 from src.integrations.chronopost_connector import ChronopostConnector

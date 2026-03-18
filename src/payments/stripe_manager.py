@@ -1,21 +1,22 @@
-import os
 import stripe
 from typing import Dict, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
+from src.config import Config
+
 class StripeManager:
     """Gestionnaire des opérations Stripe Connect."""
     
     def __init__(self, api_key: Optional[str] = None):
         """Initialize with API key from env or argument."""
-        self.api_key = api_key or os.getenv("STRIPE_SECRET_KEY")
+        self.api_key = api_key or Config.get("STRIPE_SECRET_KEY")
         if self.api_key:
             stripe.api_key = self.api_key
         
-        self.client_id = os.getenv("STRIPE_CLIENT_ID")
-        self.webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+        self.client_id = Config.get("STRIPE_CLIENT_ID")
+        self.webhook_secret = Config.get("STRIPE_WEBHOOK_SECRET")
 
     def create_connect_account(self, email: str, country: str = "FR") -> str:
         """

@@ -31,12 +31,12 @@ print("=" * 55)
 from src.scrapers.colissimo_scraper import ColissimoScraper
 from src.scrapers.mondial_relay_scraper import MondialRelayScraper
 from src.scrapers.chronopost_scraper import ChronopostScraper
-from src.connectors.dhl_connector import DHLConnector
+from src.integrations.dhl_connector import DHLConnector
 
 test("Colissimo", lambda: ColissimoScraper().get_pod("6A12345678901"))
 test("Mondial Relay", lambda: MondialRelayScraper().get_tracking("12345678", "75000"))
 test("Chronopost", lambda: ChronopostScraper().get_tracking("EE123456789FR"))
-test("DHL", lambda: DHLConnector(api_key="TEST", api_secret="TEST").get_tracking("1234567890"))
+test("DHL", lambda: DHLConnector(api_key="TEST").get_tracking("1234567890"))
 
 # --- Nouveaux scrapers ---
 from src.scrapers.fedex_scraper import FedExScraper

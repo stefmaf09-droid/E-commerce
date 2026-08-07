@@ -45,70 +45,70 @@ def render_navigation_header():
     
     # Professional header with logo and user info
     st.markdown(f"""
-    <style>
-    .pro-nav-tab {{
-        background: transparent;
-        border: none;
-        border-bottom: 3px solid transparent;
-        padding: 12px 24px !important;
-        font-size: 15px !important;
-        font-weight: 600 !important;
-        color: #64748b !important;
-        cursor: pointer;
-        transition: all 0.2s;
-        margin: 0 !important;
-    }}
-    .pro-nav-tab:hover {{
-        color: #4338ca !important;
-        background: #f8f7ff !important;
-    }}
-    .pro-nav-tab-active {{
-        color: #4338ca !important;
-        border-bottom-color: #4338ca !important;
-    }}
-    </style>
-    
-    <div style="
-        background: white;
-        padding: 16px 32px;
-        margin: -6rem -1rem 0rem -1rem;
-        border-bottom: 1px solid #e0e7ff;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    ">
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="
-                width: 40px;
-                height: 40px;
-                background: linear-gradient(135deg, #4338ca 0%, #8b5cf6 100%);
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                font-weight: 800;
-                font-size: 20px;
-                box-shadow: 0 2px 8px rgba(67, 56, 202, 0.3);
-            ">R</div>
-            <div style="
-                font-size: 24px;
-                font-weight: 800;
-                color: #1e1b4b;
-                letter-spacing: -0.5px;
-            ">Refundly<span style="color: #8b5cf6;">.ai</span></div>
-        </div>
+<style>
+.pro-nav-tab {{
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 12px 24px !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin: 0 !important;
+}}
+.pro-nav-tab:hover {{
+    color: #4338ca !important;
+    background: #f8f7ff !important;
+}}
+.pro-nav-tab-active {{
+    color: #4338ca !important;
+    border-bottom-color: #4338ca !important;
+}}
+</style>
+
+<div style="
+    background: white;
+    padding: 16px 32px;
+    margin: -6rem -1rem 0rem -1rem;
+    border-bottom: 1px solid #e0e7ff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+">
+    <div style="display: flex; align-items: center; gap: 12px;">
         <div style="
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #4338ca 0%, #8b5cf6 100%);
+            border-radius: 50%;
             display: flex;
             align-items: center;
-            gap: 12px;
-            color: #64748b;
-            font-size: 14px;
-        ">
-            <span>👤 {client_email}</span>
-        </div>
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 20px;
+            box-shadow: 0 2px 8px rgba(67, 56, 202, 0.3);
+        ">R</div>
+        <div style="
+            font-size: 24px;
+            font-weight: 800;
+            color: #1e1b4b;
+            letter-spacing: -0.5px;
+        ">Refundly<span style="color: #8b5cf6;">.ai</span></div>
     </div>
+    <div style="
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #64748b;
+        font-size: 14px;
+    ">
+        <span>👤 {client_email}</span>
+    </div>
+</div>
     """, unsafe_allow_html=True)
 
     # Small action on the right for quick login/register visibility

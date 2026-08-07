@@ -285,22 +285,19 @@ def authenticate():
 
 <!-- FAQ SECTION -->
 <div id="faq" style="max-width: 800px; margin: 80px auto; padding: 20px; scroll-margin-top: 50px;">
-    <h2 style="font-size: 2.5rem; font-weight: 800; color: #111827; text-align: center; margin-bottom: 40px;">Questions fréquentes</h2>
-    
-    <div style="background: white; border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb; margin-bottom: 16px;">
-        <h4 style="color: #0d9488; margin-bottom: 8px;">Comment Refundly se rémunère-t-il ?</h4>
-        <p style="color: #6b7280; font-size: 0.95rem;">Nous travaillons uniquement au succès. Nous prenons une commission sur les remboursements que nous parvenons à récupérer pour vous. Pas de résultat, pas de frais.</p>
-    </div>
-    
-    <div style="background: white; border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb; margin-bottom: 16px;">
-        <h4 style="color: #0d9488; margin-bottom: 8px;">Quels transporteurs sont supportés ?</h4>
-        <p style="color: #6b7280; font-size: 0.95rem;">Nous supportons la majorité des acteurs du marché : Colissimo, Chronopost, UPS, DHL, FedEx, TNT, GLS, et bien d'autres.</p>
-    </div>
-    
-    <div style="background: white; border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb;">
-        <h4 style="color: #0d9488; margin-bottom: 8px;">Mes données sont-elles en sécurité ?</h4>
-        <p style="color: #6b7280; font-size: 0.95rem;">Oui, nous utilisons un chiffrement de niveau bancaire et nous n'accédons qu'aux données strictement nécessaires pour identifier vos expéditions litigieuses.</p>
-    </div>
+  <h2 style="font-size: 2.5rem; font-weight: 800; color: #111827; text-align: center; margin-bottom: 40px;">Questions fréquentes</h2>
+  <div style="background: white; border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb; margin-bottom: 16px;">
+    <h4 style="color: #0d9488; margin-bottom: 8px;">Comment Refundly se rémunère-t-il ?</h4>
+    <p style="color: #6b7280; font-size: 0.95rem;">Nous travaillons uniquement au succès. Nous prenons une commission sur les remboursements que nous parvenons à récupérer pour vous. Pas de résultat, pas de frais.</p>
+  </div>
+  <div style="background: white; border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb; margin-bottom: 16px;">
+    <h4 style="color: #0d9488; margin-bottom: 8px;">Quels transporteurs sont supportés ?</h4>
+    <p style="color: #6b7280; font-size: 0.95rem;">Nous supportons la majorité des acteurs du marché : Colissimo, Chronopost, UPS, DHL, FedEx, TNT, GLS, et bien d'autres.</p>
+  </div>
+  <div style="background: white; border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb;">
+    <h4 style="color: #0d9488; margin-bottom: 8px;">Mes données sont-elles en sécurité ?</h4>
+    <p style="color: #6b7280; font-size: 0.95rem;">Oui, nous utilisons un chiffrement de niveau bancaire et nous n'accédons qu'aux données strictement nécessaires pour identifier vos expéditions litigieuses.</p>
+  </div>
 </div>
             """, unsafe_allow_html=True)
 

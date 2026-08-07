@@ -1,0 +1,21 @@
+# Development & CI-only dependencies.
+# Install with: pip install -r requirements-dev.txt
+# (this also installs everything in requirements.txt)
+-r requirements.txt
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+
+# Linting / formatting
+black>=24.0.0
+flake8>=7.0.0
+
+# Security audit
+pip-audit>=2.7.0
+
+# End-to-end testing (Playwright)
+# Note: after installing this file, also run:
+#   python -m playwright install --with-deps
+playwright>=1.41.0

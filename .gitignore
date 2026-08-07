@@ -14,8 +14,11 @@ build/
 # Data files (local only)
 data/recours_ecommerce.db
 data/*.db
-database/client_data.db
-database/passwords.db
+database/*.db
+data/uploads/
+data/scraped/
+data/synthetic_orders.csv
+data/dispute_analysis.csv
 
 # Logs & reports
 logs/
@@ -33,6 +36,18 @@ Thumbs.db
 htmlcov/
 .coverage
 coverage.xml
+coverage_*.txt
+final_*coverage*.txt
+full_coverage_report.txt
+current_global_coverage.txt
+FINAL_*.txt
 
 # Node
 node_modules/
+
+# Misc build/patch artifacts that should never be committed
+*.patch
+demo_refundly_full_journey_v3.webp
+
+# Local scratch folder used to stage files for manual deletion
+_to_delete/

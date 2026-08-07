@@ -1,0 +1,13 @@
+# Normalize line endings for all text files to LF in the repository.
+# Git will still check them out using the OS-appropriate line ending
+# if core.autocrlf is configured, but the repo itself stays consistent.
+* text=auto eol=lf
+
+# Treat these as binary (no line-ending conversion, no text diff)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.pdf binary
+*.db binary
+*.ico binary

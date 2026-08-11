@@ -26,6 +26,56 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def create_postgres_connection(pg_url: str):
+    """Ouvre une nouvelle connexion psycopg2 vers la base Postgres/Supabase configuree.
+
+    Fonction partagee par DatabaseManager et les gestionnaires d'authentification
+    (PasswordManager, CredentialsManager) afin que toutes les parties de
+    l'application utilisent exactement la meme base de donnees en production,
+    au lieu que les mots de passe/identifiants retombent silencieusement sur
+    un fichier SQLite local desynchronise de la vraie base.
+    """
+    if not POSTGRES_AVAILABLE:
+        raise ImportError("psycopg2 is required for PostgreSQL support")
+
+    if not pg_url:
+        raise ValueError("DATABASE_URL non configuré dans les Secrets.")
+
+    try:
+        # Robust parsing of the DATABASE_URL
+        result = urlparse(pg_url)
+        username = result.username
+        password = result.password
+        database = result.path[1:]
+        hostname = result.hostname
+        port = result.port or 5432
+
+        import urllib.parse
+        if password:
+            password = urllib.parse.unquote(password)
+
+        # REVERT SNI FIX: Le Pooler Supabase (aws-0-eu-central-1.pooler.supabase.com) est compatible IPv4
+        # L'usage précédent de `hostaddr` cassait le SNI ("Tenant not found").
+        # On revient à une connexion standard qui laisse le DNS résoudre l'IPv4 du Pooler.
+
+        return psycopg2.connect(
+            host=hostname,
+            database=database,
+            user=username,
+            password=password,
+            port=port,
+            sslmode='require',
+            connect_timeout=15,
+            keepalives=1,
+            keepalives_idle=30,
+            keepalives_interval=10,
+            keepalives_count=5
+        )
+    except Exception as e:
+        logger.error(f"PostgreSQL connection failed: {e}")
+        raise ConnectionError(f"Erreur de connexion Cloud (Pooler Standard) : {str(e)}")
+
+
 class DatabaseManager:
     """Gestionnaire centralisé de base de données."""
     
@@ -106,46 +156,7 @@ class DatabaseManager:
             conn.row_factory = sqlite3.Row
             return conn
         else:
-            if not POSTGRES_AVAILABLE:
-                raise ImportError("psycopg2 is required for PostgreSQL support")
-            
-            try:
-                if not self.pg_url:
-                    raise ValueError("DATABASE_URL non configuré dans les Secrets.")
-                
-                # Robust parsing of the DATABASE_URL
-                result = urlparse(self.pg_url)
-                username = result.username
-                password = result.password
-                database = result.path[1:]
-                hostname = result.hostname
-                port = result.port or 5432
-                
-                import urllib.parse
-                if password:
-                    password = urllib.parse.unquote(password)
-                
-                # REVERT SNI FIX: Le Pooler Supabase (aws-0-eu-central-1.pooler.supabase.com) est compatible IPv4
-                # L'usage précédent de `hostaddr` cassait le SNI ("Tenant not found").
-                # On revient à une connexion standard qui laisse le DNS résoudre l'IPv4 du Pooler.
-                
-                conn = psycopg2.connect(
-                    host=hostname,
-                    database=database,
-                    user=username,
-                    password=password,
-                    port=port,
-                    sslmode='require',
-                    connect_timeout=15,
-                    keepalives=1,
-                    keepalives_idle=30,
-                    keepalives_interval=10,
-                    keepalives_count=5
-                )
-                return conn
-            except Exception as e:
-                logger.error(f"PostgreSQL connection failed: {e}")
-                raise ConnectionError(f"Erreur de connexion Cloud (Pooler Standard) : {str(e)}")
+            return create_postgres_connection(self.pg_url)
 
 
     def _execute(self, conn, query: str, params: tuple = ()):

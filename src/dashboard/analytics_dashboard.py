@@ -7,16 +7,34 @@ from src.utils.i18n import get_i18n_text
 
 def render_analytics_dashboard():
     """Render the Business Analytics Dashboard."""
-    st.title(f"📊 {get_i18n_text('analytics_dashboard', 'Analytiques Performance')}")
+    st.title(f"📊 {get_i18n_text('analytics_dashboard')}")
     st.markdown("---")
     
-    # Check credentials
+    # Check credentials — fall back to a fresh DB lookup by email if client_id
+    # wasn't cached in session_state (e.g. a race right after signup, or a
+    # local/test account whose credentials exist but whose client record
+    # isn't in the currently active database).
     client_id = st.session_state.get('client_id')
+    db = DatabaseManager()
+
     if not client_id:
-        st.error("Session invalide.")
+        client_email = st.session_state.get('client_email')
+        if client_email:
+            try:
+                client = db.get_client(email=client_email)
+                if client:
+                    client_id = client['id']
+                    st.session_state.client_id = client_id
+            except Exception:
+                pass  # fall through to the warning below rather than crash the page
+
+    if not client_id:
+        st.warning(
+            "Impossible de charger les analyses : aucune fiche client associée à ce compte. "
+            "Contactez le support si le problème persiste."
+        )
         return
 
-    db = DatabaseManager()
     data = db.get_business_analytics(client_id)
     
     # --- 1. KPI Cards ---

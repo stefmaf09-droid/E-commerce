@@ -344,10 +344,10 @@ def render_analytics_tab(disputes_df):
         disputes_df (pd.DataFrame): DataFrame containing disputes data.
     """
     st.markdown("### 📊 Analytics")
-    st.info("Advanced analytics and insights about your disputes")
+    st.info("Analyses avancées et informations sur vos litiges")
     
     if disputes_df.empty:
-        st.warning("No data available for analytics")
+        st.warning("Aucune donnée disponible pour les analyses")
         return
     
     # Placeholder for analytics - extend as needed

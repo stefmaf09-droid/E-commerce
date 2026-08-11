@@ -19,6 +19,7 @@ data/uploads/
 data/scraped/
 data/synthetic_orders.csv
 data/dispute_analysis.csv
+data/appeals/
 
 # Logs & reports
 logs/

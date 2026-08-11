@@ -93,6 +93,7 @@ def get_i18n_text(key: str, lang: str = None) -> str:
         'FR': {
             # Dashboard
             'dashboard_title': 'Refundly.ai - Tableau de bord',
+            'analytics_dashboard': 'Tableau de bord analytique',
             'recoverable': '💰 RÉCUPÉRABLE',
             'your_share': '🎯 VOTRE PART',
             'recovered': '✅ RÉCUPÉRÉ',
@@ -344,7 +345,7 @@ def get_i18n_text(key: str, lang: str = None) -> str:
             'edit_templates': 'Modifier les templates',
             
             # Reports Page
-            'reports_header': 'Reports & Analytics',
+            'reports_header': 'Rapports et Analyses',
             'timeline_recent_events': 'Timeline des Événements Récents',
             'timeline_caption': 'Historique chronologique de vos litiges et actions',
             'new_dispute': 'Nouveau litige détecté',
@@ -379,6 +380,7 @@ def get_i18n_text(key: str, lang: str = None) -> str:
         'EN': {
             # Dashboard
             'dashboard_title': 'Client Dashboard',
+            'analytics_dashboard': 'Analytics Dashboard',
             'recoverable': '💰 RECOVERABLE',
             'your_share': '🎯 YOUR SHARE',
             'recovered': '✅ RECOVERED',

@@ -173,7 +173,7 @@ def _render_top_navbar(active: str, email: str, role: str = "client"):
 
     # Render via components — has access to window.parent for same-tab navigation
     import streamlit.components.v1 as components
-    components.html(navbar_html, height=68, scrolling=False)
+    components.html(navbar_html, height=100, scrolling=False)
 
 
 def initialize_session():

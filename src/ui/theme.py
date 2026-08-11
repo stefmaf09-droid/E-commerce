@@ -32,7 +32,7 @@ def apply_premium_theme():
         padding-top: 0rem !important;
         padding-left: 2.5rem !important;
         padding-right: 2.5rem !important;
-        max-width: 1400px !important;
+        max-width: 100% !important;
     }}
 
     /* Hide Streamlit chrome */

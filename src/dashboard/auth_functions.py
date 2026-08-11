@@ -700,6 +700,12 @@ def _render_login_form():
                             details={'role': role},
                             ip_address='127.0.0.1' 
                         )
+
+                        try:
+                            from src.logging.audit import log_user_login
+                            log_user_login(user_email=email, success=True, role=role)
+                        except Exception:
+                            pass  # audit logging must never block login
                     
                     # —— Check onboarding status ————————————————
                     try:
@@ -1006,6 +1012,12 @@ def _process_registration(reg_email, reg_password, reg_password_confirm, store_n
     st.success("🎉 Compte créé avec succès !")
     st.info("👉 Plus que 2 étapes pour finaliser votre espace : IBAN et bienvenue !")
     st.balloons()
+
+    try:
+        from src.logging.audit import log_user_created
+        log_user_created(user_email=reg_email, platform=platform)
+    except Exception:
+        pass  # audit logging must never block registration
 
     # Auto-login
     st.session_state.authenticated = True

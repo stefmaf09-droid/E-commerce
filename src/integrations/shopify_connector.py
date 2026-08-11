@@ -5,6 +5,7 @@ Implements OAuth 2.0 flow for Shopify integration and order retrieval.
 """
 
 import requests
+import backoff
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 from urllib.parse import urlencode
@@ -13,6 +14,10 @@ import logging
 from .base import BaseConnector
 
 logger = logging.getLogger(__name__)
+
+
+class ShopifyRateLimitError(Exception):
+    """Raised when Shopify responds with HTTP 429; retried with backoff."""
 
 
 class ShopifyConnector(BaseConnector):
@@ -57,6 +62,31 @@ class ShopifyConnector(BaseConnector):
                 'Content-Type': 'application/json'
             })
     
+    # Retry policy: transient network errors and Shopify rate limiting (HTTP 429)
+    # get exponential backoff + jitter, up to 4 attempts total, before giving up.
+    # GET requests are naturally idempotent so no idempotency key is needed here
+    # (unlike the POST claim submissions in src/antigravity_skills/*_claim).
+    @backoff.on_exception(
+        backoff.expo,
+        (requests.exceptions.ConnectionError, requests.exceptions.Timeout, ShopifyRateLimitError),
+        max_tries=4,
+        jitter=backoff.full_jitter,
+    )
+    def _get(self, url: str, params: Optional[Dict[str, Any]] = None, timeout: int = 15) -> requests.Response:
+        """GET wrapper with exponential backoff + jitter retries on transient failures."""
+        response = self.session.get(url, params=params, timeout=timeout)
+        if response.status_code == 429:
+            # Shopify rate limit: raise a dedicated exception so backoff retries it
+            # (unlike other 4xx codes, which are caller errors and should not be retried).
+            retry_after = response.headers.get('Retry-After')
+            raise ShopifyRateLimitError(
+                f"Shopify rate limit hit (429), Retry-After={retry_after}"
+            )
+        if response.status_code >= 500:
+            # Server-side error: also worth retrying.
+            response.raise_for_status()
+        return response
+
     @staticmethod
     def get_oauth_authorization_url(shop_domain: str, api_key: str, redirect_uri: str, state: str) -> str:
         """
@@ -116,16 +146,16 @@ class ShopifyConnector(BaseConnector):
     def authenticate(self) -> bool:
         """Test authentication by making a simple API call."""
         try:
-            response = self.session.get(f"{self.base_url}/shop.json")
+            response = self._get(f"{self.base_url}/shop.json")
             response.raise_for_status()
-            logger.info(f"Shopify authenticationsuccesful for {self.shop_domain}")
+            logger.info(f"Shopify authentication successful for {self.shop_domain}")
             return True
         except Exception as e:
             logger.error(f"Shopify authentication failed: {e}")
             return False
     
     def fetch_orders(
-self, 
+        self,
         since: Optional[datetime] = None,
         until: Optional[datetime] = None,
         status: Optional[str] = None
@@ -156,7 +186,7 @@ self,
         
         while url:
             try:
-                response = self.session.get(url, params=params if url == f"{self.base_url}/orders.json" else None)
+                response = self._get(url, params=params if url == f"{self.base_url}/orders.json" else None)
                 response.raise_for_status()
                 
                 data = response.json()
@@ -182,7 +212,7 @@ self,
     def get_order_details(self, order_id: str) -> Dict[str, Any]:
         """Get detailed information for a specific order."""
         try:
-            response = self.session.get(f"{self.base_url}/orders/{order_id}.json")
+            response = self._get(f"{self.base_url}/orders/{order_id}.json")
             response.raise_for_status()
             
             data = response.json()

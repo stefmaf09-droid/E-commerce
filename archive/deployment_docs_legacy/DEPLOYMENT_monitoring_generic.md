@@ -1,3 +1,12 @@
+> **Archivé le 2026-08-11** : ce document contient des références qui ne correspondent plus
+> exactement au code actuel (ex: service Redis/Antigravity absent de `docker-compose.yml`,
+> ou fichier `main.py` inexistant dans ce projet Streamlit). Le guide de déploiement à jour et
+> vérifié est [`deployment_guide.md`](../../deployment_guide.md) (Supabase + Streamlit Cloud).
+> Ce fichier reste disponible comme base de départ si tu veux self-hoster via Docker/Heroku,
+> mais vérifie chaque commande avant de l'exécuter.
+
+---
+
 # 🚀 Déploiement & Monitoring
 
 ## 1. Prérequis

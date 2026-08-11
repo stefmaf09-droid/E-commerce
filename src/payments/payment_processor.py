@@ -69,6 +69,11 @@ class PaymentProcessor:
             )
             
             logger.info(f"✅ Stripe account created for {client_email}: {account.id}")
+            try:
+                from src.logging.audit import log_stripe_activation
+                log_stripe_activation(user_email=client_email, stripe_account_id=account.id)
+            except Exception:
+                pass  # audit logging must never block the payment flow
             
             return {
                 'success': True,

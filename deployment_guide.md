@@ -27,8 +27,8 @@ Toutes les modifications doivent être sur votre dépôt distant pour que Stream
 
 ```bash
 git add .
-git commit -m "feat: supabase cloud compatibility"
-git push origin feat/add-pypdf2-ci-smoke
+git commit -m "feat: mise a jour config"
+git push origin main
 ```
 
 ---

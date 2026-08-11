@@ -29,8 +29,11 @@ import os
 import sqlite3
 import sys
 
+from dotenv import load_dotenv
+
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, root_dir)
+load_dotenv(os.path.join(root_dir, '.env'))
 
 from src.config import Config  # noqa: E402
 

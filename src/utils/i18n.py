@@ -366,6 +366,10 @@ def get_i18n_text(key: str, lang: str = None) -> str:
             'legal_body_demand': 'Par la présente, nous vous METTONS EN DEMEURE d\'effectuer le règlement sous 8 jours.',
             'legal_body_closing': 'À défaut, nous saisirons le Médiateur compétent.',
             'legal_signature': 'POUR ORDRE : L\'AGENT MANDATAIRE AUTOMATISÉ',
+            'legal_payment_header': 'MODALITÉS DE RÈGLEMENT',
+            'legal_payment_with_iban': "Le règlement de la somme réclamée devra intervenir par virement bancaire sous 8 jours à compter de la réception de la présente, aux coordonnées suivantes : Titulaire du compte : {account_holder} — IBAN : {iban}{bic_line}. Merci de mentionner impérativement la référence {claim_reference} lors du virement.",
+            'legal_payment_no_iban': "Le règlement devra intervenir par virement bancaire sous 8 jours à compter de la réception de la présente. Nos coordonnées bancaires vous seront communiquées sur simple demande à {contact_email}, en mentionnant la référence {claim_reference}.",
+            'legal_contact_line': "Pour toute question relative à ce dossier, contactez-nous : {contact_email}",
             
             # Lois Internationales (Fallback sur le texte Anglais ou traduit si pertinent)
             'legal_law_ny': 'En vertu de la loi générale des affaires de l\'État de New York (§ 396-u) et de l\'Amendement Carmack fédéral (49 U.S.C. § 14706), le transporteur est responsable en tant qu\'assureur de la perte ou des dommages.',
@@ -652,6 +656,10 @@ def get_i18n_text(key: str, lang: str = None) -> str:
             'legal_body_demand': 'We hereby give you FORMAL NOTICE to settle this claim within 8 days.',
             'legal_body_closing': 'Failing that, we will escalate this matter to the relevant Ombudsman.',
             'legal_signature': 'FOR AND ON BEHALF OF: THE AUTOMATED CLAIMS AGENT',
+            'legal_payment_header': 'PAYMENT TERMS',
+            'legal_payment_with_iban': "Payment of the claimed amount must be made by bank transfer within 8 days of receipt of this notice, to the following account: Account holder: {account_holder} — IBAN: {iban}{bic_line}. Please make sure to reference {claim_reference} on the transfer.",
+            'legal_payment_no_iban': "Payment must be made by bank transfer within 8 days of receipt of this notice. Our bank details will be provided upon request at {contact_email}, quoting reference {claim_reference}.",
+            'legal_contact_line': "For any questions regarding this claim, please contact us: {contact_email}",
             'legal_law_ny': 'Under New York State General Business Law § 396-u and the Federal Carmack Amendment (49 U.S.C. § 14706), carrier is liable for loss or damage as an insurer.',
             'legal_law_ca': 'Under California Commercial Code § 7309, a carrier who issues a bill of lading is required to exercise the degree of care that a reasonably careful person would exercise.',
             'legal_law_tx': 'Under Texas Deceptive Trade Practices-Consumer Protection Act (DTPA) and Common Law carrier liability, you are responsible for the safe delivery of goods.',
@@ -931,7 +939,11 @@ def get_i18n_text(key: str, lang: str = None) -> str:
             'legal_body_law': 'Gemäß § 425 HGB haftet der Frachtführer für den Schaden, der durch Verlust oder Beschädigung des Gut in der Zeit von der Übernahme zur Beförderung bis zur Ablieferung entsteht.',
             'legal_body_demand': 'Hiermit FORDERN WIR SIE AUF, den ausstehenden Betrag innerhalb von 8 Tagen auszugleichen.',
             'legal_body_closing': 'Sollte diese Frist fruchtlos verstreichen, werden wir rechtliche Schritte einleiten.',
-            'legal_signature': 'IM AUFTRAG: DER AUTOMATISIERTE REKLAMATIONS-AGENT'
+            'legal_signature': 'IM AUFTRAG: DER AUTOMATISIERTE REKLAMATIONS-AGENT',
+            'legal_payment_header': 'ZAHLUNGSBEDINGUNGEN',
+            'legal_payment_with_iban': "Die Zahlung des geforderten Betrags hat innerhalb von 8 Tagen nach Erhalt dieses Schreibens per Banküberweisung auf folgendes Konto zu erfolgen: Kontoinhaber: {account_holder} — IBAN: {iban}{bic_line}. Bitte geben Sie unbedingt das Aktenzeichen {claim_reference} bei der Überweisung an.",
+            'legal_payment_no_iban': "Die Zahlung hat innerhalb von 8 Tagen nach Erhalt dieses Schreibens per Banküberweisung zu erfolgen. Unsere Bankverbindung teilen wir Ihnen auf Anfrage unter {contact_email} mit, bitte geben Sie das Aktenzeichen {claim_reference} an.",
+            'legal_contact_line': "Bei Fragen zu diesem Vorgang kontaktieren Sie uns bitte: {contact_email}"
         },
         'IT': {
             # Dashboard
@@ -1176,7 +1188,11 @@ def get_i18n_text(key: str, lang: str = None) -> str:
             'legal_body_law': 'Ai sensi dell\'articolo 1693 del Codice Civile, il vettore è responsabile della perdita e dell\'avaria delle cose consegnategli per il trasporto.',
             'legal_body_demand': 'Con la presente, vi METTIAMO IN MORA affinché provvediate al pagamento entro 8 giorni.',
             'legal_body_closing': 'In mancanza di ciò, agiremo nelle sedi competenti.',
-            'legal_signature': 'PER ORDINE: L\'AGENTE DI RECLAMO AUTOMATIZZATO'
+            'legal_signature': 'PER ORDINE: L\'AGENTE DI RECLAMO AUTOMATIZZATO',
+            'legal_payment_header': 'MODALITÀ DI PAGAMENTO',
+            'legal_payment_with_iban': "Il pagamento dell'importo richiesto dovrà avvenire tramite bonifico bancario entro 8 giorni dal ricevimento della presente, alle seguenti coordinate: Intestatario del conto: {account_holder} — IBAN: {iban}{bic_line}. Si prega di indicare tassativamente il riferimento {claim_reference} nella causale del bonifico.",
+            'legal_payment_no_iban': "Il pagamento dovrà avvenire tramite bonifico bancario entro 8 giorni dal ricevimento della presente. Le nostre coordinate bancarie vi saranno comunicate su richiesta a {contact_email}, indicando il riferimento {claim_reference}.",
+            'legal_contact_line': "Per qualsiasi domanda relativa a questa pratica, contattateci: {contact_email}"
         },
         'ES': {
             # Dashboard
@@ -1421,7 +1437,11 @@ def get_i18n_text(key: str, lang: str = None) -> str:
             'legal_body_law': 'De acuerdo con la Ley 15/2009 del Contrato de Transporte Terrestre, el porteador responderá de la pérdida total o parcial de las mercancías.',
             'legal_body_demand': 'Por la presente, le REQUERIMOS FORMALMENTE para que proceda al pago en un plazo de 8 días.',
             'legal_body_closing': 'De lo contrario, tomaremos las medidas legales oportunas.',
-            'legal_signature': 'POR ORDEN: EL AGENTE DE RECLAMACIONES AUTOMATIZADO'
+            'legal_signature': 'POR ORDEN: EL AGENTE DE RECLAMACIONES AUTOMATIZADO',
+            'legal_payment_header': 'CONDICIONES DE PAGO',
+            'legal_payment_with_iban': "El pago del importe reclamado deberá realizarse mediante transferencia bancaria en un plazo de 8 días a partir de la recepción de la presente, a la siguiente cuenta: Titular de la cuenta: {account_holder} — IBAN: {iban}{bic_line}. Por favor, indique obligatoriamente la referencia {claim_reference} en la transferencia.",
+            'legal_payment_no_iban': "El pago deberá realizarse mediante transferencia bancaria en un plazo de 8 días a partir de la recepción de la presente. Le facilitaremos nuestros datos bancarios a petición en {contact_email}, indicando la referencia {claim_reference}.",
+            'legal_contact_line': "Para cualquier consulta relativa a este expediente, contáctenos: {contact_email}"
         }
     }
     

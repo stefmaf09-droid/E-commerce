@@ -152,13 +152,16 @@ class EmailSender:
             msg['From'] = f"{self.from_name} <{self.from_email}>"
             msg['To'] = to_email
             
-            # Attach text and HTML versions
+            # Text and HTML versions must be nested inside their own
+            # 'alternative' sub-part. Attaching them directly to the outer
+            # 'mixed' message (as before) made mail clients like Gmail
+            # render BOTH versions one after another instead of picking
+            # one, which is why the body appeared duplicated.
+            alt_part = MIMEMultipart('alternative')
             if text_body:
-                part1 = MIMEText(text_body, 'plain')
-                msg.attach(part1)
-            
-            part2 = MIMEText(html_body, 'html')
-            msg.attach(part2)
+                alt_part.attach(MIMEText(text_body, 'plain'))
+            alt_part.attach(MIMEText(html_body, 'html'))
+            msg.attach(alt_part)
             
             # Attach files if provided
             if attachments:

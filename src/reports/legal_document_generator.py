@@ -98,6 +98,12 @@ class LegalDocumentGenerator:
         company = claim.get('company_name', 'Client E-commerce')
         story.append(Paragraph(f"Refundly.ai", self.styles['LegalBody']))
         story.append(Paragraph(f"Agissant pour le compte de : {company}", self.styles['LegalBody']))
+        company_address = claim.get('company_address')
+        if company_address:
+            story.append(Paragraph(company_address, self.styles['LegalBody']))
+        company_siret = claim.get('company_siret')
+        if company_siret:
+            story.append(Paragraph(f"SIRET : {company_siret}", self.styles['LegalBody']))
         story.append(Spacer(1, 1*cm))
         
         story.append(Paragraph(f"<b>{get_i18n_text('legal_header_to', lang)}</b>", self.styles['LegalBold']))
@@ -133,12 +139,41 @@ class LegalDocumentGenerator:
         {get_i18n_text('legal_body_closing', lang)}
         """
         story.append(Paragraph(body_text, self.styles['LegalBody']))
-        
+        story.append(Spacer(1, 1*cm))
+
+        # 5. Modalites de reglement (a qui / comment payer)
+        story.append(Paragraph(f"<b>{get_i18n_text('legal_payment_header', lang)}</b>", self.styles['LegalBold']))
+        iban = claim.get('iban')
+        if iban:
+            bic = claim.get('bic')
+            bic_line = f" — BIC : {bic}" if bic else ""
+            account_holder = claim.get('account_holder_name') or company
+            payment_text = get_i18n_text('legal_payment_with_iban', lang).format(
+                account_holder=account_holder,
+                iban=iban,
+                bic_line=bic_line,
+                claim_reference=claim['claim_reference'],
+            )
+        else:
+            contact_email = claim.get('contact_email', 'contact@refundly.ai')
+            payment_text = get_i18n_text('legal_payment_no_iban', lang).format(
+                contact_email=contact_email,
+                claim_reference=claim['claim_reference'],
+            )
+        story.append(Paragraph(payment_text, self.styles['LegalBody']))
+
         story.append(Spacer(1, 1*cm))
         story.append(Paragraph("Cordialement / Regards,", self.styles['LegalBody']))
         
         story.append(Spacer(1, 2*cm))
         story.append(Paragraph(f"<b>{get_i18n_text('legal_signature', lang)}</b>", self.styles['LegalBold']))
+        signatory_name = claim.get('signatory_name')
+        if signatory_name:
+            story.append(Paragraph(signatory_name, self.styles['LegalBody']))
+        signatory_title = claim.get('signatory_title', f"Refundly.ai — mandataire de {company}")
+        story.append(Paragraph(signatory_title, self.styles['LegalBody']))
+        contact_email = claim.get('contact_email', 'contact@refundly.ai')
+        story.append(Paragraph(get_i18n_text('legal_contact_line', lang).format(contact_email=contact_email), self.styles['LegalBody']))
         
         # Génération
         doc.build(story)

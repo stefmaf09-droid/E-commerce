@@ -15,6 +15,7 @@ import string
 
 from src.integrations.carrier_factory import CarrierFactory
 from src.reports.legal_document_generator import LegalDocumentGenerator
+from src.payments.manual_payment_manager import ManualPaymentManager
 from src.ai.predictor import AIPredictor
 
 logger = logging.getLogger(__name__)
@@ -311,7 +312,17 @@ Nous demandons le remboursement complet du montant de {amount}€ conformément 
                     'currency': claim_data.get('currency', 'EUR'),
                     'dispute_type': claim_data.get('dispute_type', 'lost'),
                     'company_name': claim_data.get('company_name', 'Client E-commerce'),
-                    'delivery_address': claim_data.get('delivery_address', '')
+                    'delivery_address': claim_data.get('delivery_address', ''),
+                    # Payment/signature details (populated by process_claim_submission
+                    # from the client's saved bank info, when available — never
+                    # fabricated here). Falls back to a "contact us" line in the
+                    # PDF generator when iban is not set.
+                    'iban': claim_data.get('iban'),
+                    'bic': claim_data.get('bic'),
+                    'account_holder_name': claim_data.get('account_holder_name'),
+                    'contact_email': claim_data.get('contact_email') or getattr(self.email_sender, 'from_email', None),
+                    'company_address': claim_data.get('company_address'),
+                    'company_siret': claim_data.get('company_siret'),
                 }
                 pdf_path = self.legal_generator.generate_formal_notice(legal_data, lang=claim_data.get('lang', 'FR'))
                 attachments.append(pdf_path)
@@ -477,14 +488,28 @@ Nous demandons le remboursement complet du montant de {amount}€ conformément 
             
             # Step 3: Submit to carrier
             result['steps'].append({'step': 'submit_to_carrier', 'status': 'running'})
+            carrier_claim_data = {
+                'text': claim_text,
+                'photos': photo_paths,
+                'amount': dispute_data.get('total_recoverable', 0.0),
+                'company_name': dispute_data.get('company_name'),
+            }
+            client_email = dispute_data.get('client_email')
+            if client_email:
+                try:
+                    bank_info = ManualPaymentManager().get_client_bank_info(client_email)
+                except Exception as e:
+                    logger.warning(f"Could not fetch bank info for {client_email}: {e}")
+                    bank_info = None
+                if bank_info:
+                    carrier_claim_data['iban'] = bank_info.get('iban')
+                    carrier_claim_data['bic'] = bank_info.get('bic')
+                    carrier_claim_data['account_holder_name'] = bank_info.get('account_holder_name')
+
             submission_result = self.submit_claim_to_carrier(
                 order_id=order_id,
                 carrier=dispute_data.get('carrier', 'Unknown'),
-                claim_data={
-                    'text': claim_text,
-                    'photos': photo_paths,
-                    'amount': dispute_data.get('total_recoverable', 0.0)
-                }
+                claim_data=carrier_claim_data
             )
             result['submission'] = submission_result
             result['steps'][-1]['status'] = 'completed'

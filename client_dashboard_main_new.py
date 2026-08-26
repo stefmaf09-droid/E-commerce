@@ -82,98 +82,131 @@ def _get_active_tab(role: str = "client") -> str:
 
 
 def _render_top_navbar(active: str, email: str, role: str = "client"):
-    """Render the sticky top navigation bar via st.components (avoids Streamlit iframe sandbox)."""
+    """Render the sticky top navigation bar with native Streamlit buttons.
+
+    Audit du 26/08/2026 : cette barre était auparavant construite en HTML
+    (liens <a target="_top">) et injectée via components.html(). Or
+    components.html() rend son contenu DANS un <iframe> dont l'attribut
+    `sandbox` est fixé par Streamlit lui-même (non configurable via l'API
+    publique) et n'inclut PAS `allow-top-navigation` /
+    `allow-top-navigation-by-user-activation`. Sans l'un de ces deux flags,
+    la spec HTML5 impose au navigateur de bloquer TOUTE navigation de la
+    fenêtre parente depuis l'intérieur de l'iframe — y compris
+    target="_top" et window.top.location — silencieusement, sans erreur
+    visible. C'était la cause exacte du bug rapporté ("rien ne se passe
+    quand je clique sur Réglages ou les autres boutons du haut") : le clic
+    changeait bien le style ":active" du lien à l'intérieur de l'iframe,
+    mais ne pouvait jamais changer l'URL/le contenu de la vraie page.
+
+    Correctif : la navigation utilise maintenant de vrais st.button()
+    natifs, qui vivent directement dans le DOM de la page Streamlit (pas
+    dans un iframe) et ne sont donc soumis à aucune restriction de
+    sandboxing. Seul le logo (purement décoratif, sans interaction) reste
+    en HTML/CSS via st.markdown.
+    """
 
     items = list(MENU_ITEMS)
     if role == "admin":
         items.append(("👑", "Admin"))
 
-    # Build tab pills HTML
-    tabs_html = ""
-    for icon, label in items:
-        is_active = label == active
-        active_style = (
-            "color:#0f766e;background:#f0fdf4;font-weight:700;"
-            if is_active else "color:#6b7280;background:transparent;"
-        )
-        safe_label = label.replace(" ", "%20")
-        safe_email = email.replace("@", "%40").replace("+", "%2B")
-        url = f"?page={safe_label}&token={safe_email}"
-        tabs_html += (
-            f'<a href="{url}" class="nav-tab" style="{active_style}">'
-            f'{icon} {label}</a>'
-        )
-
     initials = email[0].upper() if email else "U"
-    safe_email_esc = email.replace("@", "%40").replace("+", "%2B")
-    logout_url = f"?logout=1&token={safe_email_esc}"
+    logo_html = logo_img_tag(height=34)
 
-    logo_html = logo_img_tag(height=120)
+    # CSS scopé au conteneur `top_navbar_row` (classe `st-key-top_navbar_row`
+    # générée automatiquement par Streamlit pour tout élément/conteneur
+    # portant un `key=`) : on évite ainsi de perturber le style des boutons
+    # ailleurs dans l'application.
+    st.markdown(
+        """
+        <style>
+        .st-key-top_navbar_row {
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            background: rgba(255,255,255,0.97);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid #e5e7eb;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+            padding: 10px 20px 2px 20px;
+            margin: -1rem -2.5rem 1.25rem -2.5rem;
+        }
+        .st-key-top_navbar_row [data-testid="stVerticalBlockBorderWrapper"] {
+            background: transparent;
+        }
+        .st-key-top_navbar_row div[data-testid="stButton"] button {
+            border-radius: 8px !important;
+            font-size: 0.82rem !important;
+            font-weight: 600 !important;
+            padding: 6px 8px !important;
+            white-space: nowrap;
+            box-shadow: none !important;
+            transform: none !important;
+            width: 100%;
+        }
+        .st-key-top_navbar_row div[data-testid="stButton"] button[kind="secondary"] {
+            background: transparent !important;
+            color: #6b7280 !important;
+            border: 1px solid transparent !important;
+        }
+        .st-key-top_navbar_row div[data-testid="stButton"] button[kind="secondary"]:hover {
+            color: #0d9488 !important;
+            background: #f0fdf4 !important;
+            border-color: #ccfbf1 !important;
+        }
+        .st-key-top_navbar_row div[data-testid="stButton"] button[kind="primary"] {
+            background: #f0fdf4 !important;
+            color: #0f766e !important;
+            border: 1px solid #ccfbf1 !important;
+        }
+        .st-key-navbtn_logout button {
+            border-color: #e5e7eb !important;
+        }
+        .st-key-navbtn_logout button:hover {
+            background: #fee2e2 !important;
+            color: #dc2626 !important;
+            border-color: #fca5a5 !important;
+        }
+        .top-navbar-email {
+            font-size: 0.78rem; color: #6b7280; text-align: right;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            padding-top: 8px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    navbar_html = f"""<!DOCTYPE html>
-<html>
-<head>
-<style>
-  * {{ margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }}
-  body {{ background:transparent; overflow:hidden; }}
-  .navbar {{
-    display:flex; align-items:center; justify-content:space-between;
-    background:rgba(255,255,255,0.97);
-    backdrop-filter:blur(12px);
-    border-bottom:1px solid #e5e7eb;
-    box-shadow:0 2px 16px rgba(0,0,0,0.06);
-    padding:6px 28px; height:96px;
-    position:fixed; top:0; left:0; right:0; z-index:9999;
-  }}
-  .logo {{
-    display:flex; align-items:center; gap:0px;
-    text-decoration:none; flex-shrink:0;
-  }}
-  .logo img {{
-    height:36px; width:auto; display:block;
-  }}
-  .tabs {{ display:flex; align-items:center; gap:2px; }}
-  .nav-tab {{
-    padding:7px 13px; border-radius:8px; font-size:0.85rem;
-    font-weight:600; text-decoration:none; transition:all 0.15s;
-    white-space:nowrap; cursor:pointer;
-  }}
-  .nav-tab:hover {{ color:#0d9488!important; background:#f0fdf4!important; }}
-  .right {{ display:flex; align-items:center; gap:10px; flex-shrink:0; }}
-  .email {{ font-size:0.78rem; color:#6b7280; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
-  .avatar {{
-    width:32px; height:32px; background:#f0fdf4; border-radius:50%;
-    display:flex; align-items:center; justify-content:center;
-    font-weight:700; font-size:0.9rem; color:#0f766e;
-  }}
-  .logout {{
-    font-size:0.78rem; color:#6b7280; text-decoration:none;
-    padding:5px 10px; border:1px solid #e5e7eb; border-radius:7px;
-    font-weight:600; transition:all 0.15s;
-  }}
-  .logout:hover {{ background:#fee2e2; color:#dc2626; border-color:#fca5a5; }}
-</style>
-</head>
-<body>
-<nav class="navbar">
-  <div class="logo">
-    {logo_html}
-  </div>
-  <div class="tabs">
-    {tabs_html}
-  </div>
-  <div class="right">
-    <span class="email">{email}</span>
-    <div class="avatar">{initials}</div>
-    <a href="{logout_url}" class="logout">🚪</a>
-  </div>
-</nav>
-</body>
-</html>"""
+    with st.container(key="top_navbar_row"):
+        col_widths = [1.1] + [0.85] * len(items) + [1.3, 0.45]
+        cols = st.columns(col_widths, vertical_alignment="center")
 
-    # Render via components — has access to window.parent for same-tab navigation
-    import streamlit.components.v1 as components
-    components.html(navbar_html, height=100, scrolling=False)
+        with cols[0]:
+            st.markdown(logo_html, unsafe_allow_html=True)
+
+        for i, (icon, label) in enumerate(items):
+            with cols[i + 1]:
+                is_active = label == active
+                if st.button(
+                    f"{icon} {label}",
+                    key=f"navbtn_{label}",
+                    type="primary" if is_active else "secondary",
+                    use_container_width=True,
+                ):
+                    st.query_params["page"] = label
+                    st.query_params["token"] = email
+                    st.session_state.active_tab = label
+                    st.rerun()
+
+        with cols[-2]:
+            st.markdown(f'<div class="top-navbar-email">{email}</div>', unsafe_allow_html=True)
+
+        with cols[-1]:
+            if st.button("🚪", key="navbtn_logout", use_container_width=True, help="Se déconnecter"):
+                st.session_state.authenticated = False
+                st.session_state.active_tab = "Dashboard"
+                st.query_params.clear()
+                st.rerun()
 
 
 def initialize_session():

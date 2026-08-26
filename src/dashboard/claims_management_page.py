@@ -26,18 +26,32 @@ def render_claims_management():
     st.caption(get_i18n_text('claims_management_caption', lang))
     
     # Load claims from database
+    client_id = st.session_state.get('client_id')
     client_email = st.session_state.get('client_email')
     db = get_db_manager()
-    
+
     try:
         # Use DatabaseManager methods instead of direct SQL to handle PostgreSQL compatibility
-        client = db.get_client(email=client_email)
-        
+        client = db.get_client(client_id=client_id) if client_id else None
+
+        if not client and client_email:
+            # Filet de sécurité (audit du 26/08/2026) : après une reconnexion via
+            # ?token=... (F5, nouvel onglet), seul client_email est repeuplé en
+            # session — client_id reste vide. On retombe alors sur une recherche
+            # par email, avec une instance FRAÎCHE de DatabaseManager plutôt que
+            # le singleton get_db_manager(), pour ne plus dépendre de l'état du
+            # singleton. C'est le même filet que "Analyses", qui résolvait déjà
+            # le compte correctement ici même quand "Gestion" échouait avec
+            # "Client introuvable" sur le même compte, dans le même onglet.
+            from src.database.database_manager import DatabaseManager
+            client = DatabaseManager().get_client(email=client_email)
+
         if not client:
             st.error(get_i18n_text('client_not_found', lang))
             return
-        
+
         client_id = client['id']
+        st.session_state.client_id = client_id
         
         # Fetch all claims with POD info using db._execute for special queries
         conn = db.get_connection()

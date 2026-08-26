@@ -153,7 +153,22 @@ class CredentialsManager:
         """Store encrypted credentials."""
         try:
             if not store_name:
-                store_name = credentials.get('shop_url', f'{platform.capitalize()} Store')
+                # Audit du 26/08/2026 : cette ligne repliait TOUJOURS sur
+                # credentials['shop_url'] (ou pire, un texte générique) sans
+                # jamais regarder si l'appelant avait déjà mis le vrai nom
+                # choisi par l'utilisateur dans credentials['store_name'].
+                # Aucun appelant du projet (inscription, assistant
+                # d'onboarding) ne passe le paramètre store_name= séparément
+                # — ils mettent tous le nom directement dans le dict
+                # credentials — donc ce repli s'exécutait à chaque connexion
+                # de boutique et affichait l'URL de la boutique (ou un nom
+                # générique) à la place du nom réellement saisi dans
+                # Réglages -> "Vos boutiques connectées".
+                store_name = (
+                    credentials.get('store_name')
+                    or credentials.get('shop_url')
+                    or f'{platform.capitalize()} Store'
+                )
 
             credentials_json = json.dumps(credentials)
             encrypted = self.cipher.encrypt(credentials_json.encode())
@@ -224,7 +239,16 @@ class CredentialsManager:
                 stores.append({
                     'id': store_id,
                     'platform': platform,
-                    'store_name': store_name or credentials.get('shop_url', f'{platform.capitalize()} Store'),
+                    # Même correction qu'à l'écriture : si la colonne store_name
+                    # est vide sur une ligne existante, on préfère le nom saisi
+                    # par l'utilisateur (encore présent dans credentials JSON)
+                    # avant de retomber sur l'URL de la boutique.
+                    'store_name': (
+                        store_name
+                        or credentials.get('store_name')
+                        or credentials.get('shop_url')
+                        or f'{platform.capitalize()} Store'
+                    ),
                     'credentials': credentials
                 })
             return stores

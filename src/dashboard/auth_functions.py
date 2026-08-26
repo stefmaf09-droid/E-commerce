@@ -7,11 +7,14 @@ registration, and password reset functionality.
 
 import streamlit as st
 import os
+import logging
 
 from src.ui.logo import logo_img_tag as _logo_tag
 
 from src.auth.credentials_manager import CredentialsManager
 from src.onboarding.onboarding_manager import OnboardingManager
+
+logger = logging.getLogger(__name__)
 
 
 def authenticate():
@@ -969,6 +972,24 @@ def register_client(reg_email, reg_password, reg_password_confirm, store_name, s
 
     if not success:
         return { 'success': False, 'errors': ["❌ Erreur lors de la création du compte"] }
+
+    # Créer la ligne canonique dans la table `clients` (audit du 26/08/2026 :
+    # cette étape manquait entièrement — l'inscription créait des identifiants
+    # de connexion (CredentialsManager, table séparée keyée par email) mais
+    # AUCUNE ligne dans la table `clients`. Résultat : après inscription,
+    # db.get_client(email=...) retournait toujours None, donc client_id ne
+    # se peuplait jamais en session, cassant silencieusement "Analyses"
+    # ("aucune fiche client associée à ce compte") et "Gestion des Litiges"
+    # ("Client introuvable") pour TOUT nouveau compte, alors même que
+    # l'assistant d'onboarding affichait "Votre compte est configuré !".
+    try:
+        from src.database.database_manager import DatabaseManager
+        _db = DatabaseManager()
+        _db.create_client(email=reg_email, company_name=store_name)
+    except Exception as e:
+        # Non-fatal pour ne pas bloquer l'inscription, mais on log pour
+        # pouvoir diagnostiquer si Analyses/Gestion restent cassés ensuite.
+        logger.warning(f"create_client a échoué pendant l'inscription de {reg_email}: {e}")
 
     # Set password
     pwd_setter = password_setter or (lambda email, pwd: __import__('auth.password_manager', fromlist=['set_client_password']).set_client_password(email, pwd))

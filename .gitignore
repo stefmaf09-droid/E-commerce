@@ -1,6 +1,12 @@
 # Secrets & credentials (NEVER commit these)
 .env
 .streamlit/secrets.toml
+# Audit du 26/08/2026 : cette clé Fernet (chiffre les identifiants boutiques,
+# IBAN, etc. en base) avait été committée par erreur le 19/02/2026 car elle
+# n'était PAS listée ici — elle a donc été exposée publiquement sur GitHub.
+# Clé régénérée + historique nettoyé ; on l'ignore désormais pour de bon.
+config/.secret_key
+config/*.key
 
 # Python cache
 __pycache__/

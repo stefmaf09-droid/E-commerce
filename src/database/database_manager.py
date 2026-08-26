@@ -785,9 +785,24 @@ class DatabaseManager:
 _db_manager = None
 
 def get_db_manager() -> DatabaseManager:
-    """Obtenir l'instance globale du gestionnaire de BDD."""
+    """Obtenir l'instance globale du gestionnaire de BDD.
+
+    Audit du 26/08/2026 : ce singleton n'était construit qu'UNE SEULE fois par
+    processus, au tout premier appel. Si ce premier appel survenait avant que
+    la configuration (.env -> DATABASE_TYPE / DATABASE_URL) soit entièrement
+    chargée, l'instance restait figée sur la config par défaut (SQLite) pour
+    toute la durée de vie du process — alors que le code appelant
+    `DatabaseManager()` directement (sans passer par ce singleton) récupérait
+    la bonne config à chaque fois. Symptôme observé en test : "Gestion des
+    Litiges" et l'Assistant IA (basés sur ce singleton) affichaient "Client
+    introuvable" pour des comptes qu'"Analyses" (instance fraîche) résolvait
+    correctement, dans la même session. On revalide donc le type de base à
+    chaque appel et on reconstruit l'instance si elle a divergé, plutôt que
+    de la figer indéfiniment dès le premier appel.
+    """
     global _db_manager
-    if _db_manager is None:
+    current_type = (Config.get('DATABASE_TYPE', 'sqlite') or 'sqlite').lower()
+    if _db_manager is None or _db_manager.db_type != current_type:
         _db_manager = DatabaseManager()
     return _db_manager
 

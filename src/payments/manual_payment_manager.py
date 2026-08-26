@@ -2,6 +2,13 @@
 Manual Payment Manager - Track and manage manual payments to clients.
 
 For use before Stripe Connect is activated.
+
+Storage backend follows DATABASE_TYPE (see src.config.Config), same as
+PasswordManager/CredentialsManager: SQLite locally, or the shared
+Supabase/Neon Postgres database in production. Client IBANs used to live
+only in a local SQLite file regardless of DATABASE_TYPE, which meant they
+could silently diverge from the rest of the app's data (same split-brain
+issue that was fixed for passwords/credentials).
 """
 
 import sqlite3
@@ -11,60 +18,107 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
 
+from src.config import Config
+
 logger = logging.getLogger(__name__)
 
 
 class ManualPaymentManager:
     """Manage manual payments to clients."""
-    
+
     def __init__(self, db_path: str = "database/manual_payments.db"):
         """Initialize manual payment manager."""
         self.db_path = db_path
+        self.db_type = (Config.get('DATABASE_TYPE', 'sqlite') or 'sqlite').lower()
+        if self.db_type == 'sqlite':
+            Path(self.db_path).parent.mkdir(exist_ok=True)
         self._ensure_db_exists()
-    
+
+    def _get_connection(self):
+        """Open a new connection to the active backend (SQLite or Postgres)."""
+        if self.db_type == 'sqlite':
+            return sqlite3.connect(self.db_path)
+        from src.database.database_manager import create_postgres_connection
+        return create_postgres_connection(Config.get_database_url())
+
+    def _q(self, query: str) -> str:
+        """Adapt a query written with '?' placeholders to the active backend."""
+        return query.replace('?', '%s') if self.db_type != 'sqlite' else query
+
     def _ensure_db_exists(self):
-        """Create database and tables if they don't exist."""
-        Path(self.db_path).parent.mkdir(exist_ok=True)
-        
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Table pour les IBAN clients
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS client_bank_info (
-                client_email TEXT PRIMARY KEY,
-                iban TEXT NOT NULL,
-                bic TEXT,
-                account_holder_name TEXT,
-                bank_name TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Table pour les paiements manuels
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS manual_payments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                claim_reference TEXT NOT NULL,
-                client_email TEXT NOT NULL,
-                total_amount REAL NOT NULL,
-                client_share REAL NOT NULL,
-                platform_fee REAL NOT NULL,
-                payment_status TEXT DEFAULT 'pending',
-                payment_date TIMESTAMP,
-                payment_method TEXT,
-                transaction_reference TEXT,
-                notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        conn.commit()
-        conn.close()
-        logger.info(f"Manual payment database initialized at {self.db_path}")
-    
+        """Create database and tables if they don't exist (both backends)."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+
+            if self.db_type == 'sqlite':
+                # Table pour les IBAN clients
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS client_bank_info (
+                        client_email TEXT PRIMARY KEY,
+                        iban TEXT NOT NULL,
+                        bic TEXT,
+                        account_holder_name TEXT,
+                        bank_name TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                # Table pour les paiements manuels
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS manual_payments (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        claim_reference TEXT NOT NULL,
+                        client_email TEXT NOT NULL,
+                        total_amount REAL NOT NULL,
+                        client_share REAL NOT NULL,
+                        platform_fee REAL NOT NULL,
+                        payment_status TEXT DEFAULT 'pending',
+                        payment_date TIMESTAMP,
+                        payment_method TEXT,
+                        transaction_reference TEXT,
+                        notes TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+            else:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS client_bank_info (
+                        client_email TEXT PRIMARY KEY,
+                        iban TEXT NOT NULL,
+                        bic TEXT,
+                        account_holder_name TEXT,
+                        bank_name TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS manual_payments (
+                        id SERIAL PRIMARY KEY,
+                        claim_reference TEXT NOT NULL,
+                        client_email TEXT NOT NULL,
+                        total_amount REAL NOT NULL,
+                        client_share REAL NOT NULL,
+                        platform_fee REAL NOT NULL,
+                        payment_status TEXT DEFAULT 'pending',
+                        payment_date TIMESTAMP,
+                        payment_method TEXT,
+                        transaction_reference TEXT,
+                        notes TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+            conn.commit()
+        finally:
+            conn.close()
+        logger.info(f"Manual payment database initialized (backend: {self.db_type})")
+
     def add_client_bank_info(
         self,
         client_email: str,
@@ -75,52 +129,65 @@ class ManualPaymentManager:
     ) -> bool:
         """
         Add or update client bank information.
-        
+
         Args:
             client_email: Client email
             iban: IBAN number
             bic: BIC/SWIFT code (optional)
             account_holder_name: Name on the account
             bank_name: Bank name
-            
+
         Returns:
             True if successful
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT OR REPLACE INTO client_bank_info
-                (client_email, iban, bic, account_holder_name, bank_name, updated_at)
-                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """, (client_email, iban, bic, account_holder_name, bank_name))
-            
+
+            if self.db_type == 'sqlite':
+                cursor.execute("""
+                    INSERT OR REPLACE INTO client_bank_info
+                    (client_email, iban, bic, account_holder_name, bank_name, updated_at)
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """, (client_email, iban, bic, account_holder_name, bank_name))
+            else:
+                cursor.execute("""
+                    INSERT INTO client_bank_info
+                    (client_email, iban, bic, account_holder_name, bank_name, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (client_email) DO UPDATE
+                    SET iban = EXCLUDED.iban,
+                        bic = EXCLUDED.bic,
+                        account_holder_name = EXCLUDED.account_holder_name,
+                        bank_name = EXCLUDED.bank_name,
+                        updated_at = CURRENT_TIMESTAMP
+                """, (client_email, iban, bic, account_holder_name, bank_name))
+
             conn.commit()
             conn.close()
-            
+
             logger.info(f"Bank info saved for {client_email}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to save bank info: {e}")
             return False
-    
+
     def get_client_bank_info(self, client_email: str) -> Optional[Dict[str, Any]]:
         """Get client bank information."""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(self._q("""
                 SELECT client_email, iban, bic, account_holder_name, bank_name
                 FROM client_bank_info
                 WHERE client_email = ?
-            """, (client_email,))
-            
+            """), (client_email,))
+
             row = cursor.fetchone()
             conn.close()
-            
+
             if row:
                 return {
                     'client_email': row[0],
@@ -130,11 +197,11 @@ class ManualPaymentManager:
                     'bank_name': row[4]
                 }
             return None
-            
+
         except Exception as e:
             logger.error(f"Failed to get bank info: {e}")
             return None
-    
+
     def create_payment(
         self,
         claim_reference: str,
@@ -145,38 +212,38 @@ class ManualPaymentManager:
     ) -> bool:
         """
         Create a pending payment record.
-        
+
         Args:
             claim_reference: Claim reference
             client_email: Client email
             total_amount: Total amount recovered
             client_share: Amount to pay to client
             platform_fee: Your commission
-            
+
         Returns:
             True if successful
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(self._q("""
                 INSERT INTO manual_payments
-                (claim_reference, client_email, total_amount, client_share, 
+                (claim_reference, client_email, total_amount, client_share,
                  platform_fee, payment_status)
                 VALUES (?, ?, ?, ?, ?, 'pending')
-            """, (claim_reference, client_email, total_amount, client_share, platform_fee))
-            
+            """), (claim_reference, client_email, total_amount, client_share, platform_fee))
+
             conn.commit()
             conn.close()
-            
+
             logger.info(f"Payment created: {claim_reference} - {client_share}€ to {client_email}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to create payment: {e}")
             return False
-    
+
     def mark_payment_as_paid(
         self,
         claim_reference: str,
@@ -186,21 +253,21 @@ class ManualPaymentManager:
     ) -> bool:
         """
         Mark a payment as completed.
-        
+
         Args:
             claim_reference: Claim reference
             payment_method: Payment method (virement, cheque, etc.)
             transaction_reference: Bank transaction reference
             notes: Optional notes
-            
+
         Returns:
             True if successful
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(self._q("""
                 UPDATE manual_payments
                 SET payment_status = 'paid',
                     payment_date = CURRENT_TIMESTAMP,
@@ -209,26 +276,26 @@ class ManualPaymentManager:
                     notes = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE claim_reference = ?
-            """, (payment_method, transaction_reference, notes, claim_reference))
-            
+            """), (payment_method, transaction_reference, notes, claim_reference))
+
             conn.commit()
             conn.close()
-            
+
             logger.info(f"Payment marked as paid: {claim_reference}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to mark payment as paid: {e}")
             return False
-    
+
     def get_pending_payments(self) -> List[Dict[str, Any]]:
         """Get all pending payments."""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
-            
+
             cursor.execute("""
-                SELECT 
+                SELECT
                     mp.claim_reference,
                     mp.client_email,
                     mp.total_amount,
@@ -243,10 +310,10 @@ class ManualPaymentManager:
                 WHERE mp.payment_status = 'pending'
                 ORDER BY mp.created_at DESC
             """)
-            
+
             rows = cursor.fetchall()
             conn.close()
-            
+
             payments = []
             for row in rows:
                 payments.append({
@@ -261,21 +328,21 @@ class ManualPaymentManager:
                     'bank_name': row[8],
                     'has_bank_info': row[6] is not None
                 })
-            
+
             return payments
-            
+
         except Exception as e:
             logger.error(f"Failed to get pending payments: {e}")
             return []
-    
+
     def get_payment_history(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Get payment history."""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
-            
-            cursor.execute("""
-                SELECT 
+
+            cursor.execute(self._q("""
+                SELECT
                     claim_reference,
                     client_email,
                     client_share,
@@ -286,11 +353,11 @@ class ManualPaymentManager:
                 FROM manual_payments
                 ORDER BY created_at DESC
                 LIMIT ?
-            """, (limit,))
-            
+            """), (limit,))
+
             rows = cursor.fetchall()
             conn.close()
-            
+
             history = []
             for row in rows:
                 history.append({
@@ -302,9 +369,9 @@ class ManualPaymentManager:
                     'payment_method': row[5],
                     'transaction_reference': row[6]
                 })
-            
+
             return history
-            
+
         except Exception as e:
             logger.error(f"Failed to get payment history: {e}")
             return []
@@ -327,7 +394,7 @@ def create_pending_payment(
     manager = ManualPaymentManager()
     client_share = total_amount * (1 - commission_rate)
     platform_fee = total_amount * commission_rate
-    
+
     return manager.create_payment(
         claim_reference, client_email, total_amount, client_share, platform_fee
     )
@@ -344,9 +411,9 @@ if __name__ == "__main__":
     print("="*70)
     print("MANUAL PAYMENT MANAGER - Test")
     print("="*70)
-    
+
     manager = ManualPaymentManager()
-    
+
     # Test 1: Add bank info
     print("\n1. Adding client bank info...")
     success = manager.add_client_bank_info(
@@ -357,7 +424,7 @@ if __name__ == "__main__":
         bank_name="BNP Paribas"
     )
     print(f"   {'✅' if success else '❌'} Bank info added")
-    
+
     # Test 2: Create pending payment
     print("\n2. Creating pending payment...")
     success = create_pending_payment(
@@ -366,7 +433,7 @@ if __name__ == "__main__":
         total_amount=100.0
     )
     print(f"   {'✅' if success else '❌'} Payment created")
-    
+
     # Test 3: Get pending payments
     print("\n3. Getting pending payments...")
     pending = manager.get_pending_payments()
@@ -375,7 +442,7 @@ if __name__ == "__main__":
         for p in pending:
             print(f"   - {p['claim_reference']}: {p['client_share']}€ to {p['client_email']}")
             print(f"     IBAN: {p['iban'] or 'Not provided'}")
-    
+
     # Test 4: Mark as paid
     print("\n4. Marking payment as paid...")
     success = mark_as_paid(
@@ -384,12 +451,12 @@ if __name__ == "__main__":
         transaction_reference="VIR-2026-001"
     )
     print(f"   {'✅' if success else '❌'} Payment marked as paid")
-    
+
     # Test 5: Check history
     print("\n5. Payment history...")
     history = manager.get_payment_history(limit=5)
     print(f"   Found {len(history)} payment(s) in history")
-    
+
     print("\n" + "="*70)
     print("✅ Test Complete")
     print("="*70)

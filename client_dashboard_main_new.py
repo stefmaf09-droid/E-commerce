@@ -12,7 +12,7 @@ sys.path.insert(0, root_dir)
 from src.auth.credentials_manager import CredentialsManager
 from src.analytics.metrics_calculator import MetricsCalculator
 from src.onboarding.onboarding_manager import OnboardingManager
-from onboarding_functions import render_onboarding
+from src.dashboard.welcome_hub import render_welcome_hub
 from src.ui.theme import apply_premium_theme, render_premium_metric
 from src.ui.logos import LOGOS, ICONS
 from src.ui.logo import logo_img_tag
@@ -326,11 +326,14 @@ def main():
         render_carrier_overview_page(st.session_state.get("selected_carrier", "Unknown"))
         return
 
-    # Onboarding
+    # Accueil (audit du 26/08/2026 : remplace l'ancien assistant à 3 étapes
+    # obligatoires, qui bloquait tous les nouveaux clients sur l'étape 1 —
+    # voir src/dashboard/welcome_hub.py pour le détail du bug et du choix
+    # de conception). Écran affiché une seule fois après la connexion.
     onboarding_manager = OnboardingManager()
     client_email = st.session_state.get("client_email", "")
     if not onboarding_manager.is_onboarding_complete(client_email):
-        render_onboarding(client_email, onboarding_manager)
+        render_welcome_hub(client_email, onboarding_manager)
         return
 
     # ── TOP NAVBAR ─────────────────────────────────────────────────────────────

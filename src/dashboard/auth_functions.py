@@ -938,22 +938,35 @@ def register_client(reg_email, reg_password, reg_password_confirm, store_name, s
     if errors:
         return { 'success': False, 'errors': errors }
 
-    # Build credentials dict
-    credentials = {
-        'shop_url': store_url if platform == "Shopify" else api_key,
-        'access_token': api_secret,
-        'store_name': store_name,
-    }
+    # Audit du 26/08/2026 : _render_registration_form() est le formulaire
+    # d'inscription simplifié (email + mot de passe uniquement — la
+    # connexion boutique se fait après coup, dans l'écran d'accueil /
+    # Réglages) et appelle register_client() avec platform="" et tous les
+    # champs boutique vides. Avant ce correctif, le code ci-dessous
+    # appelait store_credentials() SANS CONDITION, même avec des champs
+    # vides : ça créait pour CHAQUE inscription une fausse ligne boutique
+    # ("** Store**" / "** Magasin **" selon les cas) dans Réglages, jamais
+    # réellement connectée, mais affichée comme si elle l'était. On ne
+    # crée désormais une ligne boutique que si une plateforme a
+    # effectivement été renseignée.
+    success = True
+    if platform:
+        # Build credentials dict
+        credentials = {
+            'shop_url': store_url if platform == "Shopify" else api_key,
+            'access_token': api_secret,
+            'store_name': store_name,
+        }
 
-    if platform == "WooCommerce":
-        credentials['consumer_key'] = api_key
-        credentials['consumer_secret'] = api_secret
+        if platform == "WooCommerce":
+            credentials['consumer_key'] = api_key
+            credentials['consumer_secret'] = api_secret
 
-    success = manager.store_credentials(
-        client_id=reg_email,
-        platform=platform.lower(),
-        credentials=credentials
-    )
+        success = manager.store_credentials(
+            client_id=reg_email,
+            platform=platform.lower(),
+            credentials=credentials
+        )
 
     # Store bank info ONLY if provided
     if reg_iban:

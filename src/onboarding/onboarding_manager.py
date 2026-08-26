@@ -167,6 +167,21 @@ class OnboardingManager:
                 return False
             db_column, step_index = mapping
 
+            # Audit du 26/08/2026 : root cause du bug bloquant l'inscription
+            # ("Continuer" ne faisait jamais rien) — cette méthode faisait un
+            # UPDATE direct sans jamais garantir qu'une ligne existe pour ce
+            # client. Pour un nouveau client, aucune ligne n'était encore
+            # créée (initialize_onboarding() n'était appelé nulle part dans
+            # le flux réel), donc l'UPDATE ne touchait 0 ligne — silencieux,
+            # sans erreur — et get_current_step() retombait systématiquement
+            # sur 'store_setup' : l'assistant bouclait indéfiniment sur
+            # l'étape 1. Le INSERT OR IGNORE ci-dessous garantit qu'une
+            # ligne existe toujours avant la mise à jour.
+            cursor.execute("""
+                INSERT OR IGNORE INTO onboarding_status (client_email, current_step)
+                VALUES (?, 1)
+            """, (client_email,))
+
             # Update the specific step and current_step
             cursor.execute(f"""
                 UPDATE onboarding_status
@@ -259,7 +274,14 @@ class OnboardingManager:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
+
+            # Audit du 26/08/2026 : même garde-fou que mark_step_complete —
+            # voir le commentaire là-bas pour le détail du bug corrigé.
+            cursor.execute("""
+                INSERT OR IGNORE INTO onboarding_status (client_email, current_step)
+                VALUES (?, 1)
+            """, (email,))
+
             cursor.execute("""
                 UPDATE onboarding_status
                 SET onboarding_complete = TRUE,

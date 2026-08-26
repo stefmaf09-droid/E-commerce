@@ -12,7 +12,7 @@ sys.path.insert(0, root_dir)
 from src.auth.credentials_manager import CredentialsManager
 from src.analytics.metrics_calculator import MetricsCalculator
 from src.onboarding.onboarding_manager import OnboardingManager
-from src.dashboard.welcome_hub import render_welcome_hub
+from src.dashboard.welcome_hub import render_welcome_hub, needs_welcome_hub
 from src.ui.theme import apply_premium_theme, render_premium_metric
 from src.ui.logos import LOGOS, ICONS
 from src.ui.logo import logo_img_tag
@@ -329,10 +329,28 @@ def main():
     # Accueil (audit du 26/08/2026 : remplace l'ancien assistant à 3 étapes
     # obligatoires, qui bloquait tous les nouveaux clients sur l'étape 1 —
     # voir src/dashboard/welcome_hub.py pour le détail du bug et du choix
-    # de conception). Écran affiché une seule fois après la connexion.
+    # de conception).
+    #
+    # Audit du 26/08/2026 (suite) : affiché quand il reste une action à
+    # faire (boutique ou IBAN), calculé en direct via needs_welcome_hub()
+    # plutôt que via le flag permanent onboarding_complete (qui peut être
+    # obsolète sur des comptes existants — voir welcome_hub.py). On ne le
+    # réaffiche pas si le client a déjà navigué ailleurs pendant cette
+    # session (page choisie dans l'URL ou dans la session) : il ne doit
+    # apparaître qu'une fois par connexion, pas à chaque rafraîchissement.
     onboarding_manager = OnboardingManager()
     client_email = st.session_state.get("client_email", "")
-    if not onboarding_manager.is_onboarding_complete(client_email):
+    # NB : ni st.session_state.active_tab (positionné par défaut dans
+    # initialize_session(), plus haut dans main()) ni st.query_params["page"]
+    # (tamponné automatiquement dans l'URL pour tout utilisateur authentifié,
+    # voir plus haut — protection F5, sans rapport avec une vraie navigation)
+    # ne permettent de savoir si le client a réellement quitté cet écran.
+    # Seul le marqueur dédié posé par welcome_hub._go_to() le permet.
+    _already_navigated = (
+        st.session_state.get("_welcome_hub_dismissed", False)
+        or st.query_params.get("hub_seen") == "1"
+    )
+    if not _already_navigated and needs_welcome_hub(client_email):
         render_welcome_hub(client_email, onboarding_manager)
         return
 

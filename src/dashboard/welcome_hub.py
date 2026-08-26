@@ -40,27 +40,10 @@ from src.auth.credentials_manager import CredentialsManager
 from src.payments.manual_payment_manager import ManualPaymentManager
 
 
-def _go_to(tab_label: str, onboarding_manager, client_email: str):
-    """Marque l'accueil comme vu et bascule vers l'onglet demandé."""
-    onboarding_manager.mark_complete(client_email)
-    st.session_state.active_tab = tab_label
-    st.query_params["page"] = tab_label
-    st.rerun()
-
-
-def render_welcome_hub(client_email: str, onboarding_manager):
-    """Écran d'accueil unique, affiché juste après la connexion."""
-
-    # Garantit qu'une ligne onboarding_status existe pour ce client avant
-    # toute mise à jour ultérieure (voir l'audit en tête de fichier).
-    try:
-        onboarding_manager.initialize_onboarding(client_email)
-    except Exception:
-        pass
-
-    # État réel des prérequis : on lit directement les données plutôt que
-    # le suivi interne d'onboarding (qui peut se désynchroniser), pour que
-    # la checklist reflète toujours la vérité.
+def _get_setup_status(client_email: str):
+    """État réel des prérequis (boutique / IBAN), lu en direct plutôt que
+    via le suivi interne d'onboarding (qui peut être obsolète ou
+    désynchronisé — voir needs_welcome_hub ci-dessous)."""
     stores = []
     try:
         # Audit du 26/08/2026 : on écarte les lignes "fantômes" (plateforme
@@ -79,6 +62,62 @@ def render_welcome_hub(client_email: str, onboarding_manager):
         bank_connected = bool(bank_info and bank_info.get("iban"))
     except Exception:
         pass
+
+    return store_connected, bank_connected, stores
+
+
+def needs_welcome_hub(client_email: str) -> bool:
+    """True si ce client a encore quelque chose à configurer (boutique ou
+    IBAN) — utilisé par le point d'entrée pour décider d'afficher l'accueil.
+
+    Audit du 26/08/2026 (suite) : le point d'entrée s'appuyait auparavant
+    uniquement sur le flag permanent onboarding_status.onboarding_complete
+    pour savoir s'il fallait afficher cet écran. Ce flag peut être obsolète
+    (positionné à True par l'ancien système, avant même que cet écran
+    n'existe — cas de plusieurs comptes existants) et rester alors bloqué à
+    True indéfiniment, empêchant l'écran de s'afficher même si rien n'est
+    réellement configuré. On calcule donc ici l'état réel, comme le fait
+    déjà _get_setup_status() pour la checklist.
+    """
+    if not client_email:
+        return False
+    store_connected, bank_connected, _ = _get_setup_status(client_email)
+    return not (store_connected and bank_connected)
+
+
+def _go_to(tab_label: str, onboarding_manager, client_email: str):
+    """Marque l'accueil comme vu (pour cette session ET de façon
+    persistante dans l'URL) et bascule vers l'onglet demandé.
+
+    Audit du 26/08/2026 (suite) : le point d'entrée (client_dashboard_
+    main_new.py) tamponne systématiquement `token`/`page` dans l'URL pour
+    TOUT utilisateur authentifié, dès le rendu suivant l'inscription ou la
+    connexion (protection F5, sans rapport avec un vrai choix de
+    navigation). On ne peut donc pas se fier à la simple présence de
+    `page` dans l'URL pour savoir si le client a réellement quitté cet
+    écran. `hub_seen` est un marqueur dédié, positionné uniquement ici,
+    qui survit à un F5 (contrairement au session_state) sans être posé
+    par erreur par ce mécanisme de bookkeeping.
+    """
+    onboarding_manager.mark_complete(client_email)
+    st.session_state["_welcome_hub_dismissed"] = True
+    st.session_state.active_tab = tab_label
+    st.query_params["page"] = tab_label
+    st.query_params["hub_seen"] = "1"
+    st.rerun()
+
+
+def render_welcome_hub(client_email: str, onboarding_manager):
+    """Écran d'accueil unique, affiché juste après la connexion."""
+
+    # Garantit qu'une ligne onboarding_status existe pour ce client avant
+    # toute mise à jour ultérieure (voir l'audit en tête de fichier).
+    try:
+        onboarding_manager.initialize_onboarding(client_email)
+    except Exception:
+        pass
+
+    store_connected, bank_connected, stores = _get_setup_status(client_email)
 
     first_name = client_email.split("@")[0].replace(".", " ").replace("_", " ").title() or "!"
 

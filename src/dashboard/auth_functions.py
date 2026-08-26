@@ -665,66 +665,79 @@ def _render_login_form():
             if not email or not password:
                 st.error("⚠️ Veuillez renseigner l'email ET le mot de passe")
                 return False
-            
-            # Check if user exists
-            manager = CredentialsManager()
-            creds = manager.get_credentials(email)
-            
-            if creds:
-                # SÉCURITÉ: Vérification du mot de passe avec bcrypt
-                from auth.password_manager import verify_client_password, has_password, get_user_role
-                
-                # Check if user has a password set
-                if not has_password(email):
-                    st.warning("⚠️ Aucun mot de passe défini pour ce compte. Contactez l'administrateur.")
-                    return False
-                
-                # Verify password
-                if verify_client_password(email, password):
-                    st.session_state.authenticated = True
-                    st.session_state.client_email = email
-                    
-                    # Fetch and store user role
-                    role = get_user_role(email)
-                    st.session_state.role = role
-                    
-                    # Fetch client_id for logging
-                    from src.database.database_manager import DatabaseManager
-                    db = DatabaseManager()
-                    client = db.get_client(email=email)
-                    if client:
-                        st.session_state.client_id = client['id']
-                        
-                        # Log Login Activity
-                        from src.utils.activity_logger import ActivityLogger
-                        ActivityLogger.log(
-                            client_id=client['id'],
-                            action='login',
-                            details={'role': role},
-                            ip_address='127.0.0.1' 
-                        )
 
-                        try:
-                            from src.logging.audit import log_user_login
-                            log_user_login(user_email=email, success=True, role=role)
-                        except Exception:
-                            pass  # audit logging must never block login
-                    
-                    # —— Check onboarding status ————————————————
+            # SÉCURITÉ: Vérification du mot de passe avec bcrypt
+            from auth.password_manager import verify_client_password, has_password, get_user_role
+
+            # Audit du 26/08/2026 (suite) : cette vérification s'appuyait
+            # jusqu'ici sur manager.get_credentials(email), c'est-à-dire sur
+            # l'existence d'une ligne dans la table `credentials` (une
+            # boutique connectée), pour décider si le compte existe.
+            # Depuis la correction du bug des boutiques fantômes (plus
+            # aucune ligne credentials n'est créée tant qu'aucune boutique
+            # n'est réellement connectée), tout client inscrit SANS
+            # boutique se voyait bloqué à la connexion avec "Email non
+            # trouvé" — alors même que son compte existe bel et bien (mot
+            # de passe défini). La vraie vérification d'existence de
+            # compte est has_password(), indépendante de toute boutique.
+            if not has_password(email):
+                st.error("❌ Email non trouvé. Utilisez l'onglet 'Créer un compte' pour vous inscrire.")
+                return False
+
+            # Verify password
+            if verify_client_password(email, password):
+                st.session_state.authenticated = True
+                st.session_state.client_email = email
+
+                # Fetch and store user role
+                role = get_user_role(email)
+                st.session_state.role = role
+
+                # Fetch client_id for logging
+                from src.database.database_manager import DatabaseManager
+                db = DatabaseManager()
+                client = db.get_client(email=email)
+                if client:
+                    st.session_state.client_id = client['id']
+
+                    # Log Login Activity
+                    # Audit du 26/08/2026 (suite) : ActivityLogger.log() ne
+                    # possède pas de paramètre ip_address (voir sa
+                    # signature dans src/utils/activity_logger.py) — cet
+                    # appel levait un TypeError non rattrapé à CHAQUE
+                    # connexion via le formulaire mot de passe, faisant
+                    # planter l'application juste après une connexion
+                    # valide. Cela ne s'était jamais vu jusqu'ici car ce
+                    # chemin de code n'était atteint ni par l'auto-connexion
+                    # après inscription, ni par la reconnexion automatique
+                    # via token d'URL (F5) — seul un vrai clic/Entrée sur
+                    # "Se connecter" avec compte déjà existant l'atteint.
+                    from src.utils.activity_logger import ActivityLogger
+                    ActivityLogger.log(
+                        client_id=client['id'],
+                        action='login',
+                        details={'role': role},
+                    )
+
                     try:
-                        from src.onboarding.onboarding_manager import OnboardingManager
-                        mgr = OnboardingManager(email)
-                        st.session_state.onboarding_complete = mgr.is_onboarding_complete(email)
+                        from src.logging.audit import log_user_login
+                        log_user_login(user_email=email, success=True, role=role)
                     except Exception:
-                        st.session_state.onboarding_complete = True  # fail-safe: don't block login
-                    # ————————————————————————————————————
-                    
-                    st.success(f"✅ Connexion réussie ! (Rôle: {role})")
-                    st.rerun()
-                else:
-                    st.error("❌ Mot de passe incorrect")
+                        pass  # audit logging must never block login
+
+                # —— Check onboarding status ————————————————
+                try:
+                    from src.onboarding.onboarding_manager import OnboardingManager
+                    mgr = OnboardingManager(email)
+                    st.session_state.onboarding_complete = mgr.is_onboarding_complete(email)
+                except Exception:
+                    st.session_state.onboarding_complete = True  # fail-safe: don't block login
+                # ————————————————————————————————————
+
+                st.success(f"✅ Connexion réussie ! (Rôle: {role})")
+                st.rerun()
             else:
-                st.error("❌ Email non trouvé. Utilisez l'onglet 'Nouveau Client' pour vous inscrire.")
+                st.error("❌ Mot de passe incorrect")
     
     # NOUVEAU: Lien "Mot de passe oublié ?"
     st.markdown("---")

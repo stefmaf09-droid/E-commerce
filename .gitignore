@@ -58,3 +58,5 @@ demo_refundly_full_journey_v3.webp
 
 # Local scratch folder used to stage files for manual deletion
 _to_delete/
+data/legal_docs/ 
+_diag/ 

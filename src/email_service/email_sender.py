@@ -184,7 +184,15 @@ class EmailSender:
                         logger.info(f"Attached file: {filename}")
             
             # Send email
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+            # Audit du 26/08/2026 : aucun timeout n'était fixé ici. En test live,
+            # l'envoi d'un seul email a pris ~15-17s (SMTP vers smtp.gmail.com) ;
+            # sans timeout explicite, une panne réseau ou un pare-feu qui droppe
+            # silencieusement la connexion bloquerait ce thread Streamlit
+            # indéfiniment (le flux "Confirmer et envoyer" de Dépôt Preuves envoie
+            # un email par dossier, en série). Un timeout fait échouer proprement
+            # (exception → return False, déjà géré ci-dessous) plutôt que de
+            # planter la session.
+            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=20) as server:
                 server.starttls()
                 server.login(self.smtp_user, self.smtp_password)
                 server.send_message(msg)

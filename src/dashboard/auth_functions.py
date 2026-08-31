@@ -667,7 +667,12 @@ def _render_login_form():
                 return False
 
             # SÉCURITÉ: Vérification du mot de passe avec bcrypt
-            from auth.password_manager import verify_client_password, has_password, get_user_role
+            # Audit du 26/08/2026 (suite) : import normalisé avec le préfixe
+            # src. — l'ancienne forme (`from auth.password_manager import`)
+            # ne fonctionnait que par effet de bord (un autre module,
+            # importé plus tôt, ajoutait src/ à sys.path). Fragile : l'ordre
+            # d'import aurait pu changer et faire planter CHAQUE connexion.
+            from src.auth.password_manager import verify_client_password, has_password, get_user_role
 
             # Audit du 26/08/2026 (suite) : cette vérification s'appuyait
             # jusqu'ici sur manager.get_credentials(email), c'est-à-dire sur
@@ -686,6 +691,13 @@ def _render_login_form():
 
             # Verify password
             if verify_client_password(email, password):
+                # Audit du 26/08/2026 (suite) : repart d'une URL propre à
+                # chaque connexion. Sans ça, un `hub_seen=1`/`page=...`
+                # laissé par une session précédente dans le même onglet
+                # (déconnexion incomplète, poste partagé, test avec
+                # plusieurs comptes) empêchait l'écran d'accueil de
+                # s'afficher pour CE client alors qu'il en a besoin.
+                st.query_params.clear()
                 st.session_state.authenticated = True
                 st.session_state.client_email = email
 
@@ -765,14 +777,16 @@ def _render_password_reset_form():
             elif len(new_password) < 6:
                 st.error("⚠️ Le mot de passe doit contenir au moins 6 caractères")
             else:
-                # Vérifier que l'email existe
-                manager = CredentialsManager()
-                creds = manager.get_credentials(reset_email)
-                
-                if creds:
+                # Audit du 26/08/2026 (suite) : même correctif que la
+                # connexion — l'existence du compte se vérifie avec
+                # has_password(), pas avec get_credentials() (qui ne
+                # reflète que la présence d'une boutique connectée). Avec
+                # l'ancien check, un client inscrit sans boutique ne
+                # pouvait jamais réinitialiser son mot de passe.
+                from src.auth.password_manager import has_password, set_client_password
+
+                if has_password(reset_email):
                     # Réinitialiser le mot de passe
-                    from auth.password_manager import set_client_password
-                    
                     success = set_client_password(reset_email, new_password)
                     
                     if success:
@@ -944,8 +958,19 @@ def register_client(reg_email, reg_password, reg_password_confirm, store_name, s
     # Managers defaults
     manager = credentials_manager or CredentialsManager()
 
-    existing_creds = manager.get_credentials(reg_email)
-    if existing_creds:
+    # Audit du 26/08/2026 (suite) : SÉCURITÉ — cette vérification de
+    # doublon s'appuyait sur manager.get_credentials(reg_email), c'est-à-
+    # dire sur la présence d'une boutique connectée, pas sur l'existence
+    # réelle du compte. Depuis que l'inscription simplifiée ne connecte
+    # plus de boutique par défaut (voir plus bas), un compte existant sans
+    # boutique n'était PLUS détecté comme doublon : n'importe qui
+    # connaissant l'email d'un client pouvait « se réinscrire » avec ce
+    # même email et écraser silencieusement son mot de passe (prise de
+    # contrôle de compte sans connaître l'ancien mot de passe). La bonne
+    # vérification d'existence est has_password(), indépendante de toute
+    # boutique — cohérent avec la connexion et la réinitialisation.
+    from src.auth.password_manager import has_password
+    if has_password(reg_email):
         errors.append("⚠️ Cet email est déjà utilisé. Utilisez l'onglet 'Connexion'.")
 
     if errors:
@@ -984,7 +1009,7 @@ def register_client(reg_email, reg_password, reg_password_confirm, store_name, s
     # Store bank info ONLY if provided
     if reg_iban:
         try:
-            from payments.manual_payment_manager import add_bank_info
+            from src.payments.manual_payment_manager import add_bank_info
             add_bank_info(
                 client_email=reg_email,
                 iban=reg_iban.replace(" ", "").upper(),
@@ -1067,6 +1092,9 @@ def _process_registration(reg_email, reg_password, reg_password_confirm, store_n
         pass  # audit logging must never block registration
 
     # Auto-login
+    # Audit du 26/08/2026 (suite) : voir le commentaire équivalent dans
+    # _render_login_form() — repart d'une URL propre pour ce nouveau compte.
+    st.query_params.clear()
     st.session_state.authenticated = True
     st.session_state.client_email = reg_email
     st.session_state.role = 'client'  # Default role for new users

@@ -188,8 +188,15 @@ def render_assistant_page():
                 try:
                     from src.scrapers.ocr_processor import OCRProcessor
                     ocr = OCRProcessor()
-                    extracted = ocr.extract_all_from_file(file_bytes, uploaded_file.name)
-                    raw_text = extracted.get("text", "") if isinstance(extracted, dict) else str(extracted)
+                    # Audit du 26/08/2026 (suite) : extract_all_from_file()
+                    # retourne toujours un tuple (text, attachments), jamais
+                    # un dict — le check isinstance(..., dict) était donc
+                    # toujours faux, et raw_text devenait la représentation
+                    # str() du tuple entier (avec la syntaxe Python visible),
+                    # ce qui polluait/faussait l'analyse du motif de rejet
+                    # sans jamais planter la page.
+                    extracted_text, _extracted_attachments = ocr.extract_all_from_file(file_bytes, uploaded_file.name)
+                    raw_text = extracted_text or ""
                     if raw_text and len(raw_text) > 20:
                         analysis = ocr.analyze_rejection_text(raw_text)
                         reason_key = analysis.get("reason_key", "")

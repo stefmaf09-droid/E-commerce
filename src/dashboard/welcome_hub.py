@@ -213,6 +213,13 @@ def _render_quick_bank_form(client_email: str):
         if not iban:
             st.error("Merci de renseigner votre IBAN.")
         else:
-            ManualPaymentManager().add_client_bank_info(client_email, iban.replace(" ", "").upper())
-            st.success("✅ IBAN enregistré !")
-            st.rerun()
+            # Audit du 26/08/2026 (suite) : la valeur de retour n'était pas
+            # vérifiée — un échec d'écriture affichait quand même "succès"
+            # (faux positif), avant que la checklist ne redevienne
+            # "non configuré" au rerun suivant, sans explication.
+            ok = ManualPaymentManager().add_client_bank_info(client_email, iban.replace(" ", "").upper())
+            if ok:
+                st.success("✅ IBAN enregistré !")
+                st.rerun()
+            else:
+                st.error("❌ Une erreur est survenue, réessayez.")

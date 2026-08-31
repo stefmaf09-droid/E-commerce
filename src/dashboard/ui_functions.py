@@ -302,7 +302,17 @@ def render_disputes_table_modern(disputes_df):
                 if st.button(f"👁️ {get_i18n_text('btn_view')}", key=f"view_btn_{idx}", width='stretch'):
                     # Navigate to dispute details page with real data
                     st.session_state.selected_dispute = {
-                        'dispute_id': row.get('dispute_id', f'DSP-{idx:03d}'),
+                        # Audit du 26/08/2026 (suite) : 'dispute_id' n'existe
+                        # jamais dans les données réelles (la colonne
+                        # s'appelle 'claim_reference' — voir
+                        # client_dashboard_main_new.py) : on retombait donc
+                        # systématiquement sur l'identifiant factice
+                        # 'DSP-00x', et 'claim_reference' n'était jamais
+                        # transmis à la page de détails, qui en a besoin
+                        # pour enregistrer l'analyse IA et générer les
+                        # courriers (ces écritures échouaient silencieusement).
+                        'dispute_id': row.get('claim_reference', row.get('dispute_id', f'DSP-{idx:03d}')),
+                        'claim_reference': row.get('claim_reference', row.get('dispute_id')),
                         'order_id': row.get('order_id', f'ORD-{1000+idx}'),
                         'tracking_number': row.get('tracking_number', f'TRK{idx:08d}'),
                         'carrier': carrier,

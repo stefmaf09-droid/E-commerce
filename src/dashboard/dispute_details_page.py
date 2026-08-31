@@ -392,6 +392,10 @@ def _render_status_card(dispute_data):
         'processing': (get_i18n_text('status_processing'), '#3b82f6'),
         'under_review': (get_i18n_text('status_under_review'), '#f59e0b'),
         'resolved': (get_i18n_text('status_resolved'), '#10b981'),
+        # Audit du 26/08/2026 (suite) : 'accepted' est un statut réel et
+        # courant (voir database_manager.py) qui manquait ici — le badge
+        # affichait "Unknown" en gris pour tout litige accepté.
+        'accepted': (get_i18n_text('status_accepted'), '#10b981'),
         'rejected': (get_i18n_text('status_rejected'), '#ef4444')
     }
     status_label, status_color = status_labels.get(status, ('Unknown', '#6b7280'))

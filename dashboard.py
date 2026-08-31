@@ -101,13 +101,17 @@ if not auth_ok:
 
 client_email = st.session_state.get('client_email', '')
 
-# ── NEW CLIENT : show onboarding wizard ────────────────────────────
-if not st.session_state.get('onboarding_complete', False):
-    from src.dashboard.onboarding_wizard import render_onboarding_wizard
-    render_onboarding_wizard()
-    st.stop()
-
-# ── EXISTING CLIENT : normal dashboard + proactive bot ─────────────
+# Audit du 26/08/2026 (suite) : ce point d'entrée avait son PROPRE gate
+# d'onboarding, séparé de celui de client_dashboard_main_new.py, qui
+# appelait encore l'ancien assistant à 3 étapes obligatoires
+# (onboarding_wizard.render_onboarding_wizard) — celui-là même que la
+# refonte du jour (welcome_hub.py) remplace. Un client passant par CE
+# fichier (ex: process "web" du Procfile) retombait donc sur l'ancien
+# assistant bloquant, jamais corrigé ici alors que client_dashboard_
+# main_new.main() (appelé juste en dessous) a déjà son propre gate
+# correct et à jour (needs_welcome_hub). On supprime ce gate dupliqué et
+# on laisse client_main() gérer l'accueil, pour n'avoir qu'un seul
+# endroit à maintenir.
 try:
     from src.dashboard.floating_chatbot import (
         render_floating_chatbot,
@@ -675,7 +679,7 @@ def main():
     try:
         orders_df, disputes_df, stats = load_data()
     except FileNotFoundError:
-        st.error("⚠️ Données non trouvées. Exécutez d'abord `generate_synthetic_data.py` puis `dispute_detector.py`")
+        st.error("⚠️ Données non trouvées. Exécutez d'abord `generate_synthetic_data.py` puis `generate_demo_disputes.py`")
         st.stop()
     
     # Header

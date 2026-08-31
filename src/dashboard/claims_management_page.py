@@ -306,6 +306,12 @@ def render_claims_management():
                         
                         st.session_state.selected_dispute = {
                             'dispute_id': original_claim['claim_reference'],
+                            # Audit du 26/08/2026 (suite) : 'claim_reference'
+                            # manquait ici — la page de détails en a besoin
+                            # pour enregistrer l'analyse IA et générer les
+                            # courriers (ces écritures échouaient
+                            # silencieusement sans cette clé).
+                            'claim_reference': original_claim['claim_reference'],
                             'order_id': original_claim.get('order_id', 'N/A'),
                             'tracking_number': original_claim['tracking_number'],
                             'carrier': original_claim['carrier'],

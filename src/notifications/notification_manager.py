@@ -122,8 +122,14 @@ class NotificationManager:
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
+            # Audit du 26/08/2026 : ce fichier utilisait '?' en dur partout,
+            # ce qui casse avec une vraie erreur de syntaxe SQL dès que
+            # self.db.db_type == 'postgres' (confirmé en test live via le
+            # même bug dans settings_page.py). DatabaseManager expose
+            # `.placeholder` pour ce cas ; appliqué à toutes les requêtes de
+            # ce fichier.
             cursor.execute(
-                "SELECT notification_preferences FROM clients WHERE email = ?",
+                f"SELECT notification_preferences FROM clients WHERE email = {self.db.placeholder}",
                 (client_email,)
             )
             result = cursor.fetchone()
@@ -154,9 +160,9 @@ class NotificationManager:
             
             # Count emails sent today
             today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT COUNT(*) FROM notifications
-                WHERE sent_to = ? AND sent_at >= ?
+                WHERE sent_to = {self.db.placeholder} AND sent_at >= {self.db.placeholder}
             """, (client_email, today_start))
             
             count = cursor.fetchone()[0]
@@ -224,22 +230,32 @@ class NotificationManager:
             # Store in pending_notifications table (to be created)
             conn = self.db.get_connection()
             cursor = conn.cursor()
-            
-            # Create table if doesn't exist
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS pending_notifications (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    client_email TEXT NOT NULL,
-                    event_type TEXT NOT NULL,
-                    context TEXT NOT NULL,
-                    digest_type TEXT DEFAULT 'daily',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            
-            cursor.execute("""
+
+            # Audit du 26/08/2026 : "INTEGER PRIMARY KEY AUTOINCREMENT" est une
+            # syntaxe SQLite — invalide en PostgreSQL (qui utilise SERIAL /
+            # GENERATED ALWAYS AS IDENTITY), donc ce CREATE TABLE plantait telle
+            # quelle en prod. La table pending_notifications n'existe pas non
+            # plus dans database/schema_postgres.sql. On ne crée donc la table
+            # à la volée qu'en mode SQLite ; en Postgres on suppose qu'elle a
+            # été créée par une migration (sinon l'INSERT ci-dessous échouera
+            # avec une erreur explicite "table does not exist", capturée par le
+            # except plus bas — préférable à une CREATE TABLE syntaxiquement
+            # invalide silencieusement inopérante).
+            if self.db.db_type == 'sqlite':
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS pending_notifications (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        client_email TEXT NOT NULL,
+                        event_type TEXT NOT NULL,
+                        context TEXT NOT NULL,
+                        digest_type TEXT DEFAULT 'daily',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+            cursor.execute(f"""
                 INSERT INTO pending_notifications (client_email, event_type, context, digest_type)
-                VALUES (?, ?, ?, 'daily')
+                VALUES ({self.db.placeholder}, {self.db.placeholder}, {self.db.placeholder}, 'daily')
             """, (client_email, event_type, json.dumps(context)))
             
             conn.commit()
@@ -275,9 +291,9 @@ class NotificationManager:
             conn = self.db.get_connection()
             cursor = conn.cursor()
             
-            cursor.execute("""
+            cursor.execute(f"""
                 INSERT INTO pending_notifications (client_email, event_type, context, digest_type)
-                VALUES (?, ?, ?, 'weekly')
+                VALUES ({self.db.placeholder}, {self.db.placeholder}, {self.db.placeholder}, 'weekly')
             """, (client_email, event_type, json.dumps(context)))
             
             conn.commit()
@@ -297,15 +313,15 @@ class NotificationManager:
             cursor = conn.cursor()
             
             # Get client_id
-            cursor.execute("SELECT id FROM clients WHERE email = ?", (client_email,))
+            cursor.execute(f"SELECT id FROM clients WHERE email = {self.db.placeholder}", (client_email,))
             result = cursor.fetchone()
             client_id = result[0] if result else None
-            
+
             if client_id:
                 subject = self._get_email_subject(event_type, context)
-                cursor.execute("""
+                cursor.execute(f"""
                     INSERT INTO notifications (client_id, notification_type, subject, sent_to, status)
-                    VALUES (?, ?, ?, ?, 'sent')
+                    VALUES ({self.db.placeholder}, {self.db.placeholder}, {self.db.placeholder}, {self.db.placeholder}, 'sent')
                 """, (client_id, event_type, subject, client_email))
                 conn.commit()
             

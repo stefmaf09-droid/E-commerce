@@ -159,6 +159,7 @@ def get_i18n_text(key: str, lang: str = None) -> str:
             'status_processing': '🔄 En traitement',
             'status_under_review': '📋 En révision',
             'status_resolved': '✅ Résolu',
+            'status_accepted': '✅ Accepté',
             'status_rejected': '❌ Rejeté',
             
             # POD (Proof of Delivery) - UI
@@ -449,6 +450,7 @@ def get_i18n_text(key: str, lang: str = None) -> str:
             'status_processing': '🔄 Processing',
             'status_under_review': '📋 Under Review',
             'status_resolved': '✅ Resolved',
+            'status_accepted': '✅ Accepted',
             'status_rejected': '❌ Rejected',
             
             # POD (Proof of Delivery) - UI

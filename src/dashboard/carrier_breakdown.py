@@ -56,7 +56,10 @@ def render_carrier_breakdown(disputes_df: pd.DataFrame) -> None:
     success_rates = []
     for carrier in carrier_stats['carrier']:
         carrier_df = disputes_df[disputes_df['carrier'] == carrier]
-        recovered = carrier_df[carrier_df['status'] == 'recovered']['total_recoverable'].sum()
+        # Audit du 26/08/2026 (suite) : le statut réel des litiges gagnés
+        # est 'accepted' (voir database_manager.py) — 'recovered' n'existe
+        # nulle part dans l'app, donc ce taux affichait toujours 0%.
+        recovered = carrier_df[carrier_df['status'] == 'accepted']['total_recoverable'].sum()
         total = carrier_df['total_recoverable'].sum()
         success_rate = (recovered / total * 100) if total > 0 else 0
         success_rates.append(success_rate)

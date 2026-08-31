@@ -5,6 +5,18 @@ Section d'upload de fichier pour le dashboard - À intégrer
 def render_file_upload():
     """Section d'upload de fichier client pour analyse personnalisée."""
     import streamlit as st
+    import time  # Audit du 26/08/2026 : n'était importé que dans la branche
+    # "Analyser la preuve" (image/PDF), pas dans la branche CSV/Excel qui
+    # l'utilise aussi (time.sleep dans la boucle d'envoi) — NameError non
+    # catché qui plantait toute la page au clic sur "Confirmer et Envoyer".
+    from datetime import datetime  # Audit du 26/08/2026 (suite) : même bug
+    # que 'time' ci-dessus — un import local de 'datetime' dans l'AUTRE
+    # branche (ligne ~108) suffit à en faire une variable locale pour toute
+    # la fonction aux yeux de Python ; utilisé sans import dans la branche
+    # CSV (ligne ~366), ça levait un UnboundLocalError catché par le
+    # try/except mais affiché comme "Erreur dossier X" pour CHAQUE dossier
+    # au clic sur "Confirmer et envoyer" — aucun dossier n'était réellement
+    # créé avec une vraie date malgré le message de succès global.
     from database.database_manager import DatabaseManager # Fix UnboundLocalError
     
     st.markdown("### 📤 Analysez VOS Données en Direct")
@@ -169,7 +181,17 @@ def render_file_upload():
                             col_mapping = {
                                 'tracking': ['tracking', 'suivi', 'track', 'numero', 'reference'],
                                 'date': ['date', 'created', 'expedition', 'shipped'],
-                                'status': ['status', 'statut', 'etat', 'state']
+                                'status': ['status', 'statut', 'etat', 'state'],
+                                # Audit du 26/08/2026 : aucune détection de colonne
+                                # transporteur n'existait — un CSV avec une colonne
+                                # 'carrier' (anglais, comme dans nos données de test)
+                                # ne remplissait jamais df['transporteur'], donc
+                                # chaque réclamation/PDF/email généré affichait
+                                # 'Unknown' comme transporteur, même quand
+                                # l'information était bien présente dans le fichier
+                                # (confirmé en test live : "Unknown" affiché dans
+                                # l'Assistant pour des lignes Chronopost/UPS réelles).
+                                'carrier': ['carrier', 'transporteur', 'shipper', 'livreur']
                             }
                             
                             found_cols = {}
@@ -193,6 +215,11 @@ def render_file_upload():
                                 else:
                                      df['statut_detecte'] = np.random.choice(['Livré', 'En retard'], size=len(df), p=[0.9, 0.1])
 
+                                if 'carrier' in found_cols:
+                                    df['transporteur'] = df[found_cols['carrier']]
+                                elif 'transporteur' not in df.columns:
+                                    df['transporteur'] = 'Unknown'
+
                             # Stockage en Session State pour persistance
                             st.session_state.analysis_df = df
                             st.session_state.upload_step = 'selection'
@@ -202,7 +229,7 @@ def render_file_upload():
                             st.error(f"Erreur lors de l'analyse : {str(e)}")
 
                 # --- AFFICHAGE PERSISTANT DES RÉSULTATS ---
-                if 'analysis_df' in st.session_state and st.session_state.upload_step in ['selection', 'review']:
+                if 'analysis_df' in st.session_state and st.session_state.upload_step in ['selection', 'review', 'done']:
                     df = st.session_state.analysis_df
                     late_count = len(df[df['statut_detecte'] == 'En retard'])
                     lost_count = len(df[df['statut_detecte'] == 'Perdu'])
@@ -264,9 +291,21 @@ def render_file_upload():
                             db_path = os.path.join(root_dir, 'data', 'test_recours_ecommerce.db')
                         else:
                             db_path = os.path.join(root_dir, 'data', 'recours_ecommerce.db')
-                        
+                        # Audit du 26/08/2026 (suite) : testé en forçant db_type='sqlite'
+                        # ici comme le fait client_dashboard_main_new.py en mode TEST — ça
+                        # casse tout (le client n'existe pas dans la base SQLite de test,
+                        # qui ne pré-remplit qu'un seul client 'admin@refundly.ai' ; voir
+                        # DatabaseManager._ensure_database_exists). L'identité client réelle
+                        # (auth, credentials) vit dans la base pointée par DATABASE_TYPE
+                        # (Postgres en prod, cf. commentaire sur create_postgres_connection),
+                        # donc CE code doit continuer à s'y connecter comme avant. Le vrai
+                        # problème (le tableau de bord force lui la lecture des réclamations
+                        # vers la base SQLite de test isolée, qui ne contient donc jamais les
+                        # comptes clients réels) est un choix d'architecture TEST/PROD plus
+                        # large, à trancher par l'équipe plutôt qu'à corriger en silence ici —
+                        # voir le rapport final.
                         template_mgr = EmailTemplateManager(db_path=db_path)
-                        
+
                         # Récup client_id pour chercher un template custom
                         db_mgr_tmbs = DatabaseManager(db_path=db_path)
                         client = db_mgr_tmbs.get_client(email=st.session_state.client_email)
@@ -337,14 +376,26 @@ def render_file_upload():
                                         db_path = os.path.join(root_dir, 'data', 'test_recours_ecommerce.db')
                                     else:
                                         db_path = os.path.join(root_dir, 'data', 'recours_ecommerce.db')
-                                    
+
+                                    # Audit du 26/08/2026 (suite) : voir le commentaire plus haut
+                                    # (chargement du template) — forcer db_type='sqlite' ici casse
+                                    # la recherche du client (absent de la base SQLite de test) ;
+                                    # on garde donc la connexion par défaut (DATABASE_TYPE), qui est
+                                    # celle où vit réellement l'identité du client (auth/credentials).
                                     db_manager = DatabaseManager(db_path=db_path)
                                     legal_gen = LegalDocumentGenerator()
-                                    
+
                                     # Récupération ID Client
                                     client = db_manager.get_client(email=st.session_state.client_email)
+                                    if not client:
+                                        # Audit du 26/08/2026 (suite) : avant ce garde-fou, un
+                                        # client introuvable faisait planter toute la page avec
+                                        # une TypeError brute (client['id'] sur None) au lieu d'un
+                                        # message compréhensible.
+                                        st.error("❌ Impossible de retrouver votre compte client. Merci de vous reconnecter ou de contacter le support.")
+                                        st.stop()
                                     client_id = client['id']
-                                    
+
                                     # Boucle d'exécution
                                     progress_bar = st.progress(0)
                                     # reset_index garantit un index 0-based pour que progress() reste dans [0.0, 1.0]
@@ -363,25 +414,40 @@ def render_file_upload():
                                             
                                             dispute_type = 'Late Delivery' if status == 'En retard' else 'Lost Package'
                                             amount = 12.50 if status == 'En retard' else 85.00
-                                            
-                                            # 1. Création du Litige en Base
-                                            claim_id = db_manager.create_dispute(
+                                            claim_reference = f"CLM-{tracking[-4:]}"  # Simplifié
+
+                                            # 1. Création de la Réclamation en Base
+                                            # Audit du 26/08/2026 : ce bloc appelait auparavant
+                                            # db_manager.create_dispute(...), qui insère dans la
+                                            # table 'disputes' (simples détections). La page "Mes
+                                            # Litiges" lit, elle, la table 'claims' via
+                                            # get_client_claims() — jamais alimentée par ce flux.
+                                            # Résultat : le bandeau "✅ dossiers créés" et l'email
+                                            # de confirmation client s'affichaient/partaient, mais
+                                            # AUCUNE réclamation n'apparaissait jamais nulle part
+                                            # dans l'app (confirmé en test live avec le compte
+                                            # audit.claude.test9@refundly.ai). On appelle désormais
+                                            # la bonne méthode, create_claim(), avec la même
+                                            # claim_reference que celle utilisée pour le PDF et
+                                            # l'email, pour que les trois restent cohérents.
+                                            claim_id = db_manager.create_claim(
+                                                claim_reference=claim_reference,
                                                 client_id=client_id,
                                                 order_id=f"ORD-{tracking[-4:]}",
                                                 carrier=carrier,
                                                 dispute_type=dispute_type,
-                                                amount_recoverable=amount,
+                                                amount_requested=amount,
                                                 tracking_number=tracking,
                                                 order_date=date_order,
-                                                expected_delivery_date=date_order,
-                                                success_probability=95 if status == 'Perdu' else 80,
-                                                predicted_days_to_recovery=14
+                                                customer_name=client['full_name'],
+                                                delivery_address='Adresse de livraison inconnue',
+                                                currency='EUR'
                                             )
-                                            
+
                                             # 2. Génération de la Mise en Demeure (PDF)
                                             # On prépare les données pour le générateur
                                             claim_data_for_pdf = {
-                                                'claim_reference': f"CLM-{tracking[-4:]}", # Simplifié
+                                                'claim_reference': claim_reference,
                                                 'tracking_number': tracking,
                                                 'amount_requested': amount,
                                                 'currency': 'EUR',
@@ -403,7 +469,7 @@ def render_file_upload():
                                             
                                             send_claim_submitted_email(
                                                 client_email=client_email,
-                                                claim_reference=f"CLM-{tracking[-4:]}",
+                                                claim_reference=claim_reference,
                                                 carrier=carrier,
                                                 amount_requested=amount,
                                                 order_id=f"ORD-{tracking[-4:]}",
@@ -417,14 +483,41 @@ def render_file_upload():
                                         time.sleep(0.05)
                                         progress_bar.progress(step_num / len(df_final))
                                     
-                                    st.success(f"✅ {len(df_final)} dossiers créés avec Mises en Demeure générées !")
-                                    st.balloons()
-                                    del st.session_state.analysis_df # Clean up
-                                    del st.session_state.upload_step
-                                    
-                                    if st.button("Voir mes litiges"):
-                                        st.session_state.active_page = 'Disputes'
-                                        st.rerun()
+                                    # Audit du 26/08/2026 (suite) : ce bloc supprimait
+                                    # immédiatement analysis_df/upload_step ici, juste avant
+                                    # d'afficher le bouton "Voir mes litiges". Mais le gate qui
+                                    # affiche toute cette section (plus haut : "if 'analysis_df'
+                                    # in st.session_state and st.session_state.upload_step in
+                                    # [...]") est réévalué à CHAQUE rerun — y compris celui
+                                    # déclenché par le clic sur "Voir mes litiges" lui-même. En
+                                    # supprimant l'état tout de suite, ce gate devenait faux dès
+                                    # le rerun suivant, donc le code du bouton n'était jamais
+                                    # atteint : le clic ne faisait que réinitialiser l'écran
+                                    # d'upload (confirmé en test live, le nez dans le guidon).
+                                    # On passe désormais par une étape 'done' dédiée (ajoutée à
+                                    # la liste du gate ci-dessus), qui persiste jusqu'à ce que
+                                    # l'utilisateur clique effectivement sur un bouton pour en
+                                    # sortir.
+                                    st.session_state.upload_result_count = len(df_final)
+                                    st.session_state.upload_step = 'done'
+                                    st.rerun()
+
+                    elif st.session_state.upload_step == 'done':
+                        st.success(f"✅ {st.session_state.get('upload_result_count', 0)} dossiers créés avec Mises en Demeure générées !")
+                        st.balloons()
+                        col_done1, col_done2 = st.columns([1, 3])
+                        with col_done1:
+                            if st.button("Voir mes litiges"):
+                                st.session_state.active_tab = 'Mes Litiges'
+                                st.query_params["page"] = 'Mes Litiges'
+                                del st.session_state.analysis_df
+                                del st.session_state.upload_step
+                                st.rerun()
+                        with col_done2:
+                            if st.button("🔄 Nouvelle analyse"):
+                                del st.session_state.analysis_df
+                                del st.session_state.upload_step
+                                st.rerun()
     
     with col2:
         st.markdown("""

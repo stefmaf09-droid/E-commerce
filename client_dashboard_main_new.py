@@ -350,7 +350,12 @@ def main():
         st.session_state.get("_welcome_hub_dismissed", False)
         or st.query_params.get("hub_seen") == "1"
     )
-    if not _already_navigated and needs_welcome_hub(client_email):
+    # Audit du 26/08/2026 (suite) : l'écran d'accueil ("connectez une
+    # boutique / un IBAN") n'a pas de sens pour un compte admin, qui n'a
+    # ni boutique ni IBAN à configurer — il se le voyait pourtant afficher
+    # avant de pouvoir atteindre l'onglet Admin.
+    _is_admin = st.session_state.get("role") == "admin"
+    if not _is_admin and not _already_navigated and needs_welcome_hub(client_email):
         render_welcome_hub(client_email, onboarding_manager)
         return
 

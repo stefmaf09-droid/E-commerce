@@ -143,10 +143,22 @@ def render_store_management() -> None:
             with col4:
                 if st.button("🗑️", key=f"delete_{idx}", help=get_i18n_text('delete', lang)):
                     if st.session_state.get(f'confirm_delete_{idx}'):
-                        # Delete store
-                        if hasattr(manager, 'delete_store'):
-                            manager.delete_store(client_email, idx)
-                        st.success(f"✅ {get_i18n_text('store_deleted', lang)}")
+                        # Audit du 26/08/2026 (suite) : `CredentialsManager`
+                        # n'a jamais eu de méthode `delete_store` — le
+                        # `hasattr` était donc toujours False, la boutique
+                        # n'était JAMAIS réellement supprimée, mais le
+                        # message "✅ Boutique supprimée" s'affichait quand
+                        # même (faux succès) et elle réapparaissait au
+                        # rerun suivant. La vraie méthode est
+                        # delete_credentials(client_id, store_id), avec
+                        # l'id réel de la ligne (pas l'index d'affichage).
+                        store_id = store.get('id')
+                        deleted = manager.delete_credentials(client_id=client_email, store_id=store_id) if store_id else False
+                        st.session_state.pop(f'confirm_delete_{idx}', None)
+                        if deleted:
+                            st.success(f"✅ {get_i18n_text('store_deleted', lang)}")
+                        else:
+                            st.error("❌ Erreur lors de la suppression de la boutique.")
                         st.rerun()
                     else:
                         st.session_state[f'confirm_delete_{idx}'] = True
@@ -460,7 +472,13 @@ def render_notification_preferences() -> None:
     
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT notification_preferences FROM clients WHERE email = ?", (client_email,))
+        # Audit du 26/08/2026 : placeholder '?' codé en dur — cassait avec une
+        # vraie erreur de syntaxe SQL dès que db.db_type == 'postgres' (psycopg2
+        # attend '%s'), confirmé en test live ("Erreur de chargement : erreur de
+        # syntaxe..." affiché tel quel à l'utilisateur). DatabaseManager expose
+        # justement `.placeholder` pour ce cas (déjà utilisé par _execute()) ;
+        # on s'en sert ici puisqu'on passe par un curseur brut.
+        cursor.execute(f"SELECT notification_preferences FROM clients WHERE email = {db.placeholder}", (client_email,))
         result = cursor.fetchone()
         
         if result and result[0]:
@@ -558,8 +576,10 @@ def render_notification_preferences() -> None:
             try:
                 conn = db.get_connection()
                 cursor = conn.cursor()
+                # Audit du 26/08/2026 : même correction que pour la lecture
+                # ci-dessus — placeholder dynamique selon le backend actif.
                 cursor.execute(
-                    "UPDATE clients SET notification_preferences = ? WHERE email = ?",
+                    f"UPDATE clients SET notification_preferences = {db.placeholder} WHERE email = {db.placeholder}",
                     (json.dumps(new_prefs), client_email)
                 )
                 conn.commit()

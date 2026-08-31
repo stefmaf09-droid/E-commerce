@@ -297,7 +297,12 @@ def _render_dispute_card(idx, dispute_row, carrier):
         if st.button(f"👁️ {get_i18n_text('btn_view_details')}", key=f"view_carrier_dispute_{idx}", width='stretch'):
             # Navigate to dispute details page
             st.session_state.selected_dispute = {
-                'dispute_id': dispute_row.get('dispute_id', f'DSP-{idx:03d}'),
+                # Audit du 26/08/2026 (suite) : voir le même correctif dans
+                # ui_functions.py — 'dispute_id' n'existe pas dans les
+                # données réelles (colonne 'claim_reference'), et
+                # 'claim_reference' n'était jamais transmis.
+                'dispute_id': dispute_row.get('claim_reference', dispute_row.get('dispute_id', f'DSP-{idx:03d}')),
+                'claim_reference': dispute_row.get('claim_reference', dispute_row.get('dispute_id')),
                 'order_id': dispute_row.get('order_id', f'ORD-{1000+idx}'),
                 'tracking_number': dispute_row.get('tracking_number', f'TRK{idx:08d}'),
                 'carrier': carrier,

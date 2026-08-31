@@ -213,6 +213,12 @@ def initialize_session():
     """Initialize session state."""
     apply_premium_theme()
     if "env_mode" not in st.session_state:
+        # 31/08/2026 : valeur de repli AVANT connexion uniquement — dès
+        # qu'un compte se connecte (formulaire, inscription, ou reconnexion
+        # par token), env_mode est réécrit selon clients.account_mode pour
+        # CE compte (voir src/dashboard/auth_functions.py). "TEST" reste le
+        # défaut ici pour l'écran de login lui-même et comme filet de
+        # sécurité si jamais rien d'autre ne l'a positionné.
         st.session_state.env_mode = "TEST"
     if "active_tab" not in st.session_state:
         st.session_state.active_tab = "Dashboard"
@@ -383,7 +389,16 @@ def main():
         db_type_override = "sqlite" if st.session_state.env_mode == "TEST" else None
         db_manager = DatabaseManager(db_path=db_path, db_type=db_type_override)
         set_db_manager(db_manager)
-        client = db_manager.get_client(email=client_email)
+        # 31/08/2026 : un compte TEST est isolé dans sa propre base SQLite
+        # (test_recours_ecommerce.db), distincte de la base où vit son
+        # identité de connexion (PostgreSQL). Il n'y avait jusqu'ici aucun
+        # mécanisme pour lui créer une ligne `clients` dans cette base
+        # isolée : client restait introuvable, client_id restait None, et
+        # "Mes Litiges" restait vide en permanence même après création de
+        # dossiers. get_or_create_client répare cette isolation en
+        # provisionnant la ligne manquante à la volée (comportement
+        # inchangé pour un compte PROD, dont le client existe déjà).
+        client = db_manager.get_or_create_client(email=client_email)
         client_id = client["id"] if client else None
         claims_data = []
         if client_id:

@@ -21,7 +21,11 @@ CREATE TABLE IF NOT EXISTS clients (
     -- standard, business, enterprise
     commission_rate REAL DEFAULT 20.0,
     -- Pourcentage de commission (Success Fee)
-    notification_preferences TEXT -- JSON: {claim_created, claim_updated, payment_received, frequency}
+    notification_preferences TEXT, -- JSON: {claim_created, claim_updated, payment_received, frequency}
+    account_mode TEXT NOT NULL DEFAULT 'test'
+    -- Distinction test/prod par compte (31/08/2026) : 'test' ou 'prod'.
+    -- Tant qu'aucun vrai client n'existe, tout nouveau compte reste 'test'
+    -- par défaut ; un compte n'est basculé en 'prod' qu'explicitement.
 );
 CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email);
 CREATE INDEX IF NOT EXISTS idx_clients_stripe ON clients(stripe_account_id);
@@ -253,6 +257,23 @@ CREATE TABLE IF NOT EXISTS webhook_events (
     UNIQUE(tracking_number, event_tag)
 );
 CREATE INDEX IF NOT EXISTS idx_webhook_tracking ON webhook_events(tracking_number);
+-- Table: API Keys (accès Enterprise via src/api/router.py)
+-- Ajoutée le 2026-08-26 : APIKeyManager (src/auth/api_key_manager.py) référençait
+-- cette table alors qu'elle n'existait dans aucun des deux schémas -- toute requête
+-- portant un header X-API-Key faisait donc planter le routeur FastAPI.
+CREATE TABLE IF NOT EXISTS api_keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id INTEGER NOT NULL,
+    key_hash TEXT UNIQUE NOT NULL,
+    name TEXT DEFAULT 'Default Key',
+    prefix TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_api_keys_client ON api_keys(client_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
 -- Table: System Settings
 CREATE TABLE IF NOT EXISTS system_settings (
     key TEXT PRIMARY KEY,

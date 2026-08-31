@@ -40,7 +40,22 @@ def authenticate():
                 st.session_state.client_email = saved_email
                 st.session_state.role = get_user_role(saved_email)
                 st.session_state.show_portal = True
-                
+
+                # 31/08/2026 : distinction test/prod par compte — la
+                # reconnexion automatique par token (F5) ne fixait jusqu'ici
+                # jamais env_mode, qui retombait donc sur la valeur par
+                # défaut "TEST" fixée dans initialize_session(), quel que
+                # soit le mode réel du compte. On relit le mode stocké en
+                # base pour rester cohérent avec une connexion classique.
+                try:
+                    from src.database.database_manager import DatabaseManager
+                    _client = DatabaseManager().get_client(email=saved_email)
+                    st.session_state.env_mode = (
+                        (_client.get('account_mode') if _client else None) or 'test'
+                    ).upper()
+                except Exception:
+                    st.session_state.env_mode = "TEST"  # fail-safe
+
                 # Fetch onboarding status securely
                 try:
                     from src.onboarding.onboarding_manager import OnboardingManager
@@ -712,6 +727,15 @@ def _render_login_form():
                 if client:
                     st.session_state.client_id = client['id']
 
+                    # 31/08/2026 : distinction test/prod par compte — le
+                    # mode n'était jusqu'ici JAMAIS lu depuis le compte, il
+                    # restait figé sur "TEST" pour tout le monde (voir
+                    # initialize_session() dans client_dashboard_main_new.py).
+                    # On applique désormais le mode réellement stocké sur CE
+                    # compte (colonne clients.account_mode, 'test' par défaut
+                    # tant qu'il n'a pas été explicitement basculé en 'prod').
+                    st.session_state.env_mode = (client.get('account_mode') or 'test').upper()
+
                     # Log Login Activity
                     # Audit du 26/08/2026 (suite) : ActivityLogger.log() ne
                     # possède pas de paramètre ip_address (voir sa
@@ -736,6 +760,11 @@ def _render_login_form():
                         log_user_login(user_email=email, success=True, role=role)
                     except Exception:
                         pass  # audit logging must never block login
+                else:
+                    # Pas de ligne `clients` retrouvée (edge case) : on
+                    # retombe sur TEST par défaut plutôt que de laisser
+                    # env_mode non défini.
+                    st.session_state.env_mode = "TEST"
 
                 # —— Check onboarding status ————————————————
                 try:
@@ -1107,6 +1136,10 @@ def _process_registration(reg_email, reg_password, reg_password_confirm, store_n
         client = db.get_client(email=reg_email)
         if client:
             st.session_state.client_id = client['id']
+            # 31/08/2026 : un nouveau compte est 'test' par défaut
+            # (colonne clients.account_mode, DEFAULT 'test') tant qu'il n'a
+            # pas été explicitement basculé en 'prod' — voir _render_login_form.
+            st.session_state.env_mode = (client.get('account_mode') or 'test').upper()
     except Exception:
         pass  # Non-fatal — analytics will gracefully show "Session invalide" if missing
 

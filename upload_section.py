@@ -291,24 +291,24 @@ def render_file_upload():
                             db_path = os.path.join(root_dir, 'data', 'test_recours_ecommerce.db')
                         else:
                             db_path = os.path.join(root_dir, 'data', 'recours_ecommerce.db')
-                        # Audit du 26/08/2026 (suite) : testé en forçant db_type='sqlite'
-                        # ici comme le fait client_dashboard_main_new.py en mode TEST — ça
-                        # casse tout (le client n'existe pas dans la base SQLite de test,
-                        # qui ne pré-remplit qu'un seul client 'admin@refundly.ai' ; voir
-                        # DatabaseManager._ensure_database_exists). L'identité client réelle
-                        # (auth, credentials) vit dans la base pointée par DATABASE_TYPE
-                        # (Postgres en prod, cf. commentaire sur create_postgres_connection),
-                        # donc CE code doit continuer à s'y connecter comme avant. Le vrai
-                        # problème (le tableau de bord force lui la lecture des réclamations
-                        # vers la base SQLite de test isolée, qui ne contient donc jamais les
-                        # comptes clients réels) est un choix d'architecture TEST/PROD plus
-                        # large, à trancher par l'équipe plutôt qu'à corriger en silence ici —
-                        # voir le rapport final.
+                        # 31/08/2026 : suite du 26/08 — à l'époque, forcer
+                        # db_type='sqlite' ici cassait tout car le client
+                        # n'existait pas dans la base SQLite de test (seul
+                        # 'admin@refundly.ai' y était pré-rempli). Depuis
+                        # l'introduction de la distinction test/prod par
+                        # compte (clients.account_mode) et de
+                        # get_or_create_client(), un compte TEST peut être
+                        # provisionné à la volée dans SA base isolée — donc
+                        # ce chemin peut désormais router vers la même base
+                        # que celle lue par le tableau de bord ("Mes
+                        # Litiges"), au lieu de rester sur la base globale
+                        # où l'écriture n'était jamais visible côté lecture.
+                        db_type_override = "sqlite" if st.session_state.env_mode == 'TEST' else None
                         template_mgr = EmailTemplateManager(db_path=db_path)
 
                         # Récup client_id pour chercher un template custom
-                        db_mgr_tmbs = DatabaseManager(db_path=db_path)
-                        client = db_mgr_tmbs.get_client(email=st.session_state.client_email)
+                        db_mgr_tmbs = DatabaseManager(db_path=db_path, db_type=db_type_override)
+                        client = db_mgr_tmbs.get_or_create_client(email=st.session_state.client_email)
                         client_id = client['id'] if client else None
                         
                         # Récupération du template
@@ -377,21 +377,27 @@ def render_file_upload():
                                     else:
                                         db_path = os.path.join(root_dir, 'data', 'recours_ecommerce.db')
 
-                                    # Audit du 26/08/2026 (suite) : voir le commentaire plus haut
-                                    # (chargement du template) — forcer db_type='sqlite' ici casse
-                                    # la recherche du client (absent de la base SQLite de test) ;
-                                    # on garde donc la connexion par défaut (DATABASE_TYPE), qui est
-                                    # celle où vit réellement l'identité du client (auth/credentials).
-                                    db_manager = DatabaseManager(db_path=db_path)
+                                    # 31/08/2026 : suite du 26/08 — voir le commentaire
+                                    # équivalent plus haut (chargement du template). Un compte
+                                    # TEST est désormais provisionné à la volée (get_or_create_client)
+                                    # dans SA base isolée, ce qui permet d'écrire les réclamations
+                                    # au même endroit que celui lu par "Mes Litiges" au lieu de la
+                                    # base globale — c'est le correctif de fond du bug "Mes Litiges
+                                    # reste vide". Un compte PROD continue d'utiliser la base globale
+                                    # (DATABASE_TYPE), où son identité existe déjà.
+                                    db_type_override = "sqlite" if st.session_state.env_mode == 'TEST' else None
+                                    db_manager = DatabaseManager(db_path=db_path, db_type=db_type_override)
                                     legal_gen = LegalDocumentGenerator()
 
-                                    # Récupération ID Client
-                                    client = db_manager.get_client(email=st.session_state.client_email)
+                                    # Récupération (ou provisioning) du client
+                                    client = db_manager.get_or_create_client(email=st.session_state.client_email)
                                     if not client:
                                         # Audit du 26/08/2026 (suite) : avant ce garde-fou, un
                                         # client introuvable faisait planter toute la page avec
                                         # une TypeError brute (client['id'] sur None) au lieu d'un
-                                        # message compréhensible.
+                                        # message compréhensible. Conservé par défense en profondeur
+                                        # même si get_or_create_client ne devrait plus retourner None
+                                        # que sur une vraie erreur base de données.
                                         st.error("❌ Impossible de retrouver votre compte client. Merci de vous reconnecter ou de contacter le support.")
                                         st.stop()
                                     client_id = client['id']

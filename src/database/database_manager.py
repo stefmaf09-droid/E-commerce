@@ -25,6 +25,11 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Cache mémoire (par process) des bases déjà vérifiées pour la migration
+# account_mode — évite de refaire le check à CHAQUE instanciation de
+# DatabaseManager (très fréquent : une nouvelle instance par rendu de page).
+_account_mode_migration_checked = set()
+
 
 def create_postgres_connection(pg_url: str):
     """Ouvre une nouvelle connexion psycopg2 vers la base Postgres/Supabase configuree.
@@ -103,7 +108,56 @@ class DatabaseManager:
             self._ensure_database_exists()
         else:
             logger.info("Using PostgreSQL Backend (Supabase/Neon)")
-    
+
+        # 31/08/2026 : garantit que la colonne account_mode existe même sur
+        # une base déjà provisionnée AVANT l'introduction de la distinction
+        # test/prod par compte (le mécanisme d'auto-création de schéma
+        # ci-dessus ne joue que si la table `clients` n'existe pas du tout).
+        self._ensure_account_mode_column()
+
+    def _ensure_account_mode_column(self):
+        """Ajoute idempotemment la colonne clients.account_mode si absente.
+
+        Nécessaire pour toute base (SQLite de test OU PostgreSQL de prod)
+        qui existait déjà avant ce correctif : `_ensure_database_exists()`
+        ne (re)crée le schéma que si la table `clients` n'existe pas du
+        tout, donc une base déjà en place ne recevrait jamais cette
+        nouvelle colonne sans ce garde-fou explicite.
+        """
+        cache_key = (self.db_type, self.db_path if self.db_type == 'sqlite' else self.pg_url)
+        if cache_key in _account_mode_migration_checked:
+            return
+
+        conn = self.get_connection()
+        try:
+            if self.db_type == 'sqlite':
+                cursor = conn.execute("PRAGMA table_info(clients)")
+                existing_cols = [row[1] for row in cursor.fetchall()]
+                if not existing_cols:
+                    # Table clients pas encore créée (edge case) : rien à
+                    # migrer maintenant, on ne met pas en cache pour
+                    # réessayer au prochain appel une fois la table créée.
+                    return
+                if 'account_mode' not in existing_cols:
+                    conn.execute("ALTER TABLE clients ADD COLUMN account_mode TEXT DEFAULT 'test'")
+                    conn.commit()
+                    logger.info("Migration : colonne clients.account_mode ajoutée (sqlite)")
+            else:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'clients' AND column_name = 'account_mode'
+                """)
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE clients ADD COLUMN account_mode TEXT NOT NULL DEFAULT 'test'")
+                    conn.commit()
+                    logger.info("Migration : colonne clients.account_mode ajoutée (postgres)")
+            _account_mode_migration_checked.add(cache_key)
+        except Exception as e:
+            logger.warning(f"Migration account_mode non bloquante en échec : {e}")
+        finally:
+            conn.close()
+
     def _ensure_database_exists(self):
         """Créer la base et les tables si elles n'existent pas."""
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
@@ -218,14 +272,26 @@ class DatabaseManager:
             return dict(row) if row else None
         finally:
             conn.close()
-    
+
+    def get_or_create_client(self, email: str, full_name: str = None,
+                              company_name: str = None) -> Optional[Dict[str, Any]]:
+        """Récupérer un client par email, ou le créer s'il n'existe pas encore
+        dans CETTE base (utile pour la base SQLite isolée des comptes TEST,
+        où le client peut ne pas encore avoir de ligne alors même qu'il
+        existe déjà côté PostgreSQL/prod pour l'authentification)."""
+        client = self.get_client(email=email)
+        if client:
+            return client
+        self.create_client(email=email, full_name=full_name, company_name=company_name)
+        return self.get_client(email=email)
+
     def update_client(self, client_id: int, **kwargs):
         """Mettre à jour un client."""
         valid_fields = [
-            'full_name', 'company_name', 'phone', 'is_active', 
+            'full_name', 'company_name', 'phone', 'is_active',
             'stripe_account_id', 'stripe_onboarding_completed',
             'stripe_connect_id', 'stripe_onboarding_status',
-            'subscription_tier', 'commission_rate'
+            'subscription_tier', 'commission_rate', 'account_mode'
         ]
         
         updates = {k: v for k, v in kwargs.items() if k in valid_fields}

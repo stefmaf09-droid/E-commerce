@@ -9,6 +9,7 @@ Gère:
 """
 
 import os
+import threading
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any, Tuple
 import json
@@ -847,32 +848,107 @@ class DatabaseManager:
             conn.close()
 
 
-# Instance globale
+# Instance de secours, utilisée UNIQUEMENT hors contexte Streamlit (thread
+# d'arrière-plan, script CLI, routeur API — voir get_db_manager() ci-dessous).
 _db_manager = None
+_db_manager_lock = threading.Lock()
+
+
+def _streamlit_session_state():
+    """Retourne st.session_state si on est dans une session Streamlit active,
+    sinon None (jamais d'exception qui remonte à l'appelant).
+
+    Utilisé par get_db_manager()/set_db_manager() ci-dessous pour scoper le
+    gestionnaire de BDD par session plutôt que par processus — voir le
+    commentaire détaillé de get_db_manager().
+    """
+    try:
+        import streamlit as st
+        # st.session_state lève une exception (versions selon le cas) quand
+        # appelé hors d'un script run Streamlit actif — ex: depuis un thread
+        # créé manuellement (threading.Thread), qui n'hérite PAS du contexte
+        # de script Streamlit du thread appelant. C'est exactement le
+        # comportement qu'on veut détecter ici.
+        return st.session_state
+    except Exception:
+        return None
+
 
 def get_db_manager() -> DatabaseManager:
-    """Obtenir l'instance globale du gestionnaire de BDD.
+    """Obtenir le gestionnaire de BDD courant.
 
-    Audit du 26/08/2026 : ce singleton n'était construit qu'UNE SEULE fois par
-    processus, au tout premier appel. Si ce premier appel survenait avant que
-    la configuration (.env -> DATABASE_TYPE / DATABASE_URL) soit entièrement
-    chargée, l'instance restait figée sur la config par défaut (SQLite) pour
-    toute la durée de vie du process — alors que le code appelant
-    `DatabaseManager()` directement (sans passer par ce singleton) récupérait
-    la bonne config à chaque fois. Symptôme observé en test : "Gestion des
-    Litiges" et l'Assistant IA (basés sur ce singleton) affichaient "Client
-    introuvable" pour des comptes qu'"Analyses" (instance fraîche) résolvait
-    correctement, dans la même session. On revalide donc le type de base à
-    chaque appel et on reconstruit l'instance si elle a divergé, plutôt que
-    de la figer indéfiniment dès le premier appel.
+    31/08/2026 (audit complet) : CORRECTIF CRITIQUE DE SÉCURITÉ/ISOLATION.
+    Cette fonction retournait auparavant une variable GLOBALE AU NIVEAU DU
+    MODULE (_db_manager), donc partagée par TOUT le processus Python. Or un
+    déploiement Streamlit sert plusieurs sessions utilisateur concurrentes
+    dans un seul et même processus (un thread par session, mais un espace
+    mémoire partagé). `client_dashboard_main_new.py` appelle
+    `set_db_manager(db_manager)` à CHAQUE chargement de page avec la base de
+    l'utilisateur COURANT (Test ou Prod selon son compte) — ce qui écrasait
+    cette variable pour TOUS les autres utilisateurs connectés en même temps
+    sur le même serveur. Confirmé en audit : une bonne quinzaine d'écrans
+    (Gestion des litiges, Assistant IA, Réglages, Dépôt Preuves/pièces
+    jointes, POD Analytics, notifications, chatbot...) et le worker
+    d'arrière-plan (ReminderWorker) lisaient cette même variable via
+    get_db_manager() — fenêtre de course réelle où un client pouvait se
+    retrouver à lire/écrire dans la base d'un AUTRE client (fuite de
+    données entre comptes), pas juste un bug d'affichage.
+
+    Correctif : quand on est appelé depuis une session Streamlit active,
+    l'instance est stockée/lue dans `st.session_state`, qui est isolé PAR
+    SESSION (donc par utilisateur) — plus de variable partagée entre
+    utilisateurs concurrents. Hors contexte Streamlit (le thread
+    d'arrière-plan de ReminderWorker, un script CLI, le routeur API), il n'y
+    a pas de "session courante" à qui appartiendrait cette instance : on
+    utilise alors un repli construit depuis la config globale (jamais muté
+    par une requête web), et non plus l'ancienne variable partagée que
+    n'importe quelle page pouvait réécrire sous nos pieds.
+
+    Important : le code qui a BESOIN de voir plusieurs comptes / plusieurs
+    bases à la fois (ex: ReminderWorker qui doit traiter les dossiers Test
+    ET Prod) ne doit PAS dépendre de ce repli à une seule base — il doit
+    construire ses propres instances DatabaseManager explicites (voir
+    src/workers/reminder_worker.py).
     """
+    session_state = _streamlit_session_state()
+    if session_state is not None:
+        cached = session_state.get("_scoped_db_manager")
+        if cached is not None:
+            return cached
+        # Rien encore posé pour CETTE session (ex: appelé avant que
+        # main() ait fait son propre set_db_manager() basé sur env_mode) :
+        # repli défensif sur la config globale, jamais partagé avec
+        # d'autres sessions puisqu'on écrit tout de suite dans CE
+        # session_state, pas dans une variable de module.
+        fallback = DatabaseManager()
+        session_state["_scoped_db_manager"] = fallback
+        return fallback
+
+    # Hors session Streamlit (thread d'arrière-plan, script CLI, routeur
+    # API) : jamais lire l'ancienne variable partagée qu'une page web aurait
+    # pu positionner — on garde une instance de secours indépendante,
+    # reconstruite si la config globale a changé de type de base.
     global _db_manager
-    current_type = (Config.get('DATABASE_TYPE', 'sqlite') or 'sqlite').lower()
-    if _db_manager is None or _db_manager.db_type != current_type:
-        _db_manager = DatabaseManager()
-    return _db_manager
+    with _db_manager_lock:
+        current_type = (Config.get('DATABASE_TYPE', 'sqlite') or 'sqlite').lower()
+        if _db_manager is None or _db_manager.db_type != current_type:
+            _db_manager = DatabaseManager()
+        return _db_manager
 
 def set_db_manager(manager: DatabaseManager):
-    """Définir l'instance globale du gestionnaire de BDD."""
+    """Définir le gestionnaire de BDD pour le contexte courant.
+
+    31/08/2026 (audit complet) : voir le commentaire détaillé de
+    get_db_manager() ci-dessus. Quand on est appelé depuis une session
+    Streamlit active, l'instance est posée dans st.session_state (isolé par
+    session) au lieu de l'ancienne variable de module partagée par tout le
+    processus — c'est ce qui empêchait un utilisateur d'écraser la base vue
+    par les autres utilisateurs connectés en même temps.
+    """
+    session_state = _streamlit_session_state()
+    if session_state is not None:
+        session_state["_scoped_db_manager"] = manager
+        return
     global _db_manager
-    _db_manager = manager
+    with _db_manager_lock:
+        _db_manager = manager

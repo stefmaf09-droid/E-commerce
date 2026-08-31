@@ -73,20 +73,45 @@ def authenticate():
             st.session_state._show_login = False
 
         # ── NAVIGATION HEADER (comme refundly.fr) ────────────────────────
-        _logo_html = _logo_tag(height=80)
+        # 31/08/2026 : le logo paraissait minuscule même à height=220 car le
+        # fichier static/logo_premium.png est un canevas carré 1024x1024 dont
+        # le vrai logomark n'occupe qu'une bande centrale (~25% de la
+        # hauteur) — le reste est du blanc. Monter la hauteur CSS agrandissait
+        # surtout ce blanc, pas le logo. Fix à la racine dans src/ui/logo.py
+        # (_autocrop_logo_bytes) : l'image est maintenant recadrée sur son
+        # contenu réel avant l'encodage base64, donc "height" correspond enfin
+        # à du logo visible de bout en bout → plus besoin d'une valeur
+        # extrême, une taille de navbar normale suffit et paraîtra nettement
+        # plus grande qu'avant. display:flex + align-items:center recentre
+        # verticalement au lieu du margin-top négatif fixe précédent.
+        _logo_html = _logo_tag(height=72)
         col_logo, col_links, col_start = st.columns([4, 5.5, 2.5])
         with col_logo:
-             st.markdown(f'<div style="margin-top:-5px; padding-left:20px;">{_logo_html}</div>', unsafe_allow_html=True)
-             
+             # 31/08/2026 : pastille colorée derrière l'icône seule (pas le
+             # texte "Refundly.ai") — choix validé par l'utilisateur après
+             # comparaison avec une carte englobant tout le logo. L'icône
+             # occupe ~34% de la largeur du logo recadré (mesuré sur le
+             # fichier réel) — la pastille est donc dimensionnée en % du
+             # conteneur pour rester alignée quelle que soit la hauteur choisie.
+             st.markdown(
+                 f'<div style="display:flex; align-items:center; height:100%; padding-left:20px;">'
+                 f'<div style="position:relative; display:inline-flex; align-items:center;">'
+                 f'<div style="position:absolute; left:-8%; top:50%; transform:translateY(-50%); '
+                 f'width:44%; aspect-ratio:1/1; border-radius:50%; '
+                 f'background:radial-gradient(circle, #E8F1FF 0%, #DCEAFF 100%); z-index:0;"></div>'
+                 f'<div style="position:relative; z-index:1;">{_logo_html}</div>'
+                 f'</div></div>',
+                 unsafe_allow_html=True
+             )
+
         with col_links:
-             st.markdown("""
-             <div style="display:flex; justify-content:center; gap: 30px; margin-top:20px; font-weight:500; color:#4b5563; font-size:0.95rem;">
-                 <a href="#how-it-works" style="text-decoration:none; color:inherit; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#0f766e'" onmouseout="this.style.color='#4b5563'">Comment ça marche</a>
-                 <a href="#features" style="text-decoration:none; color:inherit; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#0f766e'" onmouseout="this.style.color='#4b5563'">Fonctionnalités</a>
-                 <a href="#faq" style="text-decoration:none; color:inherit; cursor:pointer; transition:color 0.2s;" onmouseover="this.style.color='#0f766e'" onmouseout="this.style.color='#4b5563'">FAQ</a>
-             </div>
-             """, unsafe_allow_html=True)
-             
+             # 31/08/2026 : liens texte "Comment ça marche / Fonctionnalités /
+             # FAQ" retirés de la barre de nav (demande utilisateur) — le
+             # contenu "Comment ça marche ?" est désormais affiché en entier
+             # tout en haut de la page (juste après la nav), plus bas dans
+             # cette fonction, au lieu d'un simple lien texte ici.
+             pass
+
         with col_start:
              st.markdown('<div style="margin-top:12px;"></div>', unsafe_allow_html=True)
              if st.button("Connexion", type="primary", key="nav_login", use_container_width=True):
@@ -113,6 +138,80 @@ def authenticate():
         else:
             # ═══════ LANDING PAGE (hero + stats + features) ═══════
 
+            # 31/08/2026 : section "Comment ça marche ?" déplacée tout en
+            # haut de la page (demande utilisateur), à l'emplacement des
+            # anciens liens texte de la nav ("Comment ça marche" /
+            # "Fonctionnalités" / "FAQ", retirés plus haut).
+            #
+            # 31/08/2026 (suite) : version compactée — la première version
+            # (tailles/espacements identiques à la section d'origine, plus
+            # bas dans la page) repoussait le slogan "On récupère ton
+            # argent à ta place" hors du premier écran visible, ce qui
+            # masquait le message expliquant ce que fait le site. Icônes,
+            # marges et texte réduits ici pour que la section tienne dans
+            # une hauteur raisonnable et laisse le slogan visible juste en
+            # dessous sans avoir à scroller autant.
+            #
+            # 31/08/2026 (audit complet) : le margin-top négatif utilisé
+            # ensuite pour resserrer encore l'écart avec la nav (jusqu'à
+            # -100px) a été retiré — un test automatisé (Playwright) a
+            # démontré qu'il faisait remonter cette section PAR-DESSUS la
+            # ligne de la nav, ce qui interceptait les clics sur le bouton
+            # "Connexion" (élément juste au-dessus dans le flux) dans
+            # certaines conditions. C'est très probablement la cause des
+            # clics sur "Connexion" qui semblaient ne rien faire pendant
+            # les tests précédents. margin-top repassé à 0 : plus sûr,
+            # au prix d'un écart un peu plus visible avec la nav.
+            st.markdown("""
+<div id="how-it-works" class="how-it-works-section" style="text-align: center; margin: 0 0 16px; scroll-margin-top: 100px;">
+  <div style="display:inline-flex; align-items:center; gap:6px; background:#dcfce7; color:#16a34a; padding:4px 14px; border-radius:50px; font-size:0.8rem; font-weight:600; margin-bottom:8px;">
+    <span>✓</span> Simple et efficace
+  </div>
+  <h2 style="font-size: 1.7rem; font-weight: 800; color: #111827; margin: 0 0 4px; letter-spacing: -0.5px;">Comment ça marche ?</h2>
+  <p style="color: #6b7280; font-size: 0.9rem; margin-bottom: 18px;">En 4 étapes simples, récupérez l'argent que vous méritez</p>
+  <div class="steps-container" style="display: flex; justify-content: space-between; align-items: flex-start; max-width: 780px; margin: 0 auto; position: relative;">
+    <!-- Ligne de progression au centre -->
+    <div style="position: absolute; top: 28px; left: 10%; right: 10%; height: 2px; background: linear-gradient(90deg, #3b82f6, #a855f7, #f97316, #22c55e); z-index: 0;"></div>
+    <!-- Step 1 -->
+    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 8px;">
+      <div style="width: 52px; height: 52px; background: #3b82f6; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);">
+        <span style="color: white; font-size: 1.3rem;">✉️</span>
+      </div>
+      <div style="width: 20px; height: 20px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-weight: bold; color: #22c55e; font-size: 0.7rem;">1</div>
+      <h4 style="font-weight: 700; color: #111827; margin-bottom: 2px; font-size: 0.85rem;">Connectez votre boutique</h4>
+      <p style="font-size: 0.72rem; color: #6b7280; line-height: 1.3; margin:0;">Connectez votre boutique e-commerce pour l'analyse.</p>
+    </div>
+    <!-- Step 2 -->
+    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 8px;">
+      <div style="width: 52px; height: 52px; background: #a855f7; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; box-shadow: 0 6px 16px rgba(168, 85, 247, 0.4);">
+        <span style="color: white; font-size: 1.3rem;">🔍</span>
+      </div>
+      <div style="width: 20px; height: 20px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-weight: bold; color: #22c55e; font-size: 0.7rem;">2</div>
+      <h4 style="font-weight: 700; color: #111827; margin-bottom: 2px; font-size: 0.85rem;">Analyse automatique</h4>
+      <p style="font-size: 0.72rem; color: #6b7280; line-height: 1.3; margin:0;">Notre IA détecte les litiges automatiquement.</p>
+    </div>
+    <!-- Step 3 -->
+    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 8px;">
+      <div style="width: 52px; height: 52px; background: #f97316; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; box-shadow: 0 6px 16px rgba(249, 115, 22, 0.4);">
+        <span style="color: white; font-size: 1.3rem;">📄</span>
+      </div>
+      <div style="width: 20px; height: 20px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-weight: bold; color: #22c55e; font-size: 0.7rem;">3</div>
+      <h4 style="font-weight: 700; color: #111827; margin-bottom: 2px; font-size: 0.85rem;">Réclamation envoyée</h4>
+      <p style="font-size: 0.72rem; color: #6b7280; line-height: 1.3; margin:0;">Demande de remboursement légale envoyée.</p>
+    </div>
+    <!-- Step 4 -->
+    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 8px;">
+      <div style="width: 52px; height: 52px; background: #22c55e; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);">
+        <span style="color: white; font-size: 1.3rem;">💵</span>
+      </div>
+      <div style="width: 20px; height: 20px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-weight: bold; color: #22c55e; font-size: 0.7rem;">4</div>
+      <h4 style="font-weight: 700; color: #111827; margin-bottom: 2px; font-size: 0.85rem;">Argent récupéré</h4>
+      <p style="font-size: 0.72rem; color: #6b7280; line-height: 1.3; margin:0;">Remboursement reçu, commission au succès.</p>
+    </div>
+  </div>
+</div>
+            """, unsafe_allow_html=True)
+
             # Floating badges
             st.markdown("""
 <div class="floating-badge badge-left" style="animation-delay: 0s;">
@@ -133,7 +232,7 @@ def authenticate():
 
             # Hero
             st.markdown("""
-<div class="auth-hero" style="margin-top: 40px; margin-bottom: 20px;">
+<div class="auth-hero" style="margin-top: 10px; margin-bottom: 20px;">
   <div class="auth-hero-pill" style="background: rgba(13, 148, 136, 0.08); border: 1px solid rgba(13, 148, 136, 0.2); color: #0f766e;">✨ Zéro risque • Commission uniquement sur les remboursements</div>
   <h1 style="font-size: 4.5rem; letter-spacing: -2px; line-height: 1.1;">On récupère <span class="highlight" style="color: #0f766e;">ton argent</span><br>à ta place</h1>
   <p class="subtitle" style="font-size: 1.2rem; margin-top: 24px;">
@@ -189,57 +288,6 @@ def authenticate():
                 """, unsafe_allow_html=True)
             
             st.markdown('<div style="margin-bottom: 80px;"></div>', unsafe_allow_html=True)
-
-            # "COMMENT ÇA MARCHE ?" SECTION
-            st.markdown("""
-<div id="how-it-works" class="how-it-works-section" style="text-align: center; margin: 60px 0 40px; scroll-margin-top: 100px;">
-  <div style="display:inline-flex; align-items:center; gap:6px; background:#dcfce7; color:#16a34a; padding:6px 16px; border-radius:50px; font-size:0.85rem; font-weight:600; margin-bottom:16px;">
-    <span>✓</span> Simple et efficace
-  </div>
-  <h2 style="font-size: 2.8rem; font-weight: 800; color: #111827; margin: 0 0 12px; letter-spacing: -0.5px;">Comment ça marche ?</h2>
-  <p style="color: #6b7280; font-size: 1.1rem; margin-bottom: 50px;">En 4 étapes simples, récupérez l'argent que vous méritez</p>
-  <div class="steps-container" style="display: flex; justify-content: space-between; align-items: flex-start; max-width: 900px; margin: 0 auto; position: relative;">
-    <!-- Ligne de progression au centre -->
-    <div style="position: absolute; top: 100px; left: 10%; right: 10%; height: 2px; background: linear-gradient(90deg, #3b82f6, #a855f7, #f97316, #22c55e); z-index: 0;"></div>
-    <!-- Step 1 -->
-    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 10px;">
-      <div style="width: 80px; height: 80px; background: #3b82f6; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);">
-        <span style="color: white; font-size: 2rem;">✉️</span>
-      </div>
-      <div style="width: 30px; height: 30px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: bold; color: #22c55e; font-size: 0.9rem;">1</div>
-      <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Connectez votre boutique</h4>
-      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Connectez votre boutique e-commerce sur notre portail sécurisé pour l'analyse.</p>
-    </div>
-    <!-- Step 2 -->
-    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 10px;">
-      <div style="width: 80px; height: 80px; background: #a855f7; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 25px rgba(168, 85, 247, 0.4);">
-        <span style="color: white; font-size: 2rem;">🔍</span>
-      </div>
-      <div style="width: 30px; height: 30px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: bold; color: #22c55e; font-size: 0.9rem;">2</div>
-      <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Analyse automatique</h4>
-      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Notre IA identifie vos expéditions, détecte les litiges et analyse les CGV transporteurs.</p>
-    </div>
-    <!-- Step 3 -->
-    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 10px;">
-      <div style="width: 80px; height: 80px; background: #f97316; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 25px rgba(249, 115, 22, 0.4);">
-        <span style="color: white; font-size: 2rem;">📄</span>
-      </div>
-      <div style="width: 30px; height: 30px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: bold; color: #22c55e; font-size: 0.9rem;">3</div>
-      <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Réclamation envoyée</h4>
-      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Nous envoyons automatiquement une demande de remboursement légale.</p>
-    </div>
-    <!-- Step 4 -->
-    <div class="step-item" style="flex: 1; text-align: center; position: relative; z-index: 1; padding: 0 10px;">
-      <div style="width: 80px; height: 80px; background: #22c55e; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 10px 25px rgba(34, 197, 94, 0.4);">
-        <span style="color: white; font-size: 2rem;">💵</span>
-      </div>
-      <div style="width: 30px; height: 30px; background: white; border: 2px solid #22c55e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: bold; color: #22c55e; font-size: 0.9rem;">4</div>
-      <h4 style="font-weight: 700; color: #111827; margin-bottom: 8px; font-size: 1.05rem;">Argent récupéré</h4>
-      <p style="font-size: 0.85rem; color: #6b7280; line-height: 1.5;">Recevez votre remboursement. Nous prenons une commission uniquement au succès.</p>
-    </div>
-  </div>
-</div>
-            """, unsafe_allow_html=True)
 
             # Trust badges
             st.markdown("""
@@ -557,7 +605,10 @@ div[data-testid="stButton"] button[kind="secondary"]:hover {
 }
 .badge-left {
     left: 3%;
-    top: 18%;
+    /* 31/08/2026 : descendu (18% -> 30%) — trop proche du logo agrandi.
+       Section "Comment ça marche ?" ensuite compactée (voir plus bas),
+       donc pas besoin d'aller aussi loin que le premier réglage (42%). */
+    top: 30%;
 }
 .badge-right {
     right: 3%;

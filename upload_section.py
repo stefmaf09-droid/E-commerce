@@ -278,7 +278,19 @@ def render_file_upload():
                     elif st.session_state.upload_step == 'review':
                         st.divider()
                         st.markdown("### 📧 Vérification des Emails avant envoi")
-                        st.info("Vous allez générer des emails pour les transporteurs. Modifiez le modèle ci-dessous avant l'envoi groupé.")
+                        # 31/08/2026 (audit complet) : le texte disait auparavant "Vous
+                        # allez générer des emails pour les transporteurs [...] avant
+                        # l'envoi groupé", alors que ce bouton ne faisait à l'époque que
+                        # créer le dossier + générer le PDF + confirmer par email au
+                        # CLIENT (jamais au transporteur), et qu'aucun job planifié
+                        # n'existait pour relayer ensuite ce PDF au transporteur.
+                        # Depuis, ce job existe (src/workers/reminder_worker.py, démarré
+                        # en arrière-plan à la connexion) : il scanne les dossiers en base
+                        # et relance réellement le transporteur à J+7/J+14/J+21 (envoi réel
+                        # en Prod, simulé sans envoi en Test). Le dossier créé ici entre
+                        # bien dans ce circuit automatique — mais l'envoi au transporteur
+                        # n'est donc pas immédiat, il suit ce calendrier.
+                        st.info("Ceci crée le dossier de réclamation et génère le PDF de mise en demeure. Modifiez le modèle ci-dessous si besoin — le transporteur sera relancé automatiquement (J+7, J+14, puis mise en demeure à J+21) s'il ne répond pas, pas immédiatement à la validation.")
                         
                         # Chargement du Template Officiel
                         from database.email_template_manager import EmailTemplateManager
@@ -509,7 +521,11 @@ def render_file_upload():
                                     st.rerun()
 
                     elif st.session_state.upload_step == 'done':
-                        st.success(f"✅ {st.session_state.get('upload_result_count', 0)} dossiers créés avec Mises en Demeure générées !")
+                        # 31/08/2026 (audit complet) : message corrigé — voir le commentaire
+                        # détaillé plus haut ("Vérification des Emails avant envoi"). Le PDF
+                        # est généré tout de suite ; l'envoi au transporteur suit le
+                        # calendrier automatique de relance (J+7/14/21), pas immédiat.
+                        st.success(f"✅ {st.session_state.get('upload_result_count', 0)} dossiers créés, PDF de mise en demeure généré. Le transporteur sera relancé automatiquement s'il ne répond pas.")
                         st.balloons()
                         col_done1, col_done2 = st.columns([1, 3])
                         with col_done1:

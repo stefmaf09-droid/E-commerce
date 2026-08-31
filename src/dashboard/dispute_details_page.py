@@ -105,12 +105,23 @@ def _render_dispute_header(dispute_data):
 def _render_order_information(dispute_data):
     """Render order and customer information section."""
     st.markdown(f"### 📦 {get_i18n_text('order_information')}")
-    
+
+    # 31/08/2026 (audit complet) : dispute_data.get('customer_name', 'N/A')
+    # ne retombe sur 'N/A' QUE si la clé est absente — pas si elle existe
+    # mais vaut None (le cas courant : colonne NULL en base). Résultat
+    # observé en test live : "Client: None" / "Adresse: None" affichés tels
+    # quels au lieu d'un texte de repli propre. _clean() traite aussi bien
+    # la clé absente que la valeur None/chaîne vide.
+    def _clean(value, fallback="Non renseigné"):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return fallback
+        return value
+
     # Get data with fallbacks
-    customer_name = dispute_data.get('customer_name', 'N/A')
-    customer_email = dispute_data.get('customer_email', st.session_state.get('client_email', 'N/A'))
-    delivery_address = dispute_data.get('delivery_address', 'N/A')
-    order_date = dispute_data.get('order_date', 'N/A')
+    customer_name = _clean(dispute_data.get('customer_name'))
+    customer_email = _clean(dispute_data.get('customer_email'), st.session_state.get('client_email') or "Non renseigné")
+    delivery_address = _clean(dispute_data.get('delivery_address'))
+    order_date = _clean(dispute_data.get('order_date'))
     dispute_type = dispute_data.get('dispute_type', 'unknown')
     
     # Format dispute type using i18n

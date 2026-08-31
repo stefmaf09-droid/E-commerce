@@ -140,9 +140,25 @@ def _render_top_navbar(active: str, email: str, role: str = "client"):
             font-weight: 600 !important;
             padding: 6px 8px !important;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             box-shadow: none !important;
             transform: none !important;
             width: 100%;
+        }
+        /* 31/08/2026 (audit complet) : à ~1280px de large (constaté en test
+           live), les libellés les plus longs ("☁️ Dépôt Preuves") étaient
+           coupés brutalement ("Dépôt Preuve") faute de place. La règle
+           text-overflow ci-dessus donne un "…" propre en dernier recours ;
+           celle-ci réduit la police/le padding un cran en dessous de
+           1400px pour que les libellés aient une chance de tenir en entier
+           avant d'en arriver là. */
+        @media (max-width: 1400px) {
+            .st-key-top_navbar_row div[data-testid="stButton"] button {
+                font-size: 0.68rem !important;
+                padding: 6px 3px !important;
+                letter-spacing: -0.01em;
+            }
         }
         .st-key-top_navbar_row div[data-testid="stButton"] button[kind="secondary"] {
             background: transparent !important;
@@ -178,7 +194,18 @@ def _render_top_navbar(active: str, email: str, role: str = "client"):
     )
 
     with st.container(key="top_navbar_row"):
-        col_widths = [1.1] + [0.85] * len(items) + [1.3, 0.45]
+        # 31/08/2026 (audit complet) : rééquilibré (plus de largeur aux
+        # boutons de nav, moins au logo/email) pour réduire la troncature
+        # constatée à ~1280px — voir aussi le CSS ci-dessus. Largeur
+        # PROPORTIONNELLE à la longueur du libellé plutôt qu'uniforme : un
+        # libellé fixe (ex: "☁️ Dépôt Preuves") avait le même espace qu'un
+        # court ("🗂️ Gestion") et se faisait tronquer même après réduction
+        # de police — testé en direct à 1280px de large.
+        label_lens = [len(f"{icon} {label}") for icon, label in items]
+        base_total = 1.05 * len(items)
+        total_len = sum(label_lens) or 1
+        item_widths = [max(0.85, base_total * (l / total_len)) for l in label_lens]
+        col_widths = [0.75] + item_widths + [0.85, 0.35]
         cols = st.columns(col_widths, vertical_alignment="center")
 
         with cols[0]:
@@ -418,6 +445,14 @@ def main():
                     "delivery_address": claim.get("delivery_address", "N/A"),
                     "ai_reason_key": claim.get("ai_reason_key"),
                     "ai_advice": claim.get("ai_advice"),
+                    # 31/08/2026 (audit complet) : ces 3 champs manquaient alors
+                    # qu'ils existent déjà en base — nécessaires pour afficher de
+                    # vraies infos de stagnation/relance (au lieu de données
+                    # fictives) et une vraie date de remboursement.
+                    "created_at": claim.get("created_at", ""),
+                    "follow_up_level": claim.get("follow_up_level", 0) or 0,
+                    "payment_date": claim.get("payment_date"),
+                    "last_follow_up_at": claim.get("last_follow_up_at"),
                 })
     except Exception as e:
         st.error(f"❌ **Erreur base de données** : {e}")

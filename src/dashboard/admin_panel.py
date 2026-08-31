@@ -4,7 +4,7 @@ import plotly.express as px
 from datetime import datetime
 
 from src.auth.password_manager import PasswordManager, set_user_role
-from src.database.database_manager import get_db_manager
+from src.database.database_manager import get_db_manager, DatabaseManager
 
 def render_admin_panel():
     """Render the Admin Panel for user management and global stats."""
@@ -42,33 +42,79 @@ def render_admin_panel():
             # Detailed list with actions
             for index, row in df_users.iterrows():
                 with st.expander(f"{row['client_email']} ({row['role']})", expanded=False):
-                    c1, c2, c3 = st.columns([2, 1, 1])
-                    
+                    # 31/08/2026 : ajout du sélecteur TEST/PROD par compte
+                    # (clients.account_mode), à côté du rôle — c'est le
+                    # bouton "bascule un client en prod le jour venu" évoqué
+                    # avec l'utilisateur. Sans ça, la seule façon de changer
+                    # account_mode était un appel Python manuel
+                    # (DatabaseManager().update_client(client_id, account_mode='prod')).
+                    #
+                    # 31/08/2026 (audit complet) : BUG CRITIQUE trouvé et
+                    # corrigé ici — ce code utilisait get_db_manager(), qui
+                    # renvoie la base de données de la session EN COURS DE
+                    # L'ADMIN (celle liée à son propre account_mode, donc la
+                    # base SQLite isolée "test" dans l'immense majorité des
+                    # cas, tant qu'aucun admin n'est lui-même passé en prod).
+                    # Résultat : la bascule "prod" semblait fonctionner
+                    # (aucune erreur, le sélecteur affichait bien "prod"
+                    # après enregistrement) mais écrivait en réalité dans la
+                    # base isolée de l'admin — jamais dans la ligne
+                    # `clients` réelle que _render_login_form() relit au
+                    # login (elle instancie DatabaseManager() SANS
+                    # db_path/db_type, donc la base "identité" globale,
+                    # cf. auth_functions.py). Le client ciblé restait donc
+                    # bloqué en mode TEST à chaque connexion, sans aucune
+                    # erreur visible nulle part. Corrigé en utilisant ici
+                    # aussi un DatabaseManager() "identité" dédié, qui pointe
+                    # toujours vers la même base que le login, quel que soit
+                    # le mode de la session de l'admin qui fait la bascule.
+                    db_identity = DatabaseManager()
+                    client_row = db_identity.get_client(email=row['client_email'])
+                    current_mode = (client_row.get('account_mode') if client_row else None) or 'test'
+
+                    c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+
                     with c1:
                         st.write(f"**Email:** {row['client_email']}")
                         st.write(f"**Inscrit le:** {row['created_at'].strftime('%d/%m/%Y %H:%M')}")
-                    
+
                     with c2:
                         current_role = row['role']
                         # Role selector
                         new_role = st.selectbox(
-                            "Rôle", 
-                            ['client', 'admin'], 
+                            "Rôle",
+                            ['client', 'admin'],
                             index=0 if current_role == 'client' else 1,
                             key=f"role_{row['client_email']}"
                         )
-                    
+
                     with c3:
+                        # Mode selector (test/prod) — un compte reste 'test'
+                        # tant qu'il n'est pas explicitement basculé.
+                        new_mode = st.selectbox(
+                            "Mode",
+                            ['test', 'prod'],
+                            index=0 if current_mode == 'test' else 1,
+                            key=f"mode_{row['client_email']}",
+                            help="TEST : données isolées (base locale). PROD : compte réel."
+                        )
+
+                    with c4:
                         st.write("") # Spacer
-                        if new_role != current_role:
+                        if new_role != current_role or new_mode != current_mode:
                             if st.button("💾 Enregistrer", key=f"save_{row['client_email']}"):
-                                success = set_user_role(row['client_email'], new_role)
+                                success = True
+                                if new_role != current_role:
+                                    success = set_user_role(row['client_email'], new_role) and success
+                                if new_mode != current_mode:
+                                    target_client = db_identity.get_or_create_client(email=row['client_email'])
+                                    db_identity.update_client(target_client['id'], account_mode=new_mode)
                                 if success:
-                                    st.success(f"Rôle mis à jour: {new_role}")
+                                    st.success(f"Compte mis à jour (rôle: {new_role}, mode: {new_mode}).")
                                     st.rerun()
                                 else:
                                     st.error("Erreur lors de la mise à jour")
-                        
+
                         if st.button("🗑️ Supprimer", key=f"del_{row['client_email']}", type="primary"):
                             st.warning("Fonctionnalité de suppression à implémenter (RGPD)")
 

@@ -236,8 +236,27 @@ def render_disputes_table_modern(disputes_df):
         confidence_color = '#4338ca' if confidence >= 90 else ('#10b981' if confidence >= 75 else '#f59e0b')
         confidence_icon = '✓' if confidence >= 90 else ('⚠️' if confidence < 75 else '')
         
-        # Generate realistic date
-        refund_date = (datetime.now() + timedelta(days=15 + idx * 3)).strftime('%b %d, %Y')
+        # 31/08/2026 (audit complet) : cette date était auparavant TOUJOURS
+        # inventée (datetime.now() + 15/18/21... jours selon la position de
+        # la ligne), affichée pour CHAQUE dossier quel que soit son vrai
+        # statut de paiement — y compris des dossiers rejetés ou jamais
+        # payés. Utilise maintenant la vraie date de remboursement
+        # (payment_date) quand le dossier est réellement payé
+        # (payment_status='paid'). Sans donnée réelle, on n'invente plus une
+        # date pour un compte Prod (affichage honnête "—") ; seul un compte
+        # Test sans aucun remboursement réel enregistré garde une estimation
+        # illustrative, pour que la démo reste visuellement complète.
+        payment_status = str(row.get('payment_status', 'unpaid') or 'unpaid').lower()
+        payment_date_raw = row.get('payment_date')
+        if payment_status == 'paid' and payment_date_raw:
+            try:
+                refund_date = pd.to_datetime(payment_date_raw).strftime('%b %d, %Y')
+            except Exception:
+                refund_date = '—'
+        elif st.session_state.get('env_mode') == 'TEST':
+            refund_date = (datetime.now() + timedelta(days=15 + idx * 3)).strftime('%b %d, %Y') + ' (estim.)'
+        else:
+            refund_date = '—'
         
         # Status
         status_map = {

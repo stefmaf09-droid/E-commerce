@@ -50,7 +50,7 @@ def render_reports_page(disputes_df: pd.DataFrame) -> None:
     st.markdown("---")
     
     # Timeline of events
-    render_timeline()
+    render_timeline(disputes_df)
 
 
 def render_analytics_tab(disputes_df: pd.DataFrame) -> None:
@@ -73,73 +73,155 @@ def render_analytics_tab(disputes_df: pd.DataFrame) -> None:
     render_analytics(disputes_df)
 
 
-def render_timeline() -> None:
+def _build_real_timeline_events(disputes_df: pd.DataFrame) -> list:
+    """Construit des événements de timeline à partir de VRAIES données de
+    dossiers (created_at, payment_date/payment_status, last_follow_up_at/
+    follow_up_level). Retourne une liste vide si aucune donnée réelle
+    exploitable — à ne PAS confondre avec "pas d'internet" : ça veut juste
+    dire qu'aucun de ces événements n'a encore eu lieu pour ce compte.
+    """
+    events = []
+    if disputes_df is None or disputes_df.empty:
+        return events
+
+    for _, row in disputes_df.iterrows():
+        ref = row.get("claim_reference", "N/A")
+        carrier = row.get("carrier", "N/A")
+
+        created_raw = row.get("created_at")
+        if created_raw:
+            try:
+                dt = pd.to_datetime(created_raw).to_pydatetime()
+                events.append({
+                    "dt": dt,
+                    "title": "Nouveau dossier créé",
+                    "description": f"{ref} — {carrier}",
+                    "type": "info",
+                    "icon": "📤",
+                })
+            except Exception:
+                pass
+
+        if str(row.get("payment_status", "")).lower() == "paid" and row.get("payment_date"):
+            try:
+                dt = pd.to_datetime(row["payment_date"]).to_pydatetime()
+                amount = row.get("accepted_amount") or row.get("total_recoverable") or 0
+                events.append({
+                    "dt": dt,
+                    "title": "Remboursement reçu",
+                    "description": f"{amount:.2f}€ crédité — {ref}",
+                    "type": "success",
+                    "icon": "💰",
+                })
+            except Exception:
+                pass
+
+        level = int(row.get("follow_up_level") or 0)
+        last_follow_up = row.get("last_follow_up_at")
+        if level > 0 and last_follow_up:
+            try:
+                dt = pd.to_datetime(last_follow_up).to_pydatetime()
+                level_titles = {
+                    1: "Relance envoyée (demande de statut)",
+                    2: "Avertissement envoyé au transporteur",
+                    3: "Mise en demeure envoyée",
+                }
+                events.append({
+                    "dt": dt,
+                    "title": level_titles.get(level, "Relance envoyée"),
+                    "description": f"{ref} — {carrier}",
+                    "type": "warning" if level < 3 else "error",
+                    "icon": "⚖️" if level == 3 else "🔔",
+                })
+            except Exception:
+                pass
+
+    events.sort(key=lambda e: e["dt"], reverse=True)
+    return events[:8]
+
+
+def render_timeline(disputes_df: pd.DataFrame = None) -> None:
     """
     Render chronological timeline of recent dispute events.
-    
-    Displays:
-    - New disputes detected
-    - Claims submitted to carriers
-    - Refunds received
-    - Legal escalations sent
-    - Synchronization events
-    
-    Each event includes:
-    - Icon and timestamp
-    - Event title and description
-    - Color-coded type (success, warning, info, error)
-    
+
+    31/08/2026 (audit complet) : cette fonction affichait auparavant TOUJOURS
+    les 5 mêmes événements fictifs codés en dur ("Commande #8829", "Dossier
+    #DSP-045"...), quel que soit le compte, réel ou vide, Test ou Prod — la
+    docstring d'origine le disait elle-même ("Currently uses mock data").
+    Elle utilise maintenant les VRAIS événements du compte (création de
+    dossier, remboursement reçu, relance envoyée) quand ils existent. Les
+    données de démo ne sont conservées QUE pour un compte en mode Test qui
+    n'a encore aucune vraie donnée — jamais en Prod, où une absence de
+    données réelles est maintenant affichée honnêtement comme telle.
+
     Returns:
         None
-    
-    Note:
-        Currently uses mock data. In production, should fetch from database.
-        Migrated from legacy client_dashboard.py:1502-1547
     """
     from utils.i18n import get_browser_language, get_i18n_text
     lang = get_browser_language()
     st.markdown(f"### 📅 {get_i18n_text('timeline_recent_events', lang)}")
     st.caption(get_i18n_text('timeline_caption', lang))
-    
-    # Generate timeline events (should come from database in production)
-    timeline_events = [
-        {
-            'date': (datetime.now() - timedelta(hours=2)).strftime('%H:%M'),
-            'title': 'Nouveau litige détecté',
-            'description': 'Commande #8829 - Retard de livraison Chronopost',
-            'type': 'warning',
-            'icon': '⚠️'
-        },
-        {
-            'date': (datetime.now() - timedelta(hours=5)).strftime('%H:%M'),
-            'title': 'Réclamation soumise',
-            'description': 'Dossier #DSP-045 envoyé à UPS',
-            'type': 'info',
-            'icon': '📤'
-        },
-        {
-            'date': (datetime.now() - timedelta(days=1)).strftime('%d/%m %H:%M'),
-            'title': 'Remboursement reçu',
-            'description': '€45.50 crédité - Commande #7742',
-            'type': 'success',
-            'icon': '💰'
-        },
-        {
-            'date': (datetime.now() - timedelta(days=2)).strftime('%d/%m %H:%M'),
-            'title': 'Escalade juridique',
-            'description': 'Mise en demeure envoyée à DHL',
-            'type': 'warning',
-            'icon': '⚖️'
-        },
-        {
-            'date': (datetime.now() - timedelta(days=3)).strftime('%d/%m %H:%M'),
-            'title': 'Synchronisation réussie',
-            'description': '127 commandes analysées',
-            'type': 'info',
-            'icon': '🔄'
-        },
-    ]
-    
+
+    real_events = _build_real_timeline_events(disputes_df)
+
+    if real_events:
+        timeline_events = [
+            {
+                "date": e["dt"].strftime("%d/%m %H:%M"),
+                "title": e["title"],
+                "description": e["description"],
+                "type": e["type"],
+                "icon": e["icon"],
+            }
+            for e in real_events
+        ]
+    else:
+        is_test_mode = st.session_state.get("env_mode") == "TEST"
+        if not is_test_mode:
+            st.caption("Aucun événement pour le moment — les dossiers créés, relancés ou remboursés apparaîtront ici.")
+            return
+        # Mode Test sans aucune vraie donnée : on garde des événements de
+        # démonstration (clairement demandé — un compte Test doit pouvoir
+        # visualiser la fonctionnalité même sans dossier réel), inchangés
+        # depuis la version d'origine.
+        timeline_events = [
+            {
+                'date': (datetime.now() - timedelta(hours=2)).strftime('%H:%M'),
+                'title': 'Nouveau litige détecté (démo)',
+                'description': 'Commande #8829 - Retard de livraison Chronopost',
+                'type': 'warning',
+                'icon': '⚠️'
+            },
+            {
+                'date': (datetime.now() - timedelta(hours=5)).strftime('%H:%M'),
+                'title': 'Réclamation soumise (démo)',
+                'description': 'Dossier #DSP-045 envoyé à UPS',
+                'type': 'info',
+                'icon': '📤'
+            },
+            {
+                'date': (datetime.now() - timedelta(days=1)).strftime('%d/%m %H:%M'),
+                'title': 'Remboursement reçu (démo)',
+                'description': '€45.50 crédité - Commande #7742',
+                'type': 'success',
+                'icon': '💰'
+            },
+            {
+                'date': (datetime.now() - timedelta(days=2)).strftime('%d/%m %H:%M'),
+                'title': 'Escalade juridique (démo)',
+                'description': 'Mise en demeure envoyée à DHL',
+                'type': 'warning',
+                'icon': '⚖️'
+            },
+            {
+                'date': (datetime.now() - timedelta(days=3)).strftime('%d/%m %H:%M'),
+                'title': 'Synchronisation réussie (démo)',
+                'description': '127 commandes analysées',
+                'type': 'info',
+                'icon': '🔄'
+            },
+        ]
+
     # Render timeline
     for event in timeline_events:
         # Color coding based on type
@@ -218,112 +300,74 @@ def render_stagnation_escalation_section(disputes_df: pd.DataFrame) -> None:
     """
     st.markdown("---")
     st.subheader("⚠️ Dossiers sans réponse (Garantie de Paiement)")
-    
+
+    # 31/08/2026 (audit complet) : cette section fabriquait auparavant un
+    # faux dossier "Commande #8829 (Chronopost) — MISE EN DEMEURE REQUISE"
+    # dès que le compte n'avait aucun litige réel, avec un bouton qui
+    # déclenchait un vrai envoi d'email vers l'adresse réelle du service
+    # réclamations du transporteur avec des données inventées (voir
+    # l'historique de ce fichier). Neutralisé une première fois (affichage
+    # "à venir"), puis la vraie détection + le vrai déclenchement ont été
+    # construits : un worker d'arrière-plan (src/workers/reminder_worker.py,
+    # démarré à la connexion) scanne maintenant réellement les dossiers en
+    # base toutes les 4h et déclenche les relances J+7/J+14/J+21 — envoi
+    # réel au transporteur pour un compte Prod, simulé (rien envoyé) pour un
+    # compte Test. Cet écran est maintenant un affichage EN LECTURE SEULE
+    # de ce que ce worker a constaté sur VOS dossiers ; il ne déclenche plus
+    # rien lui-même (l'automatisation tourne déjà seule en arrière-plan).
     st.info("""
-    💡 **Pression Juridique Automatique** : Si un transporteur ignore un dossier plus de 7 jours, le bouton d'escalade apparaît ici. 
-    Vous n'avez rien à faire, l'IA prépare les documents légaux pour vous.
+    💡 **Pression Juridique Automatique** : si un transporteur ignore un dossier plus de 7 jours,
+    l'IA relance automatiquement en arrière-plan (statut, avertissement, puis mise en demeure à J+21).
+    Vous n'avez rien à faire.
     """)
-    
-    # Get stagnant disputes (those pending > 7 days)
-    # In production, this would come from FollowUpManager
-    stagnant_disputes = []
-    
-    if not disputes_df.empty:
-        # Simulate stagnant disputes for demo
-        # In production: filter disputes with last_contact_date > 7 days ago
-        if len(disputes_df) > 0:
-            # Show first dispute as example of stagnation
-            sample_dispute = disputes_df.iloc[0]
-            stagnant_disputes.append({
-                'order_id': sample_dispute.get('order_id', '#8829'),
-                'carrier': sample_dispute.get('carrier', 'Chronopost'),
-                'days_waiting': 22,
-                'escalation_level': 'MISE EN DEMEURE REQUISE'
-            })
-    else:
-        # Demo dispute
-        stagnant_disputes.append({
-            'order_id': '#8829',
-            'carrier': 'Chronopost',
-            'days_waiting': 22,
-            'escalation_level': 'MISE EN DEMEURE REQUISE'
+
+    if disputes_df.empty or "created_at" not in disputes_df.columns:
+        st.caption("Aucun dossier à surveiller pour le moment.")
+        return
+
+    from utils.i18n import get_browser_language
+    lang = get_browser_language()
+
+    eligible_statuses = ("submitted", "pending", "waiting_response", "under_review")
+    level_labels = {
+        0: "🟡 En attente (relance à venir)",
+        1: "🟡 Relance niveau 1 envoyée (demande de statut)",
+        2: "🟠 Relance niveau 2 envoyée (avertissement)",
+        3: "🔴 Mise en demeure envoyée (niveau 3)",
+    }
+
+    now = datetime.now()
+    stagnant_rows = []
+    for _, row in disputes_df.iterrows():
+        status = row.get("status", "")
+        created_raw = row.get("created_at", "")
+        if status not in eligible_statuses or not created_raw:
+            continue
+        try:
+            created_at = pd.to_datetime(created_raw)
+        except Exception:
+            continue
+        days_waiting = (now - created_at.to_pydatetime().replace(tzinfo=None)).days
+        if days_waiting < 7:
+            continue
+        stagnant_rows.append({
+            "reference": row.get("claim_reference", "N/A"),
+            "carrier": row.get("carrier", "N/A"),
+            "days_waiting": days_waiting,
+            "level": int(row.get("follow_up_level") or 0),
         })
-    
-    if stagnant_disputes:
-        for dispute in stagnant_disputes:
-            col1, col2, col3 = st.columns([2, 2, 1])
-            
-            with col1:
-                st.write(f"**Commande {dispute['order_id']}** ({dispute['carrier']})")
-                st.caption(f"En attente depuis {dispute['days_waiting']} jours")
-            
-            with col2:
-                st.warning(f"⚖️ Niveau d'escalade : {dispute['escalation_level']}")
-            
-            with col3:
-                if st.button("🚀 Lancer l'Escalade", key=f"escalate_{dispute['order_id']}", width='stretch'):
-                    # Réel workflow d'escalade intégré
-                    try:
-                        from src.automation.follow_up_manager import FollowUpManager
-                        from src.database.escalation_logger import EscalationLogger
-                        from src.database.database_manager import DatabaseManager
-                        
-                        # Récupérer le claim réel depuis la BDD
-                        db_manager = DatabaseManager()
-                        # Pour la démo, on crée un claim factice, en production on le récupère via:
-                        # claim = db_manager.get_claim_by_order_id(dispute['order_id'])
-                        
-                        # Claim factice pour démo
-                        demo_claim = {
-                            'id': 1,
-                            'claim_reference': f"CLM-2026-{dispute['order_id']}",
-                            'carrier': dispute['carrier'],
-                            'tracking_number': 'DEMO123456789',
-                            'amount_requested': 150.00,
-                            'dispute_type': 'Colis Perdu',
-                            'customer_name': 'Client Demo',
-                            'delivery_address': 'Paris, France',
-                            'currency': 'EUR',
-                            'country': 'FR',
-                            'submitted_at': '2026-01-10T10:00:00'
-                        }
-                        
-                        # Déclencher l'escalade
-                        manager = FollowUpManager(db_manager)
-                        result = manager._trigger_formal_notice(demo_claim)
-                        
-                        if result and result.get('email_sent'):
-                            st.success("✅ **Mise en Demeure générée et envoyée !**")
-                            st.info(f"📄 PDF : `{result['pdf_path']}`")
-                            st.info("📧 Email envoyé au service juridique du transporteur")
-                            
-                            # Afficher l'historique d'escalade
-                            escalation_logger = EscalationLogger()
-                            history = escalation_logger.get_claim_escalation_history(demo_claim['id'])
-                            
-                            if history:
-                                with st.expander("📋 Historique d'escalade"):
-                                    for entry in history[:3]:  # 3 dernières actions
-                                        action_icons = {
-                                            'pdf_generated': '📄',
-                                            'email_sent': '📧',
-                                            'carrier_response': '✉️'
-                                        }
-                                        icon = action_icons.get(entry['action_type'], '📌')
-                                        st.write(f"{icon} **{entry['action_type']}** - {entry['created_at']}")
-                                        if entry.get('email_status'):
-                                            status_color = '🟢' if entry['email_status'] == 'sent' else '🔴'
-                                            st.caption(f"{status_color} Status: {entry['email_status']}")
-                            
-                            st.balloons()
-                        else:
-                            st.warning("⚠️ La mise en demeure a été générée mais l'email n'a pas pu être envoyé.")
-                            st.info("Le PDF est disponible pour envoi manuel.")
-                            if result:
-                                st.code(result['pdf_path'])
-                    
-                    except Exception as e:
-                        st.error(f"❌ Erreur lors de l'escalade : {str(e)}")
-                        logger.error(f"Escalation error: {e}", exc_info=True)
-    else:
-        st.success("✅ Aucun dossier en attente de plus de 7 jours. Excellent !")
+
+    if not stagnant_rows:
+        st.caption("✅ Aucun dossier en attente depuis plus de 7 jours actuellement.")
+        return
+
+    stagnant_rows.sort(key=lambda r: r["days_waiting"], reverse=True)
+    for r in stagnant_rows:
+        st.markdown(
+            f"**{r['reference']}** — {r['carrier']} — en attente depuis **{r['days_waiting']} jours**  \n"
+            f"{level_labels.get(r['level'], level_labels[0])}"
+        )
+    st.caption(
+        "Ces dossiers sont surveillés automatiquement par le worker de relance "
+        "(scan toutes les 4h) — aucune action manuelle n'est nécessaire."
+    )

@@ -4,9 +4,64 @@ Injecte le logo Refundly.ai en base64 dans toutes les pages.
 Utilisé par client_dashboard_main_new.py, auth_functions.py, onboarding_wizard.py
 """
 import base64
+import io
 import os
 
 _LOGO_B64_CACHE: str | None = None
+
+
+def _autocrop_logo_bytes(raw_bytes: bytes) -> bytes:
+    """Recadre automatiquement le PNG du logo sur son contenu réel.
+
+    31/08/2026 : le fichier static/logo_premium.png est un canevas 1024x1024
+    dont le logomark + "Refundly.ai" n'occupe qu'une bande centrale d'environ
+    808x253px (le reste est du blanc). Sans ce recadrage, augmenter la
+    hauteur CSS de l'<img> agrandit surtout cette zone blanche : le logo
+    visible ne grossit presque pas. On recadre donc sur la vraie zone
+    d'encre (avec une petite marge de sécurité) avant d'encoder en base64,
+    pour que "height: Npx" corresponde enfin à du logo réellement visible.
+
+    Retombe silencieusement sur l'image d'origine si Pillow est absent ou
+    si le recadrage échoue pour une raison quelconque (jamais bloquant).
+    """
+    try:
+        from PIL import Image
+        import numpy as np
+
+        im = Image.open(io.BytesIO(raw_bytes))
+        im = im.convert("RGBA")
+        arr = np.array(im)
+        rgb = arr[:, :, :3]
+        alpha = arr[:, :, 3]
+
+        # Un pixel compte comme "contenu" s'il est à la fois suffisamment
+        # opaque et pas quasi-blanc. Seuil à 245 (et pas 254/255) car un
+        # ImageChops.difference() en comparaison exacte capte le moindre
+        # bruit de compression PNG sur tout le canevas (testé : bbox =
+        # l'image entière), ce qui ne recadre rien du tout.
+        not_white = (rgb < 245).any(axis=2)
+        opaque = alpha > 10
+        mask = not_white & opaque
+
+        ys, xs = np.where(mask)
+        if ys.size == 0 or xs.size == 0:
+            return raw_bytes  # image entièrement blanche : rien à recadrer
+        bbox = (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
+
+        # Petite marge de respiration autour du contenu détecté (4%).
+        pad = max(4, int(0.04 * max(im.size)))
+        left, top, right, bottom = bbox
+        left = max(0, left - pad)
+        top = max(0, top - pad)
+        right = min(im.size[0], right + pad)
+        bottom = min(im.size[1], bottom + pad)
+
+        cropped = im.crop((left, top, right, bottom))
+        out = io.BytesIO()
+        cropped.save(out, format="PNG")
+        return out.getvalue()
+    except Exception:
+        return raw_bytes
 
 
 def get_logo_b64() -> str:
@@ -25,7 +80,10 @@ def get_logo_b64() -> str:
         path = os.path.normpath(path)
         if os.path.exists(path):
             with open(path, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
+                raw_bytes = f.read()
+            if path.endswith(".png"):
+                raw_bytes = _autocrop_logo_bytes(raw_bytes)
+            b64 = base64.b64encode(raw_bytes).decode()
             ext = "jpeg" if path.endswith((".jpg", ".jpeg")) else "png"
             _LOGO_B64_CACHE = f"data:image/{ext};base64,{b64}"
             return _LOGO_B64_CACHE
